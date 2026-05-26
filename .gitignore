@@ -1,0 +1,61 @@
+# ─────────────────────────────────────────
+# SEGURANÇA: NUNCA commite estes arquivos
+# ─────────────────────────────────────────
+*.env
+.env.*
+!.env.example
+!.env.local.example
+
+# Credenciais Google Cloud
+*.json
+!package.json
+!tsconfig.json
+!package-lock.json
+
+# ─────────────────────────────────────────
+# Python
+# ─────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+venv/
+env/
+.venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+
+# ─────────────────────────────────────────
+# Node / Next.js
+# ─────────────────────────────────────────
+node_modules/
+.next/
+out/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ─────────────────────────────────────────
+# IDEs
+# ─────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ─────────────────────────────────────────
+# Sistema Operacional
+# ─────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ─────────────────────────────────────────
+# Uploads temporários (nunca no git)
+# ─────────────────────────────────────────
+uploads/
+temp/

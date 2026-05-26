@@ -1,0 +1,53 @@
+# docker-compose.yml — Serviços de infraestrutura para desenvolvimento
+#
+# Sobe APENAS o banco e o cache.
+# Backend (FastAPI) e Frontend (Next.js) rodam nativamente para melhor hot-reload.
+#
+# Uso rápido:
+#   docker compose up -d          → inicia PostgreSQL + Redis em background
+#   docker compose down           → para os containers
+#   docker compose logs -f        → ver logs em tempo real
+
+services:
+  # ─────────────────────────────────────────
+  # Banco de dados PostgreSQL
+  # ─────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: redator_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: redator_db
+      POSTGRES_USER: redator_user
+      POSTGRES_PASSWORD: redator_dev_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"   # Porta 5433 no host → evita conflito com PostgreSQL local
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U redator_user -d redator_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─────────────────────────────────────────
+  # Cache e Rate Limiting com Redis
+  # ─────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: redator_redis
+    restart: unless-stopped
+    command: redis-server --requirepass redator_redis_dev
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redator_redis_dev", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:
