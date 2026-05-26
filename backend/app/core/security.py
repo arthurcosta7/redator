@@ -10,8 +10,8 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+import bcrypt
 import jwt
-from passlib.context import CryptContext
 
 from app.core.config import settings
 
@@ -19,14 +19,9 @@ from app.core.config import settings
 # SENHAS — bcrypt é o padrão seguro para hash de senhas
 # ─────────────────────────────────────────────────────────────────────────────
 
-# CryptContext gerencia o algoritmo de hash e permite migração futura
-# bcrypt com custo 12 é o mínimo recomendado (2024)
-# deprecated="auto" migra automaticamente hashes antigos quando o usuário loga
-pwd_context = CryptContext(
-    schemes=["bcrypt"],
-    deprecated="auto",
-    bcrypt__rounds=12,      # Custo computacional (maior = mais seguro, mais lento)
-)
+# Custo do bcrypt: 12 rounds é o mínimo recomendado (2024).
+# Cada incremento dobra o tempo de hash — ajuste conforme hardware.
+_BCRYPT_ROUNDS = 12
 
 
 def hash_password(plain_password: str) -> str:
@@ -37,19 +32,30 @@ def hash_password(plain_password: str) -> str:
     - Tem "salt" embutido (cada hash é único mesmo para a mesma senha)
     - Tem custo ajustável (fica mais lento se hardware melhorar)
     - É resistente a ataques de força bruta e rainbow tables
+
+    Usamos a biblioteca 'bcrypt' diretamente (sem passlib) por compatibilidade
+    com bcrypt >= 4.x, que não é mais suportado pelo passlib 1.7.x.
     """
-    return pwd_context.hash(plain_password)
+    password_bytes = plain_password.encode("utf-8")
+    salt = bcrypt.gensalt(rounds=_BCRYPT_ROUNDS)
+    return bcrypt.hashpw(password_bytes, salt).decode("utf-8")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
     Verifica se uma senha corresponde ao hash armazenado.
 
-    IMPORTANTE: Esta função usa comparação de tempo constante para
-    prevenir ataques de timing (onde um atacante mede o tempo de resposta
-    para descobrir informações sobre a senha).
+    bcrypt.checkpw usa comparação de tempo constante internamente,
+    prevenindo ataques de timing (medir tempo de resposta para descobrir a senha).
     """
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        return bcrypt.checkpw(
+            plain_password.encode("utf-8"),
+            hashed_password.encode("utf-8"),
+        )
+    except Exception:
+        # Hash malformado ou outro erro — retorna False sem vazar detalhes
+        return False
 
 
 # ─────────────────────────────────────────────────────────────────────────────

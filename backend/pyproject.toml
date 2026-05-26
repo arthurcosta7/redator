@@ -24,7 +24,7 @@ dependencies = [
     "pydantic-settings>=2.3.0",
 
     # ─── Autenticação e segurança ──────────────────────────────────
-    "passlib[bcrypt]>=1.7.4",   # Hash de senhas com bcrypt
+    "bcrypt>=4.0.0",            # Hash de senhas (usado diretamente, sem passlib)
     "PyJWT>=2.8.0",             # JWT tokens (mais seguro que python-jose)
     "cryptography>=42.0.0",     # Criptografia
 
