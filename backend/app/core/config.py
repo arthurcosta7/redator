@@ -59,8 +59,10 @@ class Settings(BaseSettings):
     # Opcional em desenvolvimento — funcionalidades de pagamento ficam inativas
     STRIPE_SECRET_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""
-    STRIPE_PRICE_STANDARD: str = ""
-    STRIPE_PRICE_PRO: str = ""
+    STRIPE_PRICE_STANDARD_MONTHLY: str = ""
+    STRIPE_PRICE_STANDARD_QUARTERLY: str = ""
+    STRIPE_PRICE_PRO_MONTHLY: str = ""
+    STRIPE_PRICE_PRO_QUARTERLY: str = ""
 
     # ─── Email ────────────────────────────────────────────────────
     # Opcional em desenvolvimento — emails não são enviados se não configurado
@@ -74,7 +76,7 @@ class Settings(BaseSettings):
     # ─── Limites de uso por plano ─────────────────────────────────
     PLAN_FREE_DAILY_CORRECTIONS: int = 1
     PLAN_STANDARD_DAILY_CORRECTIONS: int = 3
-    PLAN_PRO_DAILY_CORRECTIONS: int = 999999       # "Ilimitado"
+    PLAN_PRO_DAILY_CORRECTIONS: int = 10
 
     # ─── Upload de arquivos ───────────────────────────────────────
     MAX_FILE_SIZE_MB: int = 5                      # Máximo 5MB por arquivo
@@ -107,6 +109,23 @@ class Settings(BaseSettings):
             # Converte automaticamente para o driver assíncrono
             return v.replace("postgresql://", "postgresql+asyncpg://")
         return v
+
+    @model_validator(mode="after")
+    def validate_stripe_price_ids(self) -> "Settings":
+        """Garante que os Price IDs do Stripe têm o formato correto."""
+        price_fields = [
+            ("STRIPE_PRICE_STANDARD_MONTHLY", self.STRIPE_PRICE_STANDARD_MONTHLY),
+            ("STRIPE_PRICE_STANDARD_QUARTERLY", self.STRIPE_PRICE_STANDARD_QUARTERLY),
+            ("STRIPE_PRICE_PRO_MONTHLY", self.STRIPE_PRICE_PRO_MONTHLY),
+            ("STRIPE_PRICE_PRO_QUARTERLY", self.STRIPE_PRICE_PRO_QUARTERLY),
+        ]
+        for field_name, value in price_fields:
+            if value and not value.startswith("price_"):
+                raise ValueError(
+                    f"{field_name} deve começar com 'price_' (recebido: '{value[:12]}...'). "
+                    "Verifique os IDs no dashboard do Stripe."
+                )
+        return self
 
     @model_validator(mode="after")
     def validate_production_settings(self) -> "Settings":

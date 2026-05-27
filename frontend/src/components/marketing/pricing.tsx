@@ -7,8 +7,8 @@ import { cn } from "@/lib/utils";
 
 type Plan = {
   name: string;
-  price: { monthly: number; yearly: number };
-  yearlyTotal: number;
+  price: { monthly: number; quarterly: number };
+  quarterlyTotal: number;
   description: string;
   badge?: string;
   features: { text: string; included: boolean }[];
@@ -20,8 +20,8 @@ type Plan = {
 const plans: Plan[] = [
   {
     name: "Free",
-    price: { monthly: 0, yearly: 0 },
-    yearlyTotal: 0,
+    price: { monthly: 0, quarterly: 0 },
+    quarterlyTotal: 0,
     description: "Para conhecer e começar a praticar.",
     audience: "Estudante casual",
     features: [
@@ -30,6 +30,7 @@ const plans: Plan[] = [
       { text: "Análise por competências", included: true },
       { text: "Feedback básico", included: true },
       { text: "Modelos ENEM e Vestibular", included: true },
+      { text: "Sistema de correção aprimorado", included: false },
       { text: "Grifes no texto (bom/ruim)", included: false },
       { text: "Insights avançados de melhoria", included: false },
       { text: "Histórico completo de evolução", included: false },
@@ -40,8 +41,8 @@ const plans: Plan[] = [
   },
   {
     name: "Standard",
-    price: { monthly: 19.9, yearly: 14.9 },
-    yearlyTotal: 178.80,
+    price: { monthly: 18.99, quarterly: 14.99 },
+    quarterlyTotal: 47.99,
     description: "Para quem estuda sério para ENEM ou vestibular.",
     badge: "Mais popular",
     audience: "ENEM & Vestibular",
@@ -51,6 +52,7 @@ const plans: Plan[] = [
       { text: "Análise por competências", included: true },
       { text: "Feedback avançado e detalhado", included: true },
       { text: "Modelos ENEM e Vestibular", included: true },
+      { text: "Sistema de correção aprimorado", included: true },
       { text: "Grifes no texto (bom/ruim)", included: true },
       { text: "Insights avançados de melhoria", included: true },
       { text: "Histórico completo de evolução", included: true },
@@ -61,16 +63,17 @@ const plans: Plan[] = [
   },
   {
     name: "Pro",
-    price: { monthly: 39.9, yearly: 31.9 },
-    yearlyTotal: 382.80,
+    price: { monthly: 29.99, quarterly: 24.99 },
+    quarterlyTotal: 74.99,
     description: "Para quem não pode perder tempo. Correções sem limite.",
     audience: "Alta performance",
     features: [
-      { text: "Correções ilimitadas", included: true },
+      { text: "10 correções por dia", included: true },
       { text: "Foto → Texto (OCR)", included: true },
       { text: "Análise por competências", included: true },
       { text: "Feedback avançado e detalhado", included: true },
       { text: "Modelos ENEM e Vestibular", included: true },
+      { text: "Sistema de correção aprimorado", included: true },
       { text: "Grifes no texto (bom/ruim)", included: true },
       { text: "Insights avançados de melhoria", included: true },
       { text: "Histórico completo de evolução", included: true },
@@ -82,7 +85,7 @@ const plans: Plan[] = [
 ];
 
 export function Pricing() {
-  const [isYearly, setIsYearly] = useState(false);
+  const [isQuarterly, setIsQuarterly] = useState(false);
 
   return (
     <section id="planos" className="section-padding bg-white">
@@ -97,13 +100,13 @@ export function Pricing() {
             Comece grátis. Sem cartão de crédito.
           </p>
 
-          {/* Toggle mensal/anual */}
+          {/* Toggle mensal/trimestral */}
           <div className="inline-flex items-center gap-3 bg-slate-100 p-1 rounded-xl">
             <button
-              onClick={() => setIsYearly(false)}
+              onClick={() => setIsQuarterly(false)}
               className={cn(
                 "px-5 py-2 rounded-lg text-sm font-medium transition-all",
-                !isYearly
+                !isQuarterly
                   ? "bg-white shadow-sm text-slate-900"
                   : "text-slate-500 hover:text-slate-700"
               )}
@@ -111,17 +114,17 @@ export function Pricing() {
               Mensal
             </button>
             <button
-              onClick={() => setIsYearly(true)}
+              onClick={() => setIsQuarterly(true)}
               className={cn(
                 "px-5 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2",
-                isYearly
+                isQuarterly
                   ? "bg-white shadow-sm text-slate-900"
                   : "text-slate-500 hover:text-slate-700"
               )}
             >
-              Anual
+              Trimestral
               <span className="bg-green-100 text-green-700 text-xs font-semibold px-2 py-0.5 rounded-full">
-                −25%
+                −10%
               </span>
             </button>
           </div>
@@ -206,8 +209,8 @@ export function Pricing() {
                         "font-display font-bold text-4xl leading-none",
                         plan.highlighted ? "text-white" : "text-slate-900"
                       )}>
-                        {(isYearly
-                          ? plan.price.yearly
+                        {(isQuarterly
+                          ? plan.price.quarterly
                           : plan.price.monthly
                         ).toFixed(2).replace(".", ",")}
                       </span>
@@ -218,20 +221,20 @@ export function Pricing() {
                         /mês
                       </span>
                     </div>
-                    {isYearly ? (
+                    {isQuarterly ? (
                       <p className={cn(
                         "text-xs mt-1.5",
                         plan.highlighted ? "text-brand-300" : "text-slate-400"
                       )}>
-                        R$ {plan.yearlyTotal.toFixed(2).replace(".", ",")} cobrado anualmente
+                        R$ {plan.quarterlyTotal.toFixed(2).replace(".", ",")} cobrado a cada 3 meses
                       </p>
                     ) : (
                       <p className={cn(
                         "text-xs mt-1.5",
                         plan.highlighted ? "text-brand-300" : "text-slate-400"
                       )}>
-                        ou R$ {plan.price.yearly.toFixed(2).replace(".", ",")}
-                        <span className="text-green-500 font-semibold"> −25%</span> no anual
+                        ou R$ {plan.price.quarterly.toFixed(2).replace(".", ",")}
+                        <span className="text-green-500 font-semibold"> −10%</span> no trimestral
                       </p>
                     )}
                   </div>
@@ -240,7 +243,7 @@ export function Pricing() {
 
               {/* CTA */}
               <Link
-                href={plan.price.monthly === 0 ? "/auth/register" : `/checkout/${plan.name.toLowerCase()}`}
+                href={plan.price.monthly === 0 ? "/auth/register" : `/checkout/${plan.name.toLowerCase()}?periodo=${isQuarterly ? "trimestral" : "mensal"}`}
                 className={cn(
                   "w-full text-center font-semibold py-3 rounded-xl mb-8 transition-all duration-200 block",
                   plan.highlighted

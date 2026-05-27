@@ -24,6 +24,7 @@ from app.core.dependencies import get_db, get_redis
 from app.core.logging import get_logger, mask_email
 from app.core.rate_limiter import check_login_attempts
 from app.core.security import (
+    DUMMY_HASH,
     create_access_token,
     create_refresh_token,
     decode_token,
@@ -229,8 +230,7 @@ async def login(
 
     # SEGURANÇA: Mesmo que o usuário não exista, verificamos a senha de qualquer forma
     # (constant-time operation para prevenir timing attacks)
-    dummy_hash = "$2b$12$DummyHashToPreventTimingAttack.xxxxxxxxxxxxxxxxxxxxxxxxxxx"
-    password_hash = user.hashed_password if user else dummy_hash
+    password_hash = user.hashed_password if user else DUMMY_HASH
 
     password_correct = verify_password(data.password, password_hash)
 
@@ -494,6 +494,61 @@ async def verify_email(
 # ─────────────────────────────────────────────────────────────────────────────
 # Reset de Senha
 # ─────────────────────────────────────────────────────────────────────────────
+
+@router.post("/resend-verification", response_model=MessageResponse)
+async def resend_verification_email(
+    data: ForgotPasswordRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    redis_client=Depends(get_redis),
+    request: Request = None,
+) -> MessageResponse:
+    """
+    Reenvia o email de verificação para o endereço informado.
+
+    SEGURANÇA:
+    - Rate limit: 3 tentativas por IP por hora
+    - Sempre retorna a mesma mensagem (anti-enumeration)
+    - Gera novo token mesmo que o anterior não tenha expirado
+    """
+    ip = request.client.host if request and request.client else "unknown"
+
+    from app.core.rate_limiter import RateLimiter
+    limiter = RateLimiter(redis_client)
+    allowed = await limiter.check("resend_verification", ip, max_requests=3, window_seconds=3600)
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Muitas tentativas. Aguarde 1 hora.",
+        )
+
+    result = await db.execute(
+        select(User).where(User.email == data.email.lower())
+    )
+    user = result.scalar_one_or_none()
+
+    if user and not user.is_email_verified:
+        verification_token = generate_secure_token(32)
+        token_hash = generate_token_hash(verification_token)
+        token_expires = datetime.now(timezone.utc) + timedelta(hours=24)
+
+        user.email_verification_token_hash = token_hash
+        user.email_verification_expires_at = token_expires
+
+        try:
+            from app.services.email.email_service import EmailService
+            await EmailService().send_verification_email(
+                to_email=user.email,
+                to_name=user.full_name,
+                verification_token=verification_token,
+            )
+            logger.info("verificacao_reenviada", user_id=str(user.id))
+        except Exception as e:
+            logger.error("erro_reenvio_verificacao", error=str(e))
+
+    return MessageResponse(
+        message="Se este email estiver cadastrado e não verificado, você receberá um novo link em breve."
+    )
+
 
 @router.post("/forgot-password", response_model=MessageResponse)
 async def forgot_password(

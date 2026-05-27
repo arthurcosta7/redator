@@ -1,0 +1,76 @@
+services:
+
+  # ─── Banco de dados ──────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: redator
+      POSTGRES_USER: ${POSTGRES_USER:-redator}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-redator} -d redator"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - redator_net
+
+  # ─── Cache / Rate limiter ────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - redator_net
+
+  # ─── Backend FastAPI ─────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file: ./backend/.env
+    environment:
+      # Sobrescreve as URLs locais para apontar para os containers
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-redator}:${POSTGRES_PASSWORD}@postgres:5432/redator
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+    expose:
+      - "8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - redator_net
+
+  # ─── Frontend Next.js (descomente se NÃO usar Vercel) ───────────────────────
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: Dockerfile
+  #     args:
+  #       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+  #   restart: unless-stopped
+  #   expose:
+  #     - "3000"
+  #   networks:
+  #     - redator_net
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  redator_net:
+    driver: bridge

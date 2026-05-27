@@ -1,9 +1,13 @@
 "use client";
 
-import Link from "next/link";
-import { Zap, Check, CreditCard } from "lucide-react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Zap, Check, CreditCard, Loader2, Settings } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
 import { PLAN_LABELS } from "@/types/user";
+import { api } from "@/lib/api/client";
+
+const PLAN_ORDER: Record<string, number> = { free: 0, standard: 1, pro: 2 };
 
 const plans = [
   {
@@ -16,44 +20,67 @@ const plans = [
       "1 correção por dia",
       "Análise básica por competência",
       "Feedback geral",
+      "Sistema de correção padrão",
     ],
-    cta: "Plano atual",
     highlight: false,
   },
   {
     id: "standard" as const,
     label: "Standard",
-    price: "R$ 19,90",
+    price: "R$ 18,99",
     period: "/mês",
     description: "Para quem treina com frequência",
     features: [
       "3 correções por dia",
+      "Sistema de correção aprimorado",
       "Grifes no texto",
       "Insights detalhados",
       "Análise avançada",
     ],
-    cta: "Fazer upgrade",
     highlight: true,
   },
   {
     id: "pro" as const,
     label: "Pro",
-    price: "R$ 39,90",
+    price: "R$ 29,99",
     period: "/mês",
     description: "Para quem quer o máximo",
     features: [
-      "Correções ilimitadas",
+      "10 correções por dia",
+      "Sistema de correção aprimorado",
       "Grifes e insights",
       "Suporte prioritário",
       "Simulados ENEM",
     ],
-    cta: "Fazer upgrade",
     highlight: false,
   },
 ];
 
 export default function PlanoPage() {
   const { user } = useUser();
+  const router = useRouter();
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [portalError, setPortalError] = useState<string | null>(null);
+
+  const currentOrder = PLAN_ORDER[user?.plan ?? "free"];
+
+  const handleUpgrade = (planId: string) => {
+    router.push(`/checkout/${planId}?periodo=mensal`);
+  };
+
+  const handleManageSubscription = async () => {
+    setPortalLoading(true);
+    setPortalError(null);
+    try {
+      const res = await api.post<{ portal_url: string }>("/checkout/portal");
+      window.location.href = res.data.portal_url;
+    } catch (err: unknown) {
+      setPortalLoading(false);
+      const detail = (err as { response?: { data?: { detail?: string } } })
+        ?.response?.data?.detail;
+      setPortalError(detail ?? "Não foi possível abrir o portal. Tente novamente.");
+    }
+  };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -77,6 +104,8 @@ export default function PlanoPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {plans.map((plan) => {
           const isCurrent = user?.plan === plan.id;
+          const isUpgrade = PLAN_ORDER[plan.id] > currentOrder;
+
           return (
             <div
               key={plan.id}
@@ -121,25 +150,48 @@ export default function PlanoPage() {
               </ul>
 
               {isCurrent ? (
-                <button
-                  disabled
-                  className="w-full py-2.5 rounded-xl border-2 border-green-200 text-green-700 text-sm font-semibold bg-green-50 cursor-default"
-                >
-                  Plano atual
-                </button>
-              ) : (
+                <div className="space-y-2">
+                  <button
+                    disabled
+                    className="w-full py-2.5 rounded-xl border-2 border-green-200 text-green-700 text-sm font-semibold bg-green-50 cursor-default"
+                  >
+                    Plano atual
+                  </button>
+                  {plan.id !== "free" && user?.has_stripe_subscription && (
+                    <>
+                      <button
+                        onClick={handleManageSubscription}
+                        disabled={portalLoading}
+                        className="w-full py-2 rounded-xl border border-slate-200 text-slate-500 text-xs font-medium hover:border-slate-300 transition-colors flex items-center justify-center gap-1.5"
+                      >
+                        {portalLoading ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Settings className="w-3.5 h-3.5" />
+                        )}
+                        Gerenciar assinatura
+                      </button>
+                      {portalError && (
+                        <p className="text-xs text-red-500 text-center pt-1">
+                          {portalError}
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+              ) : isUpgrade ? (
                 <button
                   className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${
                     plan.highlight
                       ? "bg-brand-700 hover:bg-brand-800 text-white"
                       : "border-2 border-slate-200 hover:border-brand-300 text-slate-700 hover:text-brand-700"
                   }`}
-                  onClick={() => alert("Pagamento via Stripe será implementado em breve!")}
+                  onClick={() => handleUpgrade(plan.id)}
                 >
                   <CreditCard className="w-4 h-4" />
-                  {plan.cta}
+                  Fazer upgrade
                 </button>
-              )}
+              ) : null}
             </div>
           );
         })}

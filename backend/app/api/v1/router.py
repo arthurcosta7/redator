@@ -5,7 +5,7 @@ Agrega todos os roteadores de cada módulo.
 """
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import admin, auth, essays, professor, users
+from app.api.v1.endpoints import admin, auth, essays, insights, professor, simulados, stripe, users
 
 api_router = APIRouter()
 
@@ -15,3 +15,6 @@ api_router.include_router(essays.router)
 api_router.include_router(users.router)
 api_router.include_router(admin.router)
 api_router.include_router(professor.router)
+api_router.include_router(stripe.router)
+api_router.include_router(insights.router)
+api_router.include_router(simulados.router)

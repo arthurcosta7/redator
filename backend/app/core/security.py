@@ -23,6 +23,11 @@ from app.core.config import settings
 # Cada incremento dobra o tempo de hash — ajuste conforme hardware.
 _BCRYPT_ROUNDS = 12
 
+# Hash pré-computado para uso em verificações constant-time quando o usuário não existe.
+# Sem isso, a ausência de hash válido causaria retorno imediato (~0ms) vs ~100ms com
+# hash real — diferença mensurável que revela se um email está cadastrado.
+DUMMY_HASH: str = bcrypt.hashpw(b"__dummy_timing__", bcrypt.gensalt(rounds=_BCRYPT_ROUNDS)).decode()
+
 
 def hash_password(plain_password: str) -> str:
     """

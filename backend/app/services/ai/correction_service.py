@@ -82,18 +82,25 @@ class CorrectionService:
                 )
                 max_score = 100.0
 
+            # Plano Free usa Haiku (mais barato); Standard/Pro usam Sonnet
+            model = (
+                "claude-haiku-4-5-20251001"
+                if user.plan.value == "free"
+                else settings.ANTHROPIC_MODEL
+            )
+
             logger.info(
                 "iniciando_correcao_ia",
                 essay_id=str(essay.id),
                 essay_type=essay.essay_type.value,
-                model=settings.ANTHROPIC_MODEL,
+                model=model,
             )
 
             # Chama a API Claude
             # Nota: Claude segue instruções de formato JSON com alta fidelidade.
             # Usamos temperature baixa para respostas consistentes e precisas.
             response = await self.client.messages.create(
-                model=settings.ANTHROPIC_MODEL,
+                model=model,
                 max_tokens=settings.ANTHROPIC_MAX_TOKENS,
                 temperature=0.3,   # Baixa temperatura → consistência e precisão
                 system=system_prompt,
@@ -124,7 +131,7 @@ class CorrectionService:
                 competencies=correction_data.get("competencies", []),
                 highlights=highlights,
                 insights=correction_data.get("insights", {}),
-                ai_model_used=settings.ANTHROPIC_MODEL,
+                ai_model_used=model,
                 processing_time_seconds=round(processing_time, 2),
             )
 

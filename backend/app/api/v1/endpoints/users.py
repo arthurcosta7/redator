@@ -41,7 +41,8 @@ class UserMeResponse(BaseModel):
     school_name: str | None
     discipline: str | None
     created_at: str
-    admin_role: str | None = None  # Null = usuário comum; valor = nível de acesso admin
+    admin_role: str | None = None
+    has_stripe_subscription: bool = False  # True = assinou pelo Stripe (pode usar portal)
 
     model_config = {"from_attributes": True}
 
@@ -130,6 +131,7 @@ def _serialize_user(user: User) -> UserMeResponse:
         discipline=user.discipline,
         created_at=user.created_at.isoformat(),
         admin_role=user.admin_role.value if user.admin_role else None,
+        has_stripe_subscription=user.stripe_customer_id is not None,
     )
 
 

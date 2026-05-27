@@ -6,8 +6,10 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Eye, EyeOff, Loader2, PenLine } from "lucide-react";
+import { Eye, EyeOff, Loader2, PenLine, MailWarning } from "lucide-react";
 import { api } from "@/lib/api/client";
+
+const EMAIL_NOT_VERIFIED_MSG = "Verifique seu email antes de fazer login.";
 
 const loginSchema = z.object({
   email: z.string().email("Email inválido"),
@@ -76,10 +78,33 @@ export default function LoginPage() {
 
         {/* Erro global */}
         {errors.root && (
-          <div className="bg-red-50 border border-red-100 text-red-700 text-sm
-                          px-4 py-3 rounded-xl mb-5">
-            {errors.root.message}
-          </div>
+          errors.root.message === EMAIL_NOT_VERIFIED_MSG ? (
+            <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 mb-5">
+              <div className="flex items-start gap-3">
+                <MailWarning className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm text-amber-800 font-medium">
+                    Email não verificado
+                  </p>
+                  <p className="text-xs text-amber-700 mt-0.5">
+                    Verifique sua caixa de entrada ou{" "}
+                    <Link
+                      href="/auth/resend-verification"
+                      className="font-semibold underline hover:text-amber-900"
+                    >
+                      solicite um novo link
+                    </Link>
+                    .
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-red-50 border border-red-100 text-red-700 text-sm
+                            px-4 py-3 rounded-xl mb-5">
+              {errors.root.message}
+            </div>
+          )
         )}
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>

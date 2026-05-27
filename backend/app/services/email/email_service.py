@@ -8,6 +8,9 @@ Emails enviados:
 - Reset de senha
 - Confirmação de plano/pagamento
 """
+import asyncio
+from html import escape
+
 import resend
 
 from app.core.config import settings
@@ -15,12 +18,12 @@ from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
-# Configura o SDK do Resend
-resend.api_key = settings.RESEND_API_KEY
-
 
 class EmailService:
     """Serviço de envio de emails transacionais."""
+
+    def __init__(self) -> None:
+        resend.api_key = settings.RESEND_API_KEY
 
     async def send_verification_email(
         self,
@@ -33,6 +36,7 @@ class EmailService:
             f"{settings.FRONTEND_URL}/auth/verify-email/{verification_token}"
         )
 
+        safe_name = escape(to_name.split()[0])
         html_content = f"""
         <div style="font-family: 'Inter', sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
             <div style="text-align: center; margin-bottom: 32px;">
@@ -42,7 +46,7 @@ class EmailService:
 
             <div style="background: #F8FAFC; border-radius: 12px; padding: 32px;">
                 <h2 style="color: #0F172A; font-size: 20px; margin: 0 0 16px 0;">
-                    Verifique seu email, {to_name.split()[0]}!
+                    Verifique seu email, {safe_name}!
                 </h2>
                 <p style="color: #475569; line-height: 1.6; margin: 0 0 24px 0;">
                     Bem-vindo ao Redator! Para ativar sua conta e começar a corrigir suas redações,
@@ -123,15 +127,15 @@ class EmailService:
         )
 
     async def _send(self, to_email: str, subject: str, html_content: str) -> None:
-        """Método interno de envio."""
+        """Método interno de envio. Roda o SDK síncrono em thread separada."""
+        params: resend.Emails.SendParams = {
+            "from": f"{settings.FROM_NAME} <{settings.FROM_EMAIL}>",
+            "to": [to_email],
+            "subject": subject,
+            "html": html_content,
+        }
         try:
-            params: resend.Emails.SendParams = {
-                "from": f"{settings.FROM_NAME} <{settings.FROM_EMAIL}>",
-                "to": [to_email],
-                "subject": subject,
-                "html": html_content,
-            }
-            resend.Emails.send(params)
+            await asyncio.to_thread(resend.Emails.send, params)
             logger.info("email_enviado", to=to_email[:3] + "***", subject=subject)
         except Exception as e:
             logger.error("erro_envio_email", error=str(e))

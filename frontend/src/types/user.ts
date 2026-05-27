@@ -14,11 +14,12 @@ export interface CurrentUser {
   user_type: UserType;
   plan: UserPlan;
   is_email_verified: boolean;
-  grade?: string | null;          // Aluno
-  school_name?: string | null;    // Professor
-  discipline?: string | null;     // Professor
+  grade?: string | null;
+  school_name?: string | null;
+  discipline?: string | null;
   created_at: string;
-  admin_role?: AdminRole | null;  // null = usuário comum
+  admin_role?: AdminRole | null;
+  has_stripe_subscription: boolean;
 }
 
 export const PLAN_LABELS: Record<UserPlan, string> = {
@@ -30,7 +31,7 @@ export const PLAN_LABELS: Record<UserPlan, string> = {
 export const PLAN_LIMITS: Record<UserPlan, number> = {
   free: 1,
   standard: 3,
-  pro: Infinity,
+  pro: 10,
 };
 
 export const PLAN_COLORS: Record<UserPlan, string> = {

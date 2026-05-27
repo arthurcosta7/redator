@@ -1,5 +1,6 @@
 "use client";
 
+import type React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -15,6 +16,9 @@ import {
   Users,
   BarChart3,
   Bell,
+  TrendingUp,
+  Dumbbell,
+  Lock,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { PLAN_LABELS, PLAN_COLORS } from "@/types/user";
@@ -22,19 +26,29 @@ import { useUser } from "@/contexts/UserContext";
 
 // ─── Navegação por tipo de usuário ────────────────────────────────────────────
 
-const studentNav = [
+type NavItem = {
+  label: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+  exact?: boolean;
+  paid?: boolean;
+};
+
+const studentNav: NavItem[] = [
   { label: "Início",          href: "/dashboard/aluno",               icon: LayoutDashboard, exact: true },
   { label: "Nova Redação",    href: "/dashboard/aluno/nova-redacao",  icon: FilePlus2 },
   { label: "Histórico",       href: "/dashboard/aluno/historico",     icon: ScrollText },
   { label: "Minhas Turmas",   href: "/dashboard/aluno/turmas",        icon: Users },
+  { label: "Insights",        href: "/dashboard/aluno/insights",      icon: TrendingUp,  paid: true },
+  { label: "Simulados",       href: "/dashboard/aluno/simulados",     icon: Dumbbell,    paid: true },
 ];
 
-const studentBottomNav = [
+const studentBottomNav: NavItem[] = [
   { label: "Meu Plano",       href: "/dashboard/aluno/plano",         icon: CreditCard },
   { label: "Configurações",   href: "/dashboard/aluno/configuracoes", icon: Settings },
 ];
 
-const teacherNav = [
+const teacherNav: NavItem[] = [
   { label: "Início",          href: "/dashboard/professor",               icon: LayoutDashboard, exact: true },
   { label: "Nova Redação",    href: "/dashboard/professor/nova-redacao",  icon: FilePlus2 },
   { label: "Turmas",          href: "/dashboard/professor/turmas",        icon: Users },
@@ -42,7 +56,7 @@ const teacherNav = [
   { label: "Analytics",       href: "/dashboard/professor/analytics",     icon: BarChart3 },
 ];
 
-const teacherBottomNav = [
+const teacherBottomNav: NavItem[] = [
   { label: "Meu Plano",       href: "/dashboard/professor/plano",         icon: CreditCard },
   { label: "Configurações",   href: "/dashboard/professor/configuracoes", icon: Settings },
 ];
@@ -61,6 +75,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const isTeacher = user?.user_type === "teacher";
   const mainNav   = isTeacher ? teacherNav       : studentNav;
   const botNav    = isTeacher ? teacherBottomNav  : studentBottomNav;
+  const isPaid    = user?.plan === "standard" || user?.plan === "pro";
 
   const isActive = (href: string, exact = false) =>
     exact ? pathname === href : pathname.startsWith(href);
@@ -116,22 +131,36 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           <p className="px-3 pt-1 pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
             Menu
           </p>
-          {mainNav.map(({ label, href, icon: Icon, exact }) => (
-            <Link
-              key={href}
-              href={href}
-              onClick={onClose}
-              className={clsx(
-                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors",
-                isActive(href, exact)
-                  ? "bg-brand-50 text-brand-700"
-                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-              )}
-            >
-              <Icon className={clsx("w-4.5 h-4.5 flex-shrink-0", isActive(href, exact) ? "text-brand-600" : "text-slate-400")} />
-              {label}
-            </Link>
-          ))}
+          {mainNav.map(({ label, href, icon: Icon, exact, paid }) => {
+            const locked = paid && !isPaid;
+            return locked ? (
+              <Link
+                key={href}
+                href={href}
+                onClick={onClose}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:bg-slate-50 transition-colors"
+              >
+                <Icon className="w-4.5 h-4.5 flex-shrink-0 text-slate-300" />
+                <span className="flex-1">{label}</span>
+                <Lock className="w-3 h-3 text-slate-300" />
+              </Link>
+            ) : (
+              <Link
+                key={href}
+                href={href}
+                onClick={onClose}
+                className={clsx(
+                  "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors",
+                  isActive(href, exact)
+                    ? "bg-brand-50 text-brand-700"
+                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                )}
+              >
+                <Icon className={clsx("w-4.5 h-4.5 flex-shrink-0", isActive(href, exact) ? "text-brand-600" : "text-slate-400")} />
+                {label}
+              </Link>
+            );
+          })}
         </nav>
 
         {/* Nav inferior */}

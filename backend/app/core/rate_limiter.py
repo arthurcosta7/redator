@@ -38,6 +38,11 @@ class RateLimiter:
     def __init__(self, redis_client: redis.Redis) -> None:
         self.redis = redis_client
 
+    # Ações de autenticação — falham fechadas se Redis cair (segurança > disponibilidade)
+    _FAIL_CLOSED_ACTIONS = frozenset({
+        "login", "password_reset", "resend_verification",
+    })
+
     async def check(
         self,
         action: str,
@@ -91,9 +96,12 @@ class RateLimiter:
             return True
 
         except redis.RedisError as e:
-            # Se o Redis falhar, permite a requisição (fail-open para não bloquear usuários)
-            # Em produção, monitore este erro — pode indicar problema no Redis
-            logger.error("rate_limiter_redis_error", error=str(e))
+            logger.error("rate_limiter_redis_error", action=action, error=str(e))
+            # Endpoints de auth falham fechados: segurança > disponibilidade.
+            # Outros endpoints falham abertos: evitar impacto a usuários legítimos.
+            if action in self._FAIL_CLOSED_ACTIONS:
+                logger.warning("rate_limiter_fail_closed", action=action)
+                return False
             return True
 
     async def get_remaining(
