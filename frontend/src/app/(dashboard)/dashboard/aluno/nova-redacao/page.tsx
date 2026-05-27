@@ -153,6 +153,7 @@ export default function NovaRedacaoPage() {
 
   const [mode, setMode] = useState<"text" | "photo">("text");
   const [essayType, setEssayType] = useState<EssayType>("enem");
+  const [theme, setTheme] = useState("");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [photo, setPhoto] = useState<File | null>(null);
@@ -161,13 +162,17 @@ export default function NovaRedacaoPage() {
 
   const words = wordCount(content);
   const MIN_WORDS = 100;
-  const MAX_WORDS = 1500;
+  const MAX_WORDS = 500;
   const tooShort = words < MIN_WORDS && content.trim() !== "";
   const tooLong = words > MAX_WORDS;
 
-  const canSubmit = mode === "text"
-    ? words >= MIN_WORDS && !tooLong
-    : photo !== null;
+  const themeOk = theme.trim().length >= 5;
+
+  const canSubmit = themeOk && (
+    mode === "text"
+      ? words >= MIN_WORDS && !tooLong
+      : photo !== null
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -180,19 +185,21 @@ export default function NovaRedacaoPage() {
       let essayId: string;
 
       if (mode === "text") {
-        const res = await api.post<{ id: string }>("/essays/submit", {
+        const res = await api.post<{ id: string }>("/essays", {
           essay_type: essayType,
+          theme: theme.trim(),
           content: content.trim(),
-          title: title.trim() || null,
+          ...(title.trim() ? { title: title.trim() } : {}),
         });
         essayId = res.data.id;
       } else {
         const formData = new FormData();
         formData.append("file", photo!);
         formData.append("essay_type", essayType);
+        formData.append("theme", theme.trim());
         if (title.trim()) formData.append("title", title.trim());
 
-        const res = await api.post<{ id: string }>("/essays/submit-photo", formData, {
+        const res = await api.post<{ id: string }>("/essays/photo", formData, {
           headers: { "Content-Type": "multipart/form-data" },
         });
         essayId = res.data.id;
@@ -264,6 +271,37 @@ export default function NovaRedacaoPage() {
           <EssayTypeSelector value={essayType} onChange={setEssayType} />
         </div>
 
+        {/* Tema da redação (obrigatório) */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-5">
+          <label className="block text-sm font-semibold text-slate-700 mb-2">
+            Tema da redação
+          </label>
+          <input
+            type="text"
+            value={theme}
+            onChange={(e) => setTheme(e.target.value)}
+            maxLength={500}
+            placeholder="Ex: Desafios da mobilidade urbana no Brasil"
+            className={`w-full px-4 py-2.5 rounded-xl border text-sm
+                        outline-none transition-colors bg-white placeholder:text-slate-300
+                        focus:ring-2
+                        ${
+                          theme.trim().length > 0 && !themeOk
+                            ? "border-amber-300 focus:border-amber-400 focus:ring-amber-100"
+                            : "border-slate-200 focus:border-brand-400 focus:ring-brand-50"
+                        }`}
+          />
+          {theme.trim().length > 0 && !themeOk && (
+            <p className="text-xs text-amber-600 mt-1.5 flex items-center gap-1">
+              <AlertCircle className="w-3.5 h-3.5" />
+              Tema muito curto — descreva melhor o tema proposto
+            </p>
+          )}
+          <p className="text-xs text-slate-400 mt-1.5">
+            A IA usará o tema para avaliar adequação, argumentação e proposta de intervenção.
+          </p>
+        </div>
+
         {/* Título (opcional) */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-5">
           <label className="block text-sm font-semibold text-slate-700 mb-2">
@@ -275,7 +313,7 @@ export default function NovaRedacaoPage() {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             maxLength={150}
-            placeholder="Ex: Desafios da educação no Brasil"
+            placeholder="Ex: A crise silenciosa das cidades brasileiras"
             className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm
                        outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-50
                        transition-colors bg-white placeholder:text-slate-300"

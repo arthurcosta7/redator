@@ -31,6 +31,26 @@ class UserPlan(str, enum.Enum):
     PRO = "pro"
 
 
+class AdminRole(str, enum.Enum):
+    """
+    Nível de acesso administrativo.
+
+    Hierarquia (do mais ao menos privilegiado):
+    - SUPERADMIN: Acesso total. Pode gerenciar outros admins.
+    - ADMIN: Gerenciamento de usuários e redações. Não pode gerenciar admins.
+    - ANALYST: Somente leitura — analytics, relatórios, dados agregados.
+    - SUPPORT: Pode ver usuários/redações e agir em suporte (ban, verificar email).
+
+    Usuários sem admin_role (None) são usuários comuns — sem acesso ao painel.
+    SEGURANÇA: Este campo é verificado no servidor a cada requisição admin,
+    NUNCA confiamos no token JWT para determinar acesso administrativo.
+    """
+    SUPERADMIN = "superadmin"
+    ADMIN = "admin"
+    ANALYST = "analyst"
+    SUPPORT = "support"
+
+
 class User(UUIDMixin, TimestampMixin, Base):
     """
     Modelo de usuário do Redator.
@@ -101,6 +121,16 @@ class User(UUIDMixin, TimestampMixin, Base):
     )
     password_reset_expires_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+
+    # ─── Acesso administrativo ────────────────────────────────────
+    # SEGURANÇA: Null = usuário comum, sem acesso ao painel admin.
+    # O nível de acesso é sempre verificado no banco — nunca no token.
+    admin_role: Mapped[AdminRole | None] = mapped_column(
+        Enum(AdminRole, name="admin_role_enum"),
+        nullable=True,
+        default=None,
+        index=True,
     )
 
     # ─── Stripe ───────────────────────────────────────────────────

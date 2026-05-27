@@ -21,7 +21,7 @@ from app.core.logging import get_logger
 from app.core.rate_limiter import check_daily_correction_limit, increment_daily_correction_count
 from app.db.models.essay import Essay, EssayInputType, EssayStatus, EssayType
 from app.db.models.user import User
-from app.schemas.essay import EssayDetailResponse, EssayResponse, SubmitEssayRequest
+from app.schemas.essay import EssayDetailResponse, EssayListItem, EssayListResponse, EssayResponse, SubmitEssayRequest
 from app.utils.file_validator import validate_image_file
 
 router = APIRouter(prefix="/essays", tags=["Redações"])
@@ -91,7 +91,7 @@ async def submit_essay(
     # Cria a redação no banco
     essay = Essay(
         user_id=current_user.id,
-        title=data.title,
+        title=data.title or "Redação sem título",
         content=data.content,
         theme=data.theme,
         essay_type=data.essay_type,
@@ -132,13 +132,13 @@ async def submit_essay(
 
 @router.post("/photo", response_model=EssayResponse, status_code=201)
 async def submit_essay_photo(
-    title: Annotated[str, Form(min_length=3, max_length=200)],
+    theme: Annotated[str, Form(min_length=5, max_length=500)],
     essay_type: Annotated[EssayType, Form()],
     photo: Annotated[UploadFile, File(description="Foto da redação (JPG, PNG, WEBP)")],
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
     redis_client=Depends(get_redis),
-    theme: Annotated[str | None, Form(max_length=500)] = None,
+    title: Annotated[str | None, Form(max_length=200)] = None,
 ) -> EssayResponse:
     """
     Processa uma foto de redação usando OCR e depois corrige.
@@ -198,7 +198,7 @@ async def submit_essay_photo(
     # Cria a redação
     essay = Essay(
         user_id=current_user.id,
-        title=title,
+        title=title or "Redação sem título",
         content=extracted_text,
         theme=theme,
         essay_type=essay_type,
@@ -226,41 +226,101 @@ async def submit_essay_photo(
 # Listagem e detalhes
 # ─────────────────────────────────────────────────────────────────────────────
 
-@router.get("", response_model=list[EssayResponse])
+@router.get("/daily-limit")
+async def get_daily_limit(
+    current_user: Annotated[User, Depends(get_current_user)],
+    redis_client=Depends(get_redis),
+) -> dict:
+    """Retorna o uso de correções do dia e o limite do plano."""
+    from datetime import date, datetime, timezone, timedelta
+
+    _, used_today, daily_limit = await check_daily_correction_limit(
+        user_id=str(current_user.id),
+        plan=current_user.plan.value,
+        redis_client=redis_client,
+    )
+
+    # Próxima meia-noite UTC (quando o limite reseta)
+    now = datetime.now(timezone.utc)
+    tomorrow = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+
+    return {
+        "used": used_today,
+        "limit": daily_limit,
+        "resets_at": tomorrow.isoformat(),
+    }
+
+
+@router.get("", response_model=EssayListResponse)
 async def list_essays(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
-    skip: int = 0,
-    limit: int = 20,
-) -> list[EssayResponse]:
+    page: int = 1,
+    per_page: int = 10,
+    essay_type: str | None = None,
+    status: str | None = None,
+) -> EssayListResponse:
     """
-    Lista as redações do usuário autenticado.
+    Lista as redações do usuário autenticado com paginação.
 
     SEGURANÇA IDOR: A query filtra por user_id = current_user.id
     Isso garante que um usuário NUNCA veja redações de outro.
     """
-    limit = min(limit, 50)  # Máximo de 50 por página
+    from sqlalchemy import func, outerjoin
+    from app.db.models.correction import Correction
 
-    result = await db.execute(
+    page = max(1, page)
+    per_page = min(max(1, per_page), 50)
+    offset = (page - 1) * per_page
+
+    # Base da query com filtro de segurança
+    base_query = (
         select(Essay)
         .where(Essay.user_id == current_user.id)  # CRÍTICO: filtra por usuário
-        .order_by(Essay.created_at.desc())
-        .offset(skip)
-        .limit(limit)
     )
-    essays = result.scalars().all()
+    if essay_type:
+        base_query = base_query.where(Essay.essay_type == essay_type)
+    if status:
+        base_query = base_query.where(Essay.status == status)
 
-    return [
-        EssayResponse(
+    # Conta o total
+    count_result = await db.execute(
+        select(func.count()).select_from(base_query.subquery())
+    )
+    total = count_result.scalar_one()
+
+    # Busca os itens com a correção (para exibir nota)
+    essays_result = await db.execute(
+        base_query
+        .options(selectinload(Essay.correction))
+        .order_by(Essay.created_at.desc())
+        .offset(offset)
+        .limit(per_page)
+    )
+    essays = essays_result.scalars().all()
+
+    items = [
+        EssayListItem(
             id=str(e.id),
             title=e.title,
             essay_type=e.essay_type.value,
             status=e.status.value,
+            input_type=e.input_type.value,
             word_count=e.word_count,
+            total_score=e.correction.total_score if e.correction else None,
+            max_score=e.correction.max_score if e.correction else None,
             created_at=e.created_at.isoformat(),
         )
         for e in essays
     ]
+
+    return EssayListResponse(
+        items=items,
+        total=total,
+        page=page,
+        per_page=per_page,
+        has_more=(offset + len(items)) < total,
+    )
 
 
 @router.get("/{essay_id}", response_model=EssayDetailResponse)
@@ -357,10 +417,15 @@ async def delete_essay(
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _get_word_limits(essay_type: EssayType) -> tuple[int, int]:
-    """Retorna (mínimo, máximo) de palavras para o tipo de redação."""
+    """
+    Retorna (mínimo, máximo) de palavras para o tipo de redação.
+
+    ENEM: até 30 linhas manuscritas ≈ 450–500 palavras digitadas.
+    Vestibular: varia por banca, geralmente até 30 linhas também.
+    """
     if essay_type == EssayType.ENEM:
-        return 100, 380
-    return 150, 500  # Vestibular
+        return 100, 500
+    return 100, 500  # Vestibular
 
 
 def _get_upgrade_message(plan: str) -> str:

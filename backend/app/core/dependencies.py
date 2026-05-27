@@ -238,3 +238,85 @@ def require_user_type(*allowed_types: str):
                 detail="Acesso não permitido para este tipo de conta.",
             )
     return type_checker
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Autenticação administrativa
+# SEGURANÇA: A role do admin é verificada DIRETAMENTE no banco de dados
+# a cada requisição. Nunca confiamos no token JWT para determinar acesso admin.
+# Isso previne escalada de privilégios caso um token seja comprometido.
+# ─────────────────────────────────────────────────────────────────────────────
+
+async def get_current_admin(
+    user_id: Annotated[str, Depends(get_current_user_id)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> "User":  # type: ignore
+    """
+    Verifica que o usuário autenticado tem algum nível de acesso admin.
+
+    SEGURANÇA: Consulta o banco a cada requisição — nunca usa o token.
+    Se admin_role for removido do usuário, o acesso é cortado imediatamente
+    na próxima requisição, sem precisar invalidar tokens.
+    """
+    from app.db.models.user import User
+
+    result = await db.execute(
+        __import__("sqlalchemy", fromlist=["select"]).select(User).where(User.id == user_id)
+    )
+    user = result.scalar_one_or_none()
+
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Autenticação necessária",
+        )
+
+    if not user.admin_role:
+        # SEGURANÇA: Mensagem genérica — não revela que a rota existe
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acesso não autorizado.",
+        )
+
+    return user
+
+
+def require_admin_role(*allowed_roles: str):
+    """
+    Dependency factory que exige um nível mínimo de acesso admin.
+
+    Hierarquia: superadmin > admin > support > analyst
+
+    Uso:
+        @router.delete("/users/{id}")
+        async def delete_user(
+            admin = Depends(require_admin_role("superadmin"))
+        ):
+
+    SEGURANÇA: Sempre busca do banco, não do token.
+    """
+    async def role_checker(
+        user_id: Annotated[str, Depends(get_current_user_id)],
+        db: Annotated[AsyncSession, Depends(get_db)],
+    ) -> "User":  # type: ignore
+        from app.db.models.user import User
+        from sqlalchemy import select
+
+        result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+
+        if not user or not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Autenticação necessária",
+            )
+
+        if not user.admin_role or user.admin_role.value not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Acesso não autorizado.",
+            )
+
+        return user
+
+    return role_checker

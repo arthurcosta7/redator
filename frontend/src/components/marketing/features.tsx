@@ -73,17 +73,12 @@ export function Features() {
     <section id="funcionalidades" className="section-padding bg-white">
       <div className="container-site">
 
-        {/* Header */}
-        <div className="text-center max-w-2xl mx-auto mb-12">
-          <p className="text-sm font-semibold text-brand-600 uppercase tracking-widest mb-3">
-            Funcionalidades
-          </p>
-          <h2 className="font-display font-bold text-4xl lg:text-5xl text-slate-900 mb-4 text-balance">
-            Tudo que você precisa para{" "}
-            <span className="text-gradient">escrever melhor</span>
+        <div className="mb-12">
+          <h2 className="font-display font-bold text-4xl lg:text-5xl text-slate-900 mb-3">
+            O que você recebe
           </h2>
           <p className="text-lg text-slate-500">
-            Ferramentas pensadas para quem estuda com seriedade.
+            Funcionalidades para alunos e professores.
           </p>
         </div>
 

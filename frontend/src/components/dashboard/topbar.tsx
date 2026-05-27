@@ -99,7 +99,7 @@ export function Topbar({ onMenuClick, title }: TopbarProps) {
                 <button
                   onClick={() => {
                     setDropdownOpen(false);
-                    router.push("/configuracoes");
+                    router.push("/dashboard/aluno/configuracoes");
                   }}
                   className="w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-colors"
                 >

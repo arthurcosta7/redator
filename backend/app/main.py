@@ -91,6 +91,23 @@ app.include_router(api_router, prefix="/api/v1")
 # SEGURANÇA: Mensagens genéricas para não vazar informações internas
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _cors_headers(request: Request) -> dict[str, str]:
+    """
+    Retorna os headers CORS para a origem da requisição.
+
+    Exception handlers devolvem JSONResponse diretamente (fora do CORSMiddleware),
+    então precisamos adicionar os headers manualmente para evitar erros de CORS
+    no frontend quando o backend retorna um erro.
+    """
+    origin = request.headers.get("origin", "")
+    if origin in settings.ALLOWED_ORIGINS:
+        return {
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Credentials": "true",
+        }
+    return {}
+
+
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(
     request: Request, exc: RequestValidationError
@@ -112,6 +129,7 @@ async def validation_exception_handler(
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={"detail": "Dados inválidos", "errors": errors},
+        headers=_cors_headers(request),
     )
 
 
@@ -136,8 +154,9 @@ async def internal_error_handler(request: Request, exc: Exception) -> JSONRespon
         status_code=500,
         content={
             "detail": "Ocorreu um erro interno. Nossa equipe foi notificada.",
-            "request_id": request_id,  # Para o usuário referenciar ao contato suporte
+            "request_id": request_id,
         },
+        headers=_cors_headers(request),
     )
 
 

@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user, get_db
 from app.core.logging import get_logger
+from app.core.security import hash_password, verify_password
 from app.db.models.user import User, UserType
 
 logger = get_logger(__name__)
@@ -40,6 +41,7 @@ class UserMeResponse(BaseModel):
     school_name: str | None
     discipline: str | None
     created_at: str
+    admin_role: str | None = None  # Null = usuário comum; valor = nível de acesso admin
 
     model_config = {"from_attributes": True}
 
@@ -69,6 +71,18 @@ class UpdateProfileRequest(BaseModel):
         max_length=100,
         description="Disciplina (professores)",
     )
+    # Campos para alteração de senha (opcional — apenas se ambos presentes)
+    current_password: str | None = Field(
+        default=None,
+        max_length=128,
+        description="Senha atual (necessária para alterar a senha)",
+    )
+    new_password: str | None = Field(
+        default=None,
+        min_length=8,
+        max_length=72,  # Limite do bcrypt
+        description="Nova senha (mínimo 8 caracteres)",
+    )
 
     @field_validator("full_name")
     @classmethod
@@ -87,6 +101,19 @@ class UpdateProfileRequest(BaseModel):
             return None
         return str(v).strip()
 
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        if not any(c.isupper() for c in v):
+            raise ValueError("A senha precisa de pelo menos uma letra maiúscula")
+        if not any(c.islower() for c in v):
+            raise ValueError("A senha precisa de pelo menos uma letra minúscula")
+        if not any(c.isdigit() for c in v):
+            raise ValueError("A senha precisa de pelo menos um número")
+        return v
+
 
 # ─── Helper ────────────────────────────────────────────────────────────────────
 
@@ -102,6 +129,7 @@ def _serialize_user(user: User) -> UserMeResponse:
         school_name=user.school_name,
         discipline=user.discipline,
         created_at=user.created_at.isoformat(),
+        admin_role=user.admin_role.value if user.admin_role else None,
     )
 
 
@@ -152,6 +180,24 @@ async def update_my_profile(
         if body.discipline is not None:
             current_user.discipline = body.discipline
             updated = True
+
+    # ─── Alteração de senha ────────────────────────────────────────────────────
+    if body.new_password is not None:
+        if not body.current_password:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Informe a senha atual para alterar a senha.",
+            )
+        # SEGURANÇA: Verifica a senha atual antes de qualquer alteração
+        if not verify_password(body.current_password, current_user.hashed_password):
+            # SEGURANÇA: Usa mensagem genérica; não revela se o usuário existe
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Senha atual incorreta.",
+            )
+        current_user.hashed_password = hash_password(body.new_password)
+        updated = True
+        logger.info("password_changed", user_id=str(current_user.id))
 
     if updated:
         await db.flush()

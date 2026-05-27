@@ -46,9 +46,10 @@ class Settings(BaseSettings):
     # ─── Redis ────────────────────────────────────────────────────
     REDIS_URL: str  # Ex: redis://:senha@localhost:6379/0
 
-    # ─── Claude API (IA) ──────────────────────────────────────────
-    ANTHROPIC_API_KEY: str
-    ANTHROPIC_MODEL: str = "claude-sonnet-4-6"     # Modelo padrão
+    # ─── Anthropic Claude API (IA) ───────────────────────────────
+    # OBRIGATÓRIO: Obtenha em console.anthropic.com
+    ANTHROPIC_API_KEY: str = ""
+    ANTHROPIC_MODEL: str = "claude-sonnet-4-6"     # Sonnet 4.6 — equilíbrio custo/qualidade
     ANTHROPIC_MAX_TOKENS: int = 4096               # Máximo de tokens na resposta
 
     # ─── Google Cloud Vision (OCR) ────────────────────────────────

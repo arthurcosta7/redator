@@ -33,7 +33,7 @@ dependencies = [
     "slowapi>=0.1.9",           # Rate limiting para FastAPI
 
     # ─── Inteligência Artificial ───────────────────────────────────
-    "anthropic>=0.30.0",        # Claude API
+    "anthropic>=0.40.0",        # Anthropic Claude API
 
     # ─── OCR (leitura de fotos de redação) ────────────────────────
     "google-cloud-vision>=3.7.0",

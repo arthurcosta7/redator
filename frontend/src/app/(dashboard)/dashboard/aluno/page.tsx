@@ -141,7 +141,7 @@ export default function StudentDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard
           label="Correções hoje"
-          value={`${dailyLimit?.used ?? 0}/${dailyLimit?.limit === Infinity ? "∞" : dailyLimit?.limit ?? "—"}`}
+          value={`${dailyLimit?.used ?? 0} / ${(dailyLimit?.limit ?? 0) >= 9999 || dailyLimit?.limit === Infinity ? "Ilimitado" : dailyLimit?.limit ?? "—"}`}
           sub={`Plano ${user ? PLAN_LABELS[user.plan] : ""}`}
           icon={FilePlus2}
           color="brand"

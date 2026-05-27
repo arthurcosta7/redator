@@ -16,7 +16,8 @@ export const api: AxiosInstance = axios.create({
   timeout: 30000,          // 30 segundos de timeout
   headers: {
     "Content-Type": "application/json",
-    "X-Requested-With": "XMLHttpRequest",  // CSRF protection extra
+    // Nota: X-Requested-With removido — causa falha no preflight CORS
+    // A proteção CSRF já é feita pelos cookies SameSite=strict + CORS
   },
 });
 
@@ -43,8 +44,12 @@ api.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as typeof error.config & { _retry?: boolean };
 
+    // Endpoints de auth resolvem seus próprios erros — não interceptar
+    const url = originalRequest?.url ?? "";
+    const isAuthEndpoint = url.includes("/auth/login") || url.includes("/auth/register");
+
     // Se receber 401 e não estiver num retry, tenta renovar o token
-    if (error.response?.status === 401 && !originalRequest?._retry) {
+    if (error.response?.status === 401 && !originalRequest?._retry && !isAuthEndpoint) {
       if (isRefreshing) {
         // Se já está renovando, fila a requisição
         return new Promise((resolve, reject) => {

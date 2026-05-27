@@ -2,34 +2,37 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Check, X, Zap, Star } from "lucide-react";
+import { Check, X, Star, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Plan = {
   name: string;
   price: { monthly: number; yearly: number };
+  yearlyTotal: number;
   description: string;
   badge?: string;
   features: { text: string; included: boolean }[];
   cta: string;
   highlighted: boolean;
+  audience: string;
 };
 
 const plans: Plan[] = [
   {
     name: "Free",
     price: { monthly: 0, yearly: 0 },
-    description: "Para quem está começando a praticar redações.",
+    yearlyTotal: 0,
+    description: "Para conhecer e começar a praticar.",
+    audience: "Estudante casual",
     features: [
       { text: "1 correção por dia", included: true },
       { text: "Foto → Texto (OCR)", included: true },
       { text: "Análise por competências", included: true },
-      { text: "Feedback básico e consistente", included: true },
+      { text: "Feedback básico", included: true },
       { text: "Modelos ENEM e Vestibular", included: true },
       { text: "Grifes no texto (bom/ruim)", included: false },
-      { text: "Análise avançada com insights", included: false },
-      { text: "Simulados completos", included: false },
-      { text: "Retrospecto geral de evolução", included: false },
+      { text: "Insights avançados de melhoria", included: false },
+      { text: "Histórico completo de evolução", included: false },
       { text: "Suporte prioritário", included: false },
     ],
     cta: "Começar grátis",
@@ -37,9 +40,11 @@ const plans: Plan[] = [
   },
   {
     name: "Standard",
-    price: { monthly: 29.9, yearly: 24.9 },
-    description: "Para quem está estudando sério para ENEM ou vestibular.",
+    price: { monthly: 19.9, yearly: 14.9 },
+    yearlyTotal: 178.80,
+    description: "Para quem estuda sério para ENEM ou vestibular.",
     badge: "Mais popular",
+    audience: "ENEM & Vestibular",
     features: [
       { text: "3 correções por dia", included: true },
       { text: "Foto → Texto (OCR)", included: true },
@@ -47,9 +52,8 @@ const plans: Plan[] = [
       { text: "Feedback avançado e detalhado", included: true },
       { text: "Modelos ENEM e Vestibular", included: true },
       { text: "Grifes no texto (bom/ruim)", included: true },
-      { text: "Análise avançada com insights", included: true },
-      { text: "Simulados completos", included: true },
-      { text: "Retrospecto geral de evolução", included: true },
+      { text: "Insights avançados de melhoria", included: true },
+      { text: "Histórico completo de evolução", included: true },
       { text: "Suporte prioritário", included: false },
     ],
     cta: "Assinar Standard",
@@ -57,8 +61,10 @@ const plans: Plan[] = [
   },
   {
     name: "Pro",
-    price: { monthly: 59.9, yearly: 49.9 },
-    description: "Para quem não pode se dar ao luxo de perder tempo.",
+    price: { monthly: 39.9, yearly: 31.9 },
+    yearlyTotal: 382.80,
+    description: "Para quem não pode perder tempo. Correções sem limite.",
+    audience: "Alta performance",
     features: [
       { text: "Correções ilimitadas", included: true },
       { text: "Foto → Texto (OCR)", included: true },
@@ -66,9 +72,8 @@ const plans: Plan[] = [
       { text: "Feedback avançado e detalhado", included: true },
       { text: "Modelos ENEM e Vestibular", included: true },
       { text: "Grifes no texto (bom/ruim)", included: true },
-      { text: "Análise avançada com insights", included: true },
-      { text: "Simulados completos", included: true },
-      { text: "Retrospecto geral de evolução", included: true },
+      { text: "Insights avançados de melhoria", included: true },
+      { text: "Histórico completo de evolução", included: true },
       { text: "Suporte prioritário", included: true },
     ],
     cta: "Assinar Pro",
@@ -84,17 +89,12 @@ export function Pricing() {
       <div className="container-site">
 
         {/* Header */}
-        <div className="text-center max-w-2xl mx-auto mb-12">
-          <p className="text-sm font-semibold text-brand-600 uppercase tracking-widest mb-3">
-            Planos
-          </p>
+        <div className="text-center max-w-xl mx-auto mb-12">
           <h2 className="font-display font-bold text-4xl lg:text-5xl text-slate-900 mb-4">
-            Invista na sua nota.
-            <br />
-            <span className="text-gradient">Comece grátis.</span>
+            Planos
           </h2>
           <p className="text-lg text-slate-500 mb-8">
-            Sem surpresas. Cancele quando quiser.
+            Comece grátis. Sem cartão de crédito.
           </p>
 
           {/* Toggle mensal/anual */}
@@ -121,7 +121,7 @@ export function Pricing() {
             >
               Anual
               <span className="bg-green-100 text-green-700 text-xs font-semibold px-2 py-0.5 rounded-full">
-                −17%
+                −25%
               </span>
             </button>
           </div>
@@ -139,7 +139,7 @@ export function Pricing() {
                   : "bg-white border-slate-200 shadow-card hover:shadow-card-hover"
               )}
             >
-              {/* Badge */}
+              {/* Badge "Mais popular" */}
               {plan.badge && (
                 <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
                   <div className="flex items-center gap-1.5 bg-amber-400 text-slate-900
@@ -152,12 +152,22 @@ export function Pricing() {
 
               {/* Header do plano */}
               <div className="mb-6">
-                <h3 className={cn(
-                  "font-display font-bold text-lg mb-1",
-                  plan.highlighted ? "text-white" : "text-slate-900"
-                )}>
-                  {plan.name}
-                </h3>
+                <div className="flex items-center justify-between mb-1">
+                  <h3 className={cn(
+                    "font-display font-bold text-lg",
+                    plan.highlighted ? "text-white" : "text-slate-900"
+                  )}>
+                    {plan.name}
+                  </h3>
+                  <span className={cn(
+                    "text-xs font-medium px-2.5 py-1 rounded-full",
+                    plan.highlighted
+                      ? "bg-brand-600 text-brand-200"
+                      : "bg-slate-100 text-slate-500"
+                  )}>
+                    {plan.audience}
+                  </span>
+                </div>
                 <p className={cn(
                   "text-sm",
                   plan.highlighted ? "text-brand-200" : "text-slate-500"
@@ -196,9 +206,10 @@ export function Pricing() {
                         "font-display font-bold text-4xl leading-none",
                         plan.highlighted ? "text-white" : "text-slate-900"
                       )}>
-                        {isYearly
-                          ? plan.price.yearly.toFixed(2).replace(".", ",")
-                          : plan.price.monthly.toFixed(2).replace(".", ",")}
+                        {(isYearly
+                          ? plan.price.yearly
+                          : plan.price.monthly
+                        ).toFixed(2).replace(".", ",")}
                       </span>
                       <span className={cn(
                         "text-sm mb-1",
@@ -207,12 +218,20 @@ export function Pricing() {
                         /mês
                       </span>
                     </div>
-                    {isYearly && (
+                    {isYearly ? (
                       <p className={cn(
-                        "text-xs mt-1",
-                        plan.highlighted ? "text-brand-200" : "text-slate-400"
+                        "text-xs mt-1.5",
+                        plan.highlighted ? "text-brand-300" : "text-slate-400"
                       )}>
-                        cobrado anualmente
+                        R$ {plan.yearlyTotal.toFixed(2).replace(".", ",")} cobrado anualmente
+                      </p>
+                    ) : (
+                      <p className={cn(
+                        "text-xs mt-1.5",
+                        plan.highlighted ? "text-brand-300" : "text-slate-400"
+                      )}>
+                        ou R$ {plan.price.yearly.toFixed(2).replace(".", ",")}
+                        <span className="text-green-500 font-semibold"> −25%</span> no anual
                       </p>
                     )}
                   </div>
@@ -223,7 +242,7 @@ export function Pricing() {
               <Link
                 href={plan.price.monthly === 0 ? "/auth/register" : `/checkout/${plan.name.toLowerCase()}`}
                 className={cn(
-                  "w-full text-center font-semibold py-3 rounded-xl mb-8 transition-all duration-200",
+                  "w-full text-center font-semibold py-3 rounded-xl mb-8 transition-all duration-200 block",
                   plan.highlighted
                     ? "bg-white text-brand-700 hover:bg-brand-50 shadow-sm"
                     : "bg-brand-700 text-white hover:bg-brand-800 shadow-brand hover:shadow-brand-lg"
@@ -244,12 +263,12 @@ export function Pricing() {
                   <li key={feature.text} className="flex items-start gap-3">
                     {feature.included ? (
                       <Check className={cn(
-                        "w-4.5 h-4.5 shrink-0 mt-0.5",
+                        "w-4 h-4 shrink-0 mt-0.5",
                         plan.highlighted ? "text-brand-300" : "text-brand-600"
                       )} strokeWidth={2.5} />
                     ) : (
                       <X className={cn(
-                        "w-4.5 h-4.5 shrink-0 mt-0.5",
+                        "w-4 h-4 shrink-0 mt-0.5",
                         plan.highlighted ? "text-brand-600" : "text-slate-300"
                       )} strokeWidth={2} />
                     )}
@@ -268,10 +287,21 @@ export function Pricing() {
           ))}
         </div>
 
-        {/* Nota de rodapé */}
-        <p className="text-center text-sm text-slate-400 mt-10">
-          Todos os planos incluem ENEM e Vestibular. Cancele a qualquer momento, sem multa.
-        </p>
+        {/* Rodapé */}
+        <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4
+                        max-w-2xl mx-auto">
+          <p className="text-sm text-slate-400 flex items-center gap-2">
+            <Shield className="w-3.5 h-3.5 text-green-500 shrink-0" />
+            7 dias de garantia nos planos pagos. Cancelamento sem complicação.
+          </p>
+          <Link
+            href="/auth/register?type=teacher"
+            className="text-sm text-brand-600 hover:text-brand-700 font-medium whitespace-nowrap"
+          >
+            É professor? Acesso gratuito →
+          </Link>
+        </div>
+
       </div>
     </section>
   );

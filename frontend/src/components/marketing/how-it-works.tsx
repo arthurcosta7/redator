@@ -1,4 +1,5 @@
 import { FileText, Cpu, BarChart3, ArrowRight } from "lucide-react";
+import Link from "next/link";
 
 const steps = [
   {
@@ -6,28 +7,28 @@ const steps = [
     icon: FileText,
     title: "Envie sua redação",
     description:
-      "Digite o texto ou tire uma foto da redação escrita à mão. Nossa IA extrai o texto automaticamente com tecnologia OCR.",
-    detail: "Formatos suportados: texto digitado, foto (JPG/PNG)",
+      "Digite o texto ou tire uma foto da redação escrita à mão. Nossa tecnologia OCR extrai o texto automaticamente, mesmo com letras cursivas difíceis.",
+    detail: "Texto digitado ou foto (JPG/PNG) — até 5 MB",
     color: "bg-brand-50 text-brand-600",
     borderColor: "border-brand-100",
   },
   {
     number: "02",
     icon: Cpu,
-    title: "IA analisa cada competência",
+    title: "A IA analisa cada competência",
     description:
-      "Nosso modelo de linguagem avalia sua redação seguindo rigorosamente o edital do ENEM ou os critérios do vestibular escolhido.",
-    detail: "Análise em segundos, com profundidade de um corretor humano",
+      "A IA avalia sua redação seguindo os critérios do ENEM ou da banca de vestibular escolhida. Cada competência recebe nota e comentário individual.",
+    detail: "Resultado em ~30 segundos",
     color: "bg-violet-50 text-violet-600",
     borderColor: "border-violet-100",
   },
   {
     number: "03",
     icon: BarChart3,
-    title: "Receba feedback detalhado",
+    title: "Evolua de verdade",
     description:
-      "Veja sua nota por competência, grifes nos trechos bons e ruins, e um plano claro do que melhorar na próxima redação.",
-    detail: "Grifes, insights e comparativo com redações anteriores",
+      "Receba nota por competência, grifes nos trechos bons e ruins, e um plano de ação claro para a próxima redação. Você saberá exatamente o que melhorar.",
+    detail: "Grifes, insights, histórico e comparativo de evolução",
     color: "bg-emerald-50 text-emerald-600",
     borderColor: "border-emerald-100",
   },
@@ -38,17 +39,12 @@ export function HowItWorks() {
     <section id="como-funciona" className="section-padding bg-slate-50">
       <div className="container-site">
 
-        {/* Header da seção */}
-        <div className="text-center max-w-2xl mx-auto mb-14">
-          <p className="text-sm font-semibold text-brand-600 uppercase tracking-widest mb-3">
+        <div className="mb-14">
+          <h2 className="font-display font-bold text-4xl lg:text-5xl text-slate-900 mb-3">
             Como funciona
-          </p>
-          <h2 className="font-display font-bold text-4xl lg:text-5xl text-slate-900 mb-4">
-            De zero ao feedback em{" "}
-            <span className="text-gradient">menos de 1 minuto</span>
           </h2>
           <p className="text-lg text-slate-500">
-            O processo é simples. Você escreve, a IA corrige — sem complicação.
+            Três passos, menos de um minuto.
           </p>
         </div>
 
@@ -101,16 +97,15 @@ export function HowItWorks() {
           </div>
         </div>
 
-        {/* CTA abaixo */}
         <div className="text-center mt-12">
-          <a
+          <Link
             href="/auth/register"
             className="inline-flex items-center gap-2 text-brand-700 font-semibold
                        hover:gap-3 transition-all duration-200"
           >
-            Experimentar grátis agora
+            Experimentar grátis
             <ArrowRight className="w-4 h-4" />
-          </a>
+          </Link>
         </div>
       </div>
     </section>

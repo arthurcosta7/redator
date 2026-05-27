@@ -1,11 +1,12 @@
 """
-correction_service.py — Serviço de correção de redações com Claude
+correction_service.py — Serviço de correção de redações com Claude (Anthropic)
 
 Responsável por:
 1. Montar o prompt correto baseado no tipo de redação
-2. Chamar a Claude API
+2. Chamar a API Claude (claude-sonnet-4-6)
 3. Parsear a resposta JSON
-4. Salvar o resultado no banco
+4. Ajustar o nível de detalhe baseado no plano do usuário
+5. Salvar o resultado no banco
 """
 import json
 import time
@@ -32,10 +33,13 @@ logger = get_logger(__name__)
 
 class CorrectionService:
     """
-    Serviço que gerencia a correção de redações usando a Claude API.
+    Serviço que gerencia a correção de redações usando Claude (Anthropic).
 
-    Usa o cliente assíncrono da Anthropic para não bloquear
-    o servidor enquanto aguarda a resposta da IA.
+    Claude Sonnet 4.6 oferece:
+    - Análise textual profunda em português brasileiro
+    - Seguimento fiel de instruções de formato JSON
+    - Feedback construtivo e detalhado
+    - Custo equilibrado para uso em produção
     """
 
     def __init__(self) -> None:
@@ -54,7 +58,7 @@ class CorrectionService:
 
         Processo:
         1. Seleciona o prompt correto (ENEM ou Vestibular)
-        2. Chama a Claude API
+        2. Chama a API Claude
         3. Parseia o JSON retornado
         4. Ajusta o nível de detalhe baseado no plano do usuário
         5. Salva no banco
@@ -78,7 +82,6 @@ class CorrectionService:
                 )
                 max_score = 100.0
 
-            # Chama a Claude API
             logger.info(
                 "iniciando_correcao_ia",
                 essay_id=str(essay.id),
@@ -86,19 +89,23 @@ class CorrectionService:
                 model=settings.ANTHROPIC_MODEL,
             )
 
+            # Chama a API Claude
+            # Nota: Claude segue instruções de formato JSON com alta fidelidade.
+            # Usamos temperature baixa para respostas consistentes e precisas.
             response = await self.client.messages.create(
                 model=settings.ANTHROPIC_MODEL,
                 max_tokens=settings.ANTHROPIC_MAX_TOKENS,
+                temperature=0.3,   # Baixa temperatura → consistência e precisão
                 system=system_prompt,
                 messages=[
-                    {"role": "user", "content": user_message}
+                    {"role": "user", "content": user_message},
                 ],
             )
 
-            # Extrai o texto da resposta
-            response_text = response.content[0].text
+            # Extrai o texto da resposta Claude
+            response_text = response.content[0].text if response.content else ""
 
-            # Parseia o JSON (Claude retorna JSON puro conforme instruído)
+            # Parseia o JSON
             correction_data = self._parse_correction_response(response_text)
 
             processing_time = time.perf_counter() - start_time
@@ -106,7 +113,7 @@ class CorrectionService:
             # Ajusta detalhe baseado no plano
             highlights = correction_data.get("highlights", [])
             if user.plan.value == "free":
-                highlights = []  # Plano free não tem grifes
+                highlights = []  # Plano Free não tem grifes
 
             # Cria o registro de correção no banco
             correction = Correction(
@@ -130,6 +137,8 @@ class CorrectionService:
                 score=correction.total_score,
                 max_score=max_score,
                 processing_time=round(processing_time, 2),
+                input_tokens=response.usage.input_tokens,
+                output_tokens=response.usage.output_tokens,
             )
 
             return correction
@@ -140,32 +149,42 @@ class CorrectionService:
             essay.error_message = "Erro ao processar resposta da IA"
             raise
 
-        except anthropic.APIError as e:
-            logger.error("erro_api_anthropic", essay_id=str(essay.id), error=str(e))
+        except anthropic.APIStatusError as e:
+            logger.error(
+                "erro_api_claude",
+                essay_id=str(essay.id),
+                status_code=e.status_code,
+                error=str(e.message),
+            )
             essay.status = EssayStatus.ERROR
             essay.error_message = "Serviço de IA temporariamente indisponível"
             raise
 
         except Exception as e:
-            logger.error("erro_inesperado_correcao", essay_id=str(essay.id), error=str(e))
+            logger.error(
+                "erro_correcao_ia",
+                essay_id=str(essay.id),
+                error=str(e),
+                error_type=type(e).__name__,
+            )
             essay.status = EssayStatus.ERROR
-            essay.error_message = "Erro inesperado durante a correção"
+            essay.error_message = "Serviço de IA temporariamente indisponível"
             raise
 
     def _parse_correction_response(self, response_text: str) -> dict:
         """
-        Parseia a resposta JSON da Claude.
+        Parseia a resposta JSON do Claude.
 
-        A Claude pode retornar o JSON com ou sem markdown code blocks.
-        Esta função lida com ambos os casos.
+        Claude é altamente fiel ao formato JSON solicitado no prompt,
+        mas fazemos validações de segurança mesmo assim.
         """
         text = response_text.strip()
 
-        # Remove markdown code blocks se presentes
+        # Remove markdown code blocks se presentes (fallback de segurança)
         if text.startswith("```"):
             lines = text.split("\n")
-            # Remove primeira linha (```json) e última linha (```)
-            text = "\n".join(lines[1:-1])
+            # Remove primeira linha (```json) e última (```)
+            text = "\n".join(lines[1:-1] if lines[-1] == "```" else lines[1:])
 
         data = json.loads(text)
 
@@ -175,8 +194,10 @@ class CorrectionService:
             if field not in data:
                 raise ValueError(f"Campo obrigatório ausente na resposta da IA: {field}")
 
-        # Garante que competencies é uma lista
         if not isinstance(data["competencies"], list):
             raise ValueError("Campo 'competencies' deve ser uma lista")
+
+        if not isinstance(data["highlights"], list):
+            data["highlights"] = []  # Garante lista mesmo se IA retornar null
 
         return data

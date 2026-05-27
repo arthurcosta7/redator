@@ -19,7 +19,6 @@ import { NextRequest, NextResponse } from "next/server";
 // Rotas que exigem autenticação
 const PROTECTED_PREFIXES = [
   "/dashboard",
-  "/configuracoes",
 ];
 
 // Rotas que usuários autenticados NÃO devem ver (login, register)

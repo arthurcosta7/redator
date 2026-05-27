@@ -1,8 +1,16 @@
 import type { NextConfig } from "next";
 
+const isDev = process.env.NODE_ENV === "development";
+
 const nextConfig: NextConfig = {
   // ─── Headers de segurança ────────────────────────────────────────────
   async headers() {
+    // Em desenvolvimento: libera localhost:8000 no connect-src
+    // Em produção: só permite a URL real da API
+    const apiOrigin = isDev
+      ? "http://localhost:8000"
+      : process.env.NEXT_PUBLIC_API_URL || "";
+
     return [
       {
         source: "/(.*)",
@@ -35,7 +43,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: blob: https:",
-              "connect-src 'self' https://api.stripe.com",
+              `connect-src 'self' ${apiOrigin} https://api.stripe.com`,
               "frame-src https://js.stripe.com https://hooks.stripe.com",
               "base-uri 'self'",
               "form-action 'self'",

@@ -1,7 +1,10 @@
 import { Hero } from "@/components/marketing/hero";
 import { HowItWorks } from "@/components/marketing/how-it-works";
 import { Features } from "@/components/marketing/features";
+import { Testimonials } from "@/components/marketing/testimonials";
+import { Comparison } from "@/components/marketing/comparison";
 import { Pricing } from "@/components/marketing/pricing";
+import { FAQ } from "@/components/marketing/faq";
 import { Footer } from "@/components/marketing/footer";
 import { Navbar } from "@/components/marketing/navbar";
 import Link from "next/link";
@@ -13,10 +16,11 @@ function FinalCTA() {
     <section className="section-padding bg-brand-gradient">
       <div className="container-site text-center">
         <h2 className="font-display font-bold text-4xl lg:text-5xl text-white mb-4 text-balance">
-          Pronto para melhorar sua redação?
+          Escreva, receba feedback,
+          <br />melhore. Repita.
         </h2>
-        <p className="text-lg text-brand-200 mb-8 max-w-xl mx-auto">
-          Comece gratuitamente hoje. Sem cartão de crédito, sem compromisso.
+        <p className="text-lg text-brand-200 mb-8 max-w-lg mx-auto">
+          Crie sua conta grátis e corrija sua primeira redação agora.
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Link
@@ -34,7 +38,7 @@ function FinalCTA() {
                        font-semibold px-8 py-3.5 rounded-xl hover:bg-white/20
                        transition-colors border border-white/20"
           >
-            Sou professor
+            Sou professor →
           </Link>
         </div>
       </div>
@@ -50,7 +54,10 @@ export default function LandingPage() {
         <Hero />
         <HowItWorks />
         <Features />
+        <Testimonials />
+        <Comparison />
         <Pricing />
+        <FAQ />
         <FinalCTA />
       </main>
       <Footer />

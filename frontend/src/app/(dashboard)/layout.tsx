@@ -1,12 +1,43 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { UserProvider } from "@/contexts/UserContext";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { Topbar } from "@/components/dashboard/topbar";
+import { useUser } from "@/contexts/UserContext";
+
+// ─── Shell com redirect de tipo de conta ─────────────────────────────────────
 
 function DashboardShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const { user, isLoading } = useUser();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Painel admin tem layout próprio — não envolve com sidebar/topbar do aluno
+  if (pathname.startsWith("/dashboard/admin")) {
+    return <>{children}</>;
+  }
+
+  // Redirect baseado em tipo de conta (só após carregar o usuário)
+  useEffect(() => {
+    if (isLoading || !user) return;
+
+    const isTeacher = user.user_type === "teacher";
+
+    // Professor tentando acessar rotas de aluno → redireciona para professor
+    if (isTeacher && pathname.startsWith("/dashboard/aluno")) {
+      router.replace("/dashboard/professor");
+      return;
+    }
+
+    // Aluno tentando acessar rotas de professor → redireciona para aluno
+    if (!isTeacher && pathname.startsWith("/dashboard/professor")) {
+      router.replace("/dashboard/aluno");
+      return;
+    }
+  }, [user, isLoading, pathname, router]);
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">

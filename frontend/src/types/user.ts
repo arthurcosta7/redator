@@ -5,6 +5,8 @@
 export type UserType = "student" | "teacher";
 export type UserPlan = "free" | "standard" | "pro";
 
+export type AdminRole = "superadmin" | "admin" | "analyst" | "support";
+
 export interface CurrentUser {
   id: string;
   full_name: string;
@@ -16,6 +18,7 @@ export interface CurrentUser {
   school_name?: string | null;    // Professor
   discipline?: string | null;     // Professor
   created_at: string;
+  admin_role?: AdminRole | null;  // null = usuário comum
 }
 
 export const PLAN_LABELS: Record<UserPlan, string> = {

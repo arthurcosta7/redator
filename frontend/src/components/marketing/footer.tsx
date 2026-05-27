@@ -4,7 +4,7 @@ import { PenLine } from "lucide-react";
 const links = {
   Produto: [
     { label: "Funcionalidades", href: "#funcionalidades" },
-    { label: "Planos", href: "#planos" },
+    { label: "Planos e Preços", href: "#planos" },
     { label: "Para Professores", href: "#professores" },
     { label: "Como funciona", href: "#como-funciona" },
   ],
@@ -35,8 +35,8 @@ export function Footer() {
               <span className="font-display font-bold text-xl text-white">Redator</span>
             </Link>
             <p className="text-sm leading-relaxed max-w-xs">
-              Corrija melhor, escreva melhor. A plataforma de correção de redações mais
-              precisa e acessível do Brasil.
+              Correção de redações para ENEM e vestibular — com feedback detalhado,
+              grifes no texto e histórico de evolução.
             </p>
           </div>
 

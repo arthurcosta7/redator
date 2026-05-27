@@ -135,7 +135,8 @@ def setup_middlewares(app: FastAPI) -> None:
             "Content-Type",
             "Authorization",
             "X-Request-ID",
-            "X-CSRF-Token",             # Para proteção CSRF extra
+            "X-CSRF-Token",
+            "X-Requested-With",         # Alguns clientes HTTP enviam este header
         ],
         # Headers expostos ao frontend
         expose_headers=["X-Request-ID", "X-Process-Time"],

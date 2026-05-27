@@ -7,6 +7,7 @@ from app.db.models.essay import Essay, EssayType, EssayStatus, EssayInputType
 from app.db.models.correction import Correction
 from app.db.models.subscription import Subscription, SubscriptionStatus
 from app.db.models.refresh_token import RefreshToken
+from app.db.models.turma import Turma, TurmaMembro, TurmaMembroStatus
 
 __all__ = [
     "User", "UserType", "UserPlan",
@@ -14,4 +15,5 @@ __all__ = [
     "Correction",
     "Subscription", "SubscriptionStatus",
     "RefreshToken",
+    "Turma", "TurmaMembro", "TurmaMembroStatus",
 ]

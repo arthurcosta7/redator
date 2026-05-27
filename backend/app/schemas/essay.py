@@ -24,28 +24,29 @@ class SubmitEssayRequest(BaseModel):
     Para fotos, o OCR acontece no servidor — o cliente envia apenas a foto.
     """
 
-    title: str = Field(
-        min_length=3,
+    # Tema obrigatório — usado pela IA para avaliar a C2 (ENEM) e adequação ao tema (vestibular)
+    theme: str = Field(
+        min_length=5,
+        max_length=500,
+        description="Tema da redação (obrigatório)",
+    )
+
+    # Título opcional
+    title: str | None = Field(
+        default=None,
         max_length=200,
-        description="Título da redação",
+        description="Título da redação (opcional)",
     )
 
     # Conteúdo da redação — OBRIGATÓRIO para input tipo 'text'
     content: str | None = Field(
         default=None,
-        max_length=10000,  # ~10x o tamanho máximo para evitar abuse
+        max_length=10000,
         description="Texto da redação (para submissão por texto)",
     )
 
     essay_type: EssayType = Field(
         description="Modelo: 'enem' ou 'vestibular'",
-    )
-
-    # Tema proposto (opcional mas recomendado para avaliação mais precisa)
-    theme: str | None = Field(
-        default=None,
-        max_length=500,
-        description="Tema proposto para a redação",
     )
 
     @field_validator("content")
@@ -67,11 +68,22 @@ class SubmitEssayRequest(BaseModel):
 
     @field_validator("title")
     @classmethod
-    def sanitize_title(cls, v: str) -> str:
+    def sanitize_title(cls, v: str | None) -> str | None:
         """Remove caracteres potencialmente perigosos do título."""
+        if v is None:
+            return None
         import bleach
-        # Bleach remove tags HTML do título
         cleaned = bleach.clean(v.strip(), tags=[], strip=True)
+        return cleaned or None
+
+    @field_validator("theme")
+    @classmethod
+    def sanitize_theme(cls, v: str) -> str:
+        """Remove tags HTML do tema."""
+        import bleach
+        cleaned = bleach.clean(v.strip(), tags=[], strip=True)
+        if not cleaned:
+            raise ValueError("O tema da redação é obrigatório")
         return cleaned
 
 
@@ -86,6 +98,32 @@ class EssayResponse(BaseModel):
     created_at: str
 
     model_config = {"from_attributes": True}
+
+
+class EssayListItem(BaseModel):
+    """Item na listagem paginada de redações (inclui nota da correção)."""
+
+    id: str
+    title: str | None
+    essay_type: str
+    status: str
+    input_type: str
+    word_count: int | None
+    total_score: float | None
+    max_score: float | None
+    created_at: str
+
+    model_config = {"from_attributes": True}
+
+
+class EssayListResponse(BaseModel):
+    """Resposta paginada da listagem de redações."""
+
+    items: list[EssayListItem]
+    total: int
+    page: int
+    per_page: int
+    has_more: bool
 
 
 class EssayDetailResponse(EssayResponse):
