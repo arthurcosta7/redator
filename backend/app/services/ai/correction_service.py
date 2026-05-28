@@ -52,6 +52,7 @@ class CorrectionService:
         essay: Essay,
         user: User,
         db: AsyncSession,
+        is_assignment: bool = False,
     ) -> Correction:
         """
         Corrige uma redação e salva o resultado no banco.
@@ -82,11 +83,11 @@ class CorrectionService:
                 )
                 max_score = 100.0
 
-            # Plano Free usa Haiku (mais barato); Standard/Pro usam Sonnet
+            # Tarefas sempre usam Sonnet (professor paga); Free usa Haiku
             model = (
-                "claude-haiku-4-5-20251001"
-                if user.plan.value == "free"
-                else settings.ANTHROPIC_MODEL
+                settings.ANTHROPIC_MODEL
+                if is_assignment or user.plan.value != "free"
+                else "claude-haiku-4-5-20251001"
             )
 
             logger.info(

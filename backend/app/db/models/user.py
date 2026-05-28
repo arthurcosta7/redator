@@ -138,6 +138,13 @@ class User(UUIDMixin, TimestampMixin, Base):
         String(100), nullable=True, unique=True
     )
 
+    # ─── Plano de professor ───────────────────────────────────────
+    # 0 = plano free (máx 3 alunos por turma)
+    # N = pacote pago (máx N alunos no total entre todas as turmas)
+    teacher_student_slots: Mapped[int] = mapped_column(
+        default=0, nullable=False
+    )
+
     # ─── Relacionamentos ──────────────────────────────────────────
     essays: Mapped[list["Essay"]] = relationship(  # type: ignore
         "Essay", back_populates="user", lazy="dynamic"

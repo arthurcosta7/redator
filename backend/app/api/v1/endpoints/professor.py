@@ -38,8 +38,24 @@ from app.core.dependencies import get_current_user, get_db
 from app.core.logging import get_logger
 from app.db.models.correction import Correction
 from app.db.models.essay import Essay, EssayStatus
+from app.db.models.tarefa import Tarefa, TarefaSubmissao
 from app.db.models.turma import Turma, TurmaMembro, TurmaMembroStatus
 from app.db.models.user import User, UserType
+from app.schemas.tarefa import (
+    GenerateThemeRequest,
+    GenerateThemeResponse,
+    MotivatingText,
+    MinhaSubmissaoView,
+    SubmissaoItem,
+    TarefaCreate,
+    TarefaListItem,
+    TarefaResponse,
+    TarefaStudentView,
+    TarefaUpdate,
+    TarefaWithSubmissoes,
+    TeacherCommentRequest,
+    TeacherSlotInfo,
+)
 from app.schemas.turma import (
     AddOfflineStudentRequest,
     InviteStudentRequest,
@@ -125,6 +141,50 @@ def _membro_to_item(
         avg_score_pct=round(avg_score_pct, 1) if avg_score_pct is not None else None,
         last_essay_at=last_essay_at,
     )
+
+
+async def _check_teacher_slot_limit(
+    teacher: User,
+    turma: Turma,
+    db: AsyncSession,
+) -> None:
+    """
+    Verifica se o professor ainda tem slots para adicionar alunos.
+
+    Plano free  → máx 3 alunos ACTIVE por turma individual
+    Plano pago  → máx teacher.teacher_student_slots ACTIVE no total de todas as turmas
+    """
+    if teacher.teacher_student_slots == 0:
+        active_count = sum(
+            1 for m in turma.members
+            if m.status == TurmaMembroStatus.ACTIVE
+        )
+        if active_count >= 3:
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    "Limite de 3 alunos por turma no plano gratuito. "
+                    "Adquira um pacote de alunos para expandir."
+                ),
+            )
+    else:
+        result = await db.execute(
+            select(func.count(TurmaMembro.id))
+            .join(Turma, Turma.id == TurmaMembro.turma_id)
+            .where(
+                Turma.teacher_id == teacher.id,
+                TurmaMembro.status == TurmaMembroStatus.ACTIVE,
+            )
+        )
+        total_active = result.scalar_one() or 0
+        if total_active >= teacher.teacher_student_slots:
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    f"Você já tem {teacher.teacher_student_slots} alunos ativos "
+                    "(limite do pacote adquirido). Adquira mais pacotes para expandir."
+                ),
+            )
 
 
 async def _get_turma_or_404(
@@ -351,6 +411,7 @@ async def add_offline_student(
     para controle de presença/turma. Nenhum dado de redação estará disponível.
     """
     turma = await _get_turma_or_404(turma_id, teacher.id, db)
+    await _check_teacher_slot_limit(teacher, turma, db)
 
     membro = TurmaMembro(
         turma_id=turma.id,
@@ -392,6 +453,7 @@ async def invite_student_by_email(
     e uma mensagem genérica caso não encontre o usuário.
     """
     turma = await _get_turma_or_404(turma_id, teacher.id, db)
+    await _check_teacher_slot_limit(teacher, turma, db)
 
     # Busca o usuário pelo email (case-insensitive)
     result = await db.execute(
@@ -994,3 +1056,473 @@ async def get_my_active_turmas(
         )
         for m in membros
     ]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Slots de alunos do professor
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/slots", response_model=TeacherSlotInfo)
+async def get_teacher_slots(
+    teacher: Annotated[User, Depends(get_current_teacher)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> TeacherSlotInfo:
+    """Retorna informações sobre os slots de alunos do professor."""
+    result = await db.execute(
+        select(func.count(TurmaMembro.id))
+        .join(Turma, Turma.id == TurmaMembro.turma_id)
+        .where(
+            Turma.teacher_id == teacher.id,
+            TurmaMembro.status == TurmaMembroStatus.ACTIVE,
+        )
+    )
+    total_active = result.scalar_one() or 0
+    return TeacherSlotInfo(
+        slots_total=teacher.teacher_student_slots,
+        slots_used=total_active,
+        is_paid=teacher.teacher_student_slots > 0,
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Tarefas — CRUD do professor
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.post("/turmas/{turma_id}/tarefas", response_model=TarefaResponse, status_code=201)
+async def create_tarefa(
+    turma_id: str,
+    data: TarefaCreate,
+    teacher: Annotated[User, Depends(get_current_teacher)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> TarefaResponse:
+    """Cria uma nova tarefa na turma."""
+    turma = await _get_turma_or_404(turma_id, teacher.id, db)
+
+    motivating_texts = (
+        [t.model_dump() for t in data.motivating_texts]
+        if data.motivating_texts else None
+    )
+
+    tarefa = Tarefa(
+        turma_id=turma.id,
+        title=data.title,
+        instructions=data.instructions,
+        essay_type=data.essay_type,
+        theme=data.theme,
+        motivating_texts=motivating_texts,
+        due_date=data.due_date,
+        is_ai_generated=False,
+    )
+    db.add(tarefa)
+    await db.flush()
+
+    result = await db.execute(select(Tarefa).where(Tarefa.id == tarefa.id))
+    tarefa = result.scalar_one()
+
+    logger.info("tarefa_criada", tarefa_id=str(tarefa.id), turma_id=turma_id)
+    return _tarefa_to_response(tarefa)
+
+
+@router.get("/turmas/{turma_id}/tarefas", response_model=list[TarefaListItem])
+async def list_tarefas(
+    turma_id: str,
+    teacher: Annotated[User, Depends(get_current_teacher)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> list[TarefaListItem]:
+    """Lista tarefas da turma com contagem de submissões."""
+    turma = await _get_turma_or_404(turma_id, teacher.id, db)
+
+    result = await db.execute(
+        select(Tarefa)
+        .where(Tarefa.turma_id == turma.id)
+        .order_by(Tarefa.created_at.desc())
+    )
+    tarefas = result.scalars().all()
+
+    counts = await _get_submission_counts([t.id for t in tarefas], db)
+
+    return [
+        TarefaListItem(
+            id=str(t.id),
+            title=t.title,
+            essay_type=t.essay_type,
+            theme=t.theme,
+            due_date=t.due_date.isoformat() if t.due_date else None,
+            is_ai_generated=t.is_ai_generated,
+            created_at=t.created_at.isoformat(),
+            submission_count=counts.get(t.id, 0),
+        )
+        for t in tarefas
+    ]
+
+
+@router.get("/tarefas/{tarefa_id}", response_model=TarefaWithSubmissoes)
+async def get_tarefa(
+    tarefa_id: str,
+    teacher: Annotated[User, Depends(get_current_teacher)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> TarefaWithSubmissoes:
+    """Detalhe da tarefa com lista de submissões dos alunos."""
+    tarefa = await _get_tarefa_or_404(tarefa_id, teacher.id, db)
+
+    submissoes_result = await db.execute(
+        select(TarefaSubmissao)
+        .options(
+            selectinload(TarefaSubmissao.student),
+            selectinload(TarefaSubmissao.essay).selectinload(Essay.correction),
+        )
+        .where(TarefaSubmissao.tarefa_id == tarefa.id)
+        .order_by(TarefaSubmissao.submitted_at.desc())
+    )
+    submissoes = submissoes_result.scalars().all()
+
+    items = [
+        SubmissaoItem(
+            id=str(s.id),
+            student_id=str(s.student_id),
+            student_name=s.student.full_name if s.student else "Aluno",
+            essay_id=str(s.essay_id) if s.essay_id else None,
+            submitted_at=s.submitted_at.isoformat() if s.submitted_at else None,
+            total_score=s.essay.correction.total_score if s.essay and s.essay.correction else None,
+            max_score=s.essay.correction.max_score if s.essay and s.essay.correction else None,
+            teacher_comment=s.teacher_comment,
+        )
+        for s in submissoes
+    ]
+
+    resp = _tarefa_to_response(tarefa, submission_count=len(items))
+    return TarefaWithSubmissoes(**resp.model_dump(), submissoes=items)
+
+
+@router.patch("/tarefas/{tarefa_id}", response_model=TarefaResponse)
+async def update_tarefa(
+    tarefa_id: str,
+    data: TarefaUpdate,
+    teacher: Annotated[User, Depends(get_current_teacher)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> TarefaResponse:
+    """Atualiza tarefa (título, instruções, tema, textos, prazo)."""
+    tarefa = await _get_tarefa_or_404(tarefa_id, teacher.id, db)
+
+    if data.title is not None:
+        tarefa.title = data.title
+    if data.instructions is not None:
+        tarefa.instructions = data.instructions
+    if data.theme is not None:
+        tarefa.theme = data.theme
+    if data.motivating_texts is not None:
+        tarefa.motivating_texts = [t.model_dump() for t in data.motivating_texts]
+    if data.due_date is not None:
+        tarefa.due_date = data.due_date
+
+    await db.flush()
+    return _tarefa_to_response(tarefa)
+
+
+@router.delete("/tarefas/{tarefa_id}", status_code=204)
+async def delete_tarefa(
+    tarefa_id: str,
+    teacher: Annotated[User, Depends(get_current_teacher)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> None:
+    """Remove tarefa e todas as suas submissões (cascade)."""
+    tarefa = await _get_tarefa_or_404(tarefa_id, teacher.id, db)
+    await db.delete(tarefa)
+    logger.info("tarefa_removida", tarefa_id=tarefa_id, teacher_id=str(teacher.id))
+
+
+@router.post("/tarefas/{tarefa_id}/comentario/{submissao_id}", status_code=200)
+async def add_teacher_comment(
+    tarefa_id: str,
+    submissao_id: str,
+    data: TeacherCommentRequest,
+    teacher: Annotated[User, Depends(get_current_teacher)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    """Adiciona comentário do professor a uma submissão."""
+    tarefa = await _get_tarefa_or_404(tarefa_id, teacher.id, db)
+
+    try:
+        sub_uuid = uuid.UUID(submissao_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Submissão não encontrada.")
+
+    result = await db.execute(
+        select(TarefaSubmissao).where(
+            TarefaSubmissao.id == sub_uuid,
+            TarefaSubmissao.tarefa_id == tarefa.id,
+        )
+    )
+    submissao = result.scalar_one_or_none()
+    if not submissao:
+        raise HTTPException(status_code=404, detail="Submissão não encontrada.")
+
+    submissao.teacher_comment = data.comment
+    await db.flush()
+    return {"message": "Comentário salvo."}
+
+
+@router.post("/tarefas/gerar-tema", response_model=GenerateThemeResponse)
+async def generate_theme(
+    data: GenerateThemeRequest,
+    teacher: Annotated[User, Depends(get_current_teacher)],
+) -> GenerateThemeResponse:
+    """
+    Gera um tema e textos motivadores via IA (Claude Haiku).
+
+    Uso: professor clica em 'Gerar com IA' ao criar uma tarefa.
+    """
+    import json
+    import re
+    import anthropic
+    from app.core.config import settings
+
+    client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+
+    essay_label = "ENEM" if data.essay_type == "enem" else "Vestibular"
+    prompt = (
+        f"Gere um tema de redação no modelo {essay_label} para o Brasil, "
+        "atual e relevante. Responda SOMENTE em JSON válido, sem markdown:\n"
+        '{"theme": "o tema completo aqui", "motivating_texts": ['
+        '{"title": "Título do texto 1", "content": "Trecho do texto motivador 1 (máx 150 palavras)"},'
+        '{"title": "Título do texto 2", "content": "Trecho do texto motivador 2 (máx 150 palavras)"}'
+        "]}"
+    )
+
+    response = await client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=800,
+        temperature=0.9,
+        messages=[{"role": "user", "content": prompt}],
+    )
+
+    raw = response.content[0].text.strip()
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        match = re.search(r'\{.*\}', raw, re.DOTALL)
+        if not match:
+            raise HTTPException(status_code=502, detail="Erro ao gerar tema. Tente novamente.")
+        parsed = json.loads(match.group())
+
+    logger.info("tema_gerado", teacher_id=str(teacher.id), essay_type=data.essay_type)
+    return GenerateThemeResponse(
+        theme=parsed["theme"],
+        motivating_texts=[MotivatingText(**t) for t in parsed["motivating_texts"]],
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Tarefas — visão do aluno
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/minhas-turmas/{turma_id}/tarefas", response_model=list[TarefaStudentView])
+async def list_my_tarefas(
+    turma_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> list[TarefaStudentView]:
+    """
+    Lista as tarefas de uma turma na perspectiva do aluno.
+
+    SEGURANÇA: Verifica que o aluno é ACTIVE membro da turma.
+    """
+    from datetime import datetime, timezone
+
+    try:
+        turma_uuid = uuid.UUID(turma_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Turma não encontrada.")
+
+    member_check = await db.execute(
+        select(TurmaMembro).where(
+            TurmaMembro.turma_id == turma_uuid,
+            TurmaMembro.user_id == current_user.id,
+            TurmaMembro.status == TurmaMembroStatus.ACTIVE,
+        )
+    )
+    if not member_check.scalar_one_or_none():
+        raise HTTPException(status_code=403, detail="Você não é membro desta turma.")
+
+    tarefas_result = await db.execute(
+        select(Tarefa)
+        .where(Tarefa.turma_id == turma_uuid)
+        .order_by(Tarefa.created_at.desc())
+    )
+    tarefas = tarefas_result.scalars().all()
+
+    tarefa_ids = [t.id for t in tarefas]
+    minhas_submissoes: dict = {}
+    if tarefa_ids:
+        subs_result = await db.execute(
+            select(TarefaSubmissao)
+            .options(selectinload(TarefaSubmissao.essay).selectinload(Essay.correction))
+            .where(
+                TarefaSubmissao.tarefa_id.in_(tarefa_ids),
+                TarefaSubmissao.student_id == current_user.id,
+            )
+        )
+        for s in subs_result.scalars().all():
+            minhas_submissoes[s.tarefa_id] = s
+
+    now = datetime.now(timezone.utc)
+    items = []
+    for t in tarefas:
+        sub = minhas_submissoes.get(t.id)
+        my_sub = None
+        if sub:
+            my_sub = MinhaSubmissaoView(
+                id=str(sub.id),
+                essay_id=str(sub.essay_id) if sub.essay_id else None,
+                submitted_at=sub.submitted_at.isoformat() if sub.submitted_at else None,
+                total_score=sub.essay.correction.total_score if sub.essay and sub.essay.correction else None,
+                max_score=sub.essay.correction.max_score if sub.essay and sub.essay.correction else None,
+                teacher_comment=sub.teacher_comment,
+            )
+        items.append(TarefaStudentView(
+            id=str(t.id),
+            title=t.title,
+            instructions=t.instructions,
+            essay_type=t.essay_type,
+            theme=t.theme,
+            motivating_texts=t.motivating_texts,
+            due_date=t.due_date.isoformat() if t.due_date else None,
+            is_ai_generated=t.is_ai_generated,
+            created_at=t.created_at.isoformat(),
+            is_past_due=bool(t.due_date and t.due_date < now),
+            my_submission=my_sub,
+        ))
+
+    return items
+
+
+@router.get("/tarefas/{tarefa_id}/aluno", response_model=TarefaStudentView)
+async def get_tarefa_aluno(
+    tarefa_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> TarefaStudentView:
+    """
+    Detalhe de uma tarefa na perspectiva do aluno.
+
+    SEGURANÇA: Verifica que o aluno é ACTIVE membro da turma.
+    """
+    from datetime import datetime, timezone
+
+    try:
+        tarefa_uuid = uuid.UUID(tarefa_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Tarefa não encontrada.")
+
+    result = await db.execute(
+        select(Tarefa).where(Tarefa.id == tarefa_uuid)
+    )
+    tarefa = result.scalar_one_or_none()
+    if not tarefa:
+        raise HTTPException(status_code=404, detail="Tarefa não encontrada.")
+
+    member_check = await db.execute(
+        select(TurmaMembro).where(
+            TurmaMembro.turma_id == tarefa.turma_id,
+            TurmaMembro.user_id == current_user.id,
+            TurmaMembro.status == TurmaMembroStatus.ACTIVE,
+        )
+    )
+    if not member_check.scalar_one_or_none():
+        raise HTTPException(status_code=403, detail="Você não tem acesso a esta tarefa.")
+
+    sub_result = await db.execute(
+        select(TarefaSubmissao)
+        .options(selectinload(TarefaSubmissao.essay).selectinload(Essay.correction))
+        .where(
+            TarefaSubmissao.tarefa_id == tarefa_uuid,
+            TarefaSubmissao.student_id == current_user.id,
+        )
+    )
+    sub = sub_result.scalar_one_or_none()
+
+    my_sub = None
+    if sub:
+        my_sub = MinhaSubmissaoView(
+            id=str(sub.id),
+            essay_id=str(sub.essay_id) if sub.essay_id else None,
+            submitted_at=sub.submitted_at.isoformat() if sub.submitted_at else None,
+            total_score=sub.essay.correction.total_score if sub.essay and sub.essay.correction else None,
+            max_score=sub.essay.correction.max_score if sub.essay and sub.essay.correction else None,
+            teacher_comment=sub.teacher_comment,
+        )
+
+    now = datetime.now(timezone.utc)
+    return TarefaStudentView(
+        id=str(tarefa.id),
+        title=tarefa.title,
+        instructions=tarefa.instructions,
+        essay_type=tarefa.essay_type,
+        theme=tarefa.theme,
+        motivating_texts=tarefa.motivating_texts,
+        due_date=tarefa.due_date.isoformat() if tarefa.due_date else None,
+        is_ai_generated=tarefa.is_ai_generated,
+        created_at=tarefa.created_at.isoformat(),
+        is_past_due=bool(tarefa.due_date and tarefa.due_date < now),
+        my_submission=my_sub,
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Helpers internos de tarefas
+# ─────────────────────────────────────────────────────────────────────────────
+
+async def _get_tarefa_or_404(
+    tarefa_id: str,
+    teacher_id: uuid.UUID,
+    db: AsyncSession,
+) -> Tarefa:
+    """
+    Busca tarefa verificando que pertence ao professor via turma.
+
+    SEGURANÇA: Previne IDOR verificando teacher_id pela turma.
+    """
+    try:
+        tarefa_uuid = uuid.UUID(tarefa_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Tarefa não encontrada.")
+
+    result = await db.execute(
+        select(Tarefa)
+        .join(Turma, Turma.id == Tarefa.turma_id)
+        .where(Tarefa.id == tarefa_uuid, Turma.teacher_id == teacher_id)
+    )
+    tarefa = result.scalar_one_or_none()
+    if not tarefa:
+        raise HTTPException(status_code=404, detail="Tarefa não encontrada.")
+    return tarefa
+
+
+def _tarefa_to_response(tarefa: Tarefa, submission_count: int = 0) -> TarefaResponse:
+    return TarefaResponse(
+        id=str(tarefa.id),
+        turma_id=str(tarefa.turma_id),
+        title=tarefa.title,
+        instructions=tarefa.instructions,
+        essay_type=tarefa.essay_type,
+        theme=tarefa.theme,
+        motivating_texts=tarefa.motivating_texts,
+        due_date=tarefa.due_date.isoformat() if tarefa.due_date else None,
+        is_ai_generated=tarefa.is_ai_generated,
+        created_at=tarefa.created_at.isoformat(),
+        submission_count=submission_count,
+    )
+
+
+async def _get_submission_counts(
+    tarefa_ids: list,
+    db: AsyncSession,
+) -> dict:
+    if not tarefa_ids:
+        return {}
+    rows = await db.execute(
+        select(TarefaSubmissao.tarefa_id, func.count(TarefaSubmissao.id))
+        .where(TarefaSubmissao.tarefa_id.in_(tarefa_ids))
+        .group_by(TarefaSubmissao.tarefa_id)
+    )
+    return {row[0]: row[1] for row in rows.all()}

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -23,6 +23,7 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
 
   const {
@@ -38,8 +39,11 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginFormData) => {
     try {
       const res = await api.post<{ user_type: string }>("/auth/login", data);
-      // Redireciona baseado no tipo de usuário
-      if (res.data.user_type === "teacher") {
+      // Redireciona para a URL de retorno ou para o dashboard padrão
+      const redirect = searchParams.get("redirect");
+      if (redirect && redirect.startsWith("/")) {
+        router.push(redirect);
+      } else if (res.data.user_type === "teacher") {
         router.push("/dashboard/professor");
       } else {
         router.push("/dashboard/aluno");
@@ -207,7 +211,13 @@ export default function LoginPage() {
 
         <p className="text-center text-sm text-slate-400 mt-5">
           Não tem conta?{" "}
-          <Link href="/auth/register" className="text-brand-700 font-medium hover:text-brand-800">
+          <Link
+            href={searchParams.get("redirect")
+              ? `/auth/register/aluno?redirect=${encodeURIComponent(searchParams.get("redirect")!)}`
+              : "/auth/register"
+            }
+            className="text-brand-700 font-medium hover:text-brand-800"
+          >
             Criar conta grátis
           </Link>
         </p>

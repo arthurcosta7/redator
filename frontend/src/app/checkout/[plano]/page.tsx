@@ -1,21 +1,37 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, CreditCard, Loader2, Check, Shield } from "lucide-react";
 import { api } from "@/lib/api/client";
+import { useUser } from "@/contexts/UserContext";
 
 const PLAN_INFO = {
   standard: {
     label: "Standard",
-    features: ["3 correções por dia", "Grifes no texto", "Insights detalhados", "Histórico de evolução"],
-    prices: { mensal: "R$19,90/mês", trimestral: "R$53,70 a cada 3 meses (R$17,90/mês)" },
+    features: [
+      "3 correções por dia",
+      "Grifes no texto",
+      "Sistema de correção aprimorado",
+      "Insights dos últimos 30 dias",
+      "Simulados com IA",
+      "Histórico de evolução",
+    ],
+    prices: { mensal: "R$18,99/mês", trimestral: "R$47,99 a cada 3 meses (R$15,99/mês)" },
   },
   pro: {
     label: "Pro",
-    features: ["Correções ilimitadas", "Grifes e insights avançados", "Suporte prioritário", "Histórico de evolução"],
-    prices: { mensal: "R$39,90/mês", trimestral: "R$107,70 a cada 3 meses (R$35,90/mês)" },
+    features: [
+      "10 correções por dia",
+      "Grifes e insights avançados",
+      "Sistema de correção aprimorado",
+      "Insights dos últimos 30 dias",
+      "Simulados com IA",
+      "Suporte prioritário",
+      "Histórico de evolução",
+    ],
+    prices: { mensal: "R$29,99/mês", trimestral: "R$74,99 a cada 3 meses (R$24,99/mês)" },
   },
 } as const;
 
@@ -26,6 +42,7 @@ export default function CheckoutPage() {
   const params = useParams<{ plano: string }>();
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { user, isLoading } = useUser();
 
   const plano = (params.plano ?? "standard") as PlanKey;
   const periodo = (searchParams.get("periodo") ?? "mensal") as PeriodKey;
@@ -33,6 +50,23 @@ export default function CheckoutPage() {
   const plan = PLAN_INFO[plano] ?? PLAN_INFO.standard;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Redireciona para login se não estiver autenticado
+  useEffect(() => {
+    if (isLoading) return;
+    if (!user) {
+      const returnUrl = `/checkout/${plano}?periodo=${periodo}`;
+      router.replace(`/auth/login?redirect=${encodeURIComponent(returnUrl)}`);
+    }
+  }, [user, isLoading, plano, periodo, router]);
+
+  if (isLoading || !user) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-brand-700" />
+      </div>
+    );
+  }
 
   const handleCheckout = async () => {
     setLoading(true);

@@ -243,7 +243,10 @@ export function Pricing() {
 
               {/* CTA */}
               <Link
-                href={plan.price.monthly === 0 ? "/auth/register" : `/checkout/${plan.name.toLowerCase()}?periodo=${isQuarterly ? "trimestral" : "mensal"}`}
+                href={plan.price.monthly === 0
+                  ? "/auth/register"
+                  : `/auth/login?redirect=${encodeURIComponent(`/checkout/${plan.name.toLowerCase()}?periodo=${isQuarterly ? "trimestral" : "mensal"}`)}`
+                }
                 className={cn(
                   "w-full text-center font-semibold py-3 rounded-xl mb-8 transition-all duration-200 block",
                   plan.highlighted

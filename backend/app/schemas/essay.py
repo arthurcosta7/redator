@@ -49,6 +49,12 @@ class SubmitEssayRequest(BaseModel):
         description="Modelo: 'enem' ou 'vestibular'",
     )
 
+    # Se fornecido, a redação é uma entrega de tarefa (não desconta limite diário)
+    assignment_id: str | None = Field(
+        default=None,
+        description="ID da tarefa (quando entregando para um professor)",
+    )
+
     @field_validator("content")
     @classmethod
     def validate_content(cls, v: str | None) -> str | None:

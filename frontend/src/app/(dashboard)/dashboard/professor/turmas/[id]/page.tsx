@@ -19,9 +19,12 @@ import {
   ChevronRight,
   Clock,
   CheckCircle2,
+  ClipboardList,
+  CalendarClock,
+  Sparkles,
 } from "lucide-react";
 import { api } from "@/lib/api/client";
-import type { TurmaDetail, TurmaMembro, TurmaEssay, TurmaEssaysResponse } from "@/types/turma";
+import type { TurmaDetail, TurmaMembro, TurmaEssay, TurmaEssaysResponse, TarefaListItem } from "@/types/turma";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -235,18 +238,21 @@ export default function TurmaDetailPage() {
   const router = useRouter();
   const [turma, setTurma] = useState<TurmaDetail | null>(null);
   const [essays, setEssays] = useState<TurmaEssay[]>([]);
+  const [tarefas, setTarefas] = useState<TarefaListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<ModalState>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
 
   const loadTurma = useCallback(async () => {
     try {
-      const [turmaRes, essayRes] = await Promise.all([
+      const [turmaRes, essayRes, tarefasRes] = await Promise.all([
         api.get<TurmaDetail>(`/professor/turmas/${id}`),
         api.get<TurmaEssaysResponse>(`/professor/turmas/${id}/redacoes?per_page=5`),
+        api.get<TarefaListItem[]>(`/professor/turmas/${id}/tarefas`),
       ]);
       setTurma(turmaRes.data);
       setEssays(essayRes.data.items);
+      setTarefas(tarefasRes.data);
     } catch {
       router.push("/dashboard/professor/turmas");
     } finally {
@@ -371,6 +377,69 @@ export default function TurmaDetailPage() {
           </div>
           <ChevronRight className="w-4 h-4 text-slate-300" />
         </Link>
+      </div>
+
+      {/* Tarefas */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-display font-semibold text-slate-900 flex items-center gap-2">
+            <ClipboardList className="w-4 h-4 text-slate-400" />
+            Tarefas <span className="text-slate-400 font-normal text-sm">({tarefas.length})</span>
+          </h3>
+          <Link
+            href={`/dashboard/professor/turmas/${id}/tarefas/nova`}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-brand-700 hover:bg-brand-800 text-xs font-medium text-white transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Nova Tarefa
+          </Link>
+        </div>
+
+        {tarefas.length === 0 ? (
+          <div className="bg-white rounded-xl border border-slate-100 p-6 text-center">
+            <p className="text-sm text-slate-400">
+              Nenhuma tarefa criada. Crie uma tarefa para seus alunos entregarem redações.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {tarefas.map((t) => {
+              const isPastDue = t.due_date && new Date(t.due_date) < new Date();
+              return (
+                <Link
+                  key={t.id}
+                  href={`/dashboard/professor/turmas/${id}/tarefas/${t.id}`}
+                  className="bg-white rounded-xl border border-slate-100 px-4 py-3 flex items-center gap-3 hover:shadow-card-hover transition-shadow"
+                >
+                  <div className="w-9 h-9 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
+                    <ClipboardList className="w-4 h-4 text-indigo-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-slate-900 truncate">{t.title}</p>
+                      {t.is_ai_generated && (
+                        <Sparkles className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" title="Gerada por IA" />
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-400 truncate">{t.theme}</p>
+                  </div>
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <span className="text-xs text-slate-400">
+                      {t.submission_count} entrega{t.submission_count !== 1 ? "s" : ""}
+                    </span>
+                    {t.due_date && (
+                      <span className={`flex items-center gap-1 text-xs font-medium ${isPastDue ? "text-red-500" : "text-slate-400"}`}>
+                        <CalendarClock className="w-3.5 h-3.5" />
+                        {new Date(t.due_date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                      </span>
+                    )}
+                    <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Membros ativos */}

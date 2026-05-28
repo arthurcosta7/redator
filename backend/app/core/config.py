@@ -63,6 +63,8 @@ class Settings(BaseSettings):
     STRIPE_PRICE_STANDARD_QUARTERLY: str = ""
     STRIPE_PRICE_PRO_MONTHLY: str = ""
     STRIPE_PRICE_PRO_QUARTERLY: str = ""
+    # Pacote de professor: R$11,99/mês por 10 alunos
+    STRIPE_PRICE_TEACHER_PACKAGE: str = ""
 
     # ─── Email ────────────────────────────────────────────────────
     # Opcional em desenvolvimento — emails não são enviados se não configurado

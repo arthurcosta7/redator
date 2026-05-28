@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
+import { useSearchParams } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Eye, EyeOff, Loader2, PenLine, ArrowLeft } from "lucide-react";
@@ -75,6 +76,10 @@ function PasswordStrength({ password }: { password: string }) {
 }
 
 export default function RegisterStudentPage() {
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get("redirect");
+  const loginHref = redirect ? `/auth/login?redirect=${encodeURIComponent(redirect)}` : "/auth/login";
+
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -134,7 +139,7 @@ export default function RegisterStudentPage() {
             Clique no link para ativar sua conta e começar a usar o Redator.
           </p>
           <Link
-            href="/auth/login"
+            href={loginHref}
             className="inline-block mt-6 text-brand-700 font-semibold hover:text-brand-800"
           >
             Ir para o login
@@ -350,7 +355,7 @@ export default function RegisterStudentPage() {
 
         <p className="text-center text-sm text-slate-400 mt-5">
           Já tem conta?{" "}
-          <Link href="/auth/login" className="text-brand-700 font-medium hover:text-brand-800">
+          <Link href={loginHref} className="text-brand-700 font-medium hover:text-brand-800">
             Entrar
           </Link>
         </p>

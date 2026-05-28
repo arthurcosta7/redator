@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   Users,
   Bell,
@@ -10,6 +11,7 @@ import {
   GraduationCap,
   Clock,
   AlertCircle,
+  ChevronRight,
 } from "lucide-react";
 import { api } from "@/lib/api/client";
 import type { PendingInvite } from "@/types/turma";
@@ -18,7 +20,10 @@ import type { PendingInvite } from "@/types/turma";
 
 function ActiveTurmaCard({ invite }: { invite: PendingInvite }) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-5 flex items-start gap-4">
+    <Link
+      href={`/dashboard/aluno/turmas/${invite.turma_id}`}
+      className="bg-white rounded-2xl border border-slate-100 shadow-card p-5 flex items-start gap-4 hover:shadow-card-hover transition-shadow"
+    >
       <div className="w-11 h-11 rounded-xl bg-purple-50 flex items-center justify-center flex-shrink-0">
         <Users className="w-5 h-5 text-purple-600" />
       </div>
@@ -31,10 +36,13 @@ function ActiveTurmaCard({ invite }: { invite: PendingInvite }) {
           })}
         </p>
       </div>
-      <span className="flex-shrink-0 text-xs font-medium bg-green-50 text-green-700 px-2.5 py-1 rounded-full">
-        Ativo
-      </span>
-    </div>
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <span className="text-xs font-medium bg-green-50 text-green-700 px-2.5 py-1 rounded-full">
+          Ativo
+        </span>
+        <ChevronRight className="w-4 h-4 text-slate-300" />
+      </div>
+    </Link>
   );
 }
 

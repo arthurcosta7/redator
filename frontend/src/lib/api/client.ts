@@ -68,9 +68,13 @@ api.interceptors.response.use(
         return api(originalRequest!);
       } catch (refreshError) {
         processQueue(refreshError as AxiosError);
-        // Refresh falhou — redireciona para login
+        // Refresh falhou — redireciona para login preservando a URL atual
         if (typeof window !== "undefined") {
-          window.location.href = "/auth/login";
+          const returnUrl = window.location.pathname + window.location.search;
+          const isAuthPage = returnUrl.startsWith("/auth/");
+          window.location.href = isAuthPage
+            ? "/auth/login"
+            : `/auth/login?redirect=${encodeURIComponent(returnUrl)}`;
         }
         return Promise.reject(refreshError);
       } finally {

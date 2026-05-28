@@ -20,6 +20,8 @@ from app.core.dependencies import get_current_user, get_db, get_redis
 from app.core.logging import get_logger
 from app.core.rate_limiter import check_daily_correction_limit, increment_daily_correction_count
 from app.db.models.essay import Essay, EssayInputType, EssayStatus, EssayType
+from app.db.models.tarefa import Tarefa, TarefaSubmissao
+from app.db.models.turma import TurmaMembro, TurmaMembroStatus, Turma
 from app.db.models.user import User
 from app.schemas.essay import EssayDetailResponse, EssayListItem, EssayListResponse, EssayResponse, SubmitEssayRequest
 from app.utils.file_validator import validate_image_file
@@ -58,19 +60,32 @@ async def submit_essay(
             detail="O texto da redação é obrigatório para envio por texto."
         )
 
-    # Verifica limite diário baseado no plano
-    allowed, used_today, daily_limit = await check_daily_correction_limit(
-        user_id=str(current_user.id),
-        plan=current_user.plan.value,
-        redis_client=redis_client,
-    )
+    # ── Verifica se é uma entrega de tarefa ──────────────────────────────────
+    tarefa: Tarefa | None = None
+    is_assignment = False
 
-    if not allowed:
-        upgrade_message = _get_upgrade_message(current_user.plan.value)
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Você atingiu o limite de {daily_limit} correção(ões) por dia. {upgrade_message}",
+    if data.assignment_id:
+        tarefa, is_assignment = await _validate_assignment_submission(
+            assignment_id=data.assignment_id,
+            student=current_user,
+            db=db,
         )
+        # Tarefa define o tema — sobrescreve qualquer tema enviado pelo aluno
+        data = data.model_copy(update={"theme": tarefa.theme})
+
+    if not is_assignment:
+        # Verifica limite diário baseado no plano (só para redações livres)
+        allowed, used_today, daily_limit = await check_daily_correction_limit(
+            user_id=str(current_user.id),
+            plan=current_user.plan.value,
+            redis_client=redis_client,
+        )
+        if not allowed:
+            upgrade_message = _get_upgrade_message(current_user.plan.value)
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Você atingiu o limite de {daily_limit} correção(ões) por dia. {upgrade_message}",
+            )
 
     # Valida tamanho do texto
     word_count = count_words(data.content)
@@ -102,11 +117,23 @@ async def submit_essay(
     db.add(essay)
     await db.flush()  # Obtém o ID sem commit
 
-    # Incrementa contador de uso
-    await increment_daily_correction_count(str(current_user.id), redis_client)
+    if is_assignment and tarefa:
+        # Registra a submissão da tarefa
+        from datetime import datetime, timezone
+        submissao = TarefaSubmissao(
+            tarefa_id=tarefa.id,
+            student_id=current_user.id,
+            essay_id=essay.id,
+            submitted_at=datetime.now(timezone.utc),
+        )
+        db.add(submissao)
+        await db.flush()
+    else:
+        # Incrementa contador de uso (só para redações livres)
+        await increment_daily_correction_count(str(current_user.id), redis_client)
 
     # Inicia a correção assíncrona
-    await _start_correction(essay, current_user, db)
+    await _start_correction(essay, current_user, db, is_assignment=is_assignment)
 
     logger.info(
         "redacao_submetida",
@@ -436,7 +463,74 @@ def _get_upgrade_message(plan: str) -> str:
     return ""
 
 
-async def _start_correction(essay: Essay, user: User, db: AsyncSession) -> None:
+async def _validate_assignment_submission(
+    assignment_id: str,
+    student: User,
+    db: AsyncSession,
+) -> tuple["Tarefa", bool]:
+    """
+    Valida que o aluno pode submeter para esta tarefa.
+
+    Verifica:
+    1. Tarefa existe
+    2. Aluno é membro ACTIVE da turma da tarefa
+    3. Prazo não expirou
+    4. Aluno ainda não submeteu
+
+    Retorna (tarefa, True) se válido.
+    """
+    import uuid as _uuid
+    from datetime import datetime, timezone
+
+    try:
+        tarefa_uuid = _uuid.UUID(assignment_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Tarefa não encontrada.")
+
+    result = await db.execute(
+        select(Tarefa).where(Tarefa.id == tarefa_uuid)
+    )
+    tarefa = result.scalar_one_or_none()
+    if not tarefa:
+        raise HTTPException(status_code=404, detail="Tarefa não encontrada.")
+
+    # Verifica prazo
+    if tarefa.due_date and tarefa.due_date < datetime.now(timezone.utc):
+        raise HTTPException(status_code=403, detail="O prazo desta tarefa já encerrou.")
+
+    # Verifica que o aluno é membro ACTIVE da turma
+    member_check = await db.execute(
+        select(TurmaMembro).where(
+            TurmaMembro.turma_id == tarefa.turma_id,
+            TurmaMembro.user_id == student.id,
+            TurmaMembro.status == TurmaMembroStatus.ACTIVE,
+        )
+    )
+    if not member_check.scalar_one_or_none():
+        raise HTTPException(status_code=403, detail="Você não é membro desta turma.")
+
+    # Verifica submissão duplicada
+    existing = await db.execute(
+        select(TarefaSubmissao).where(
+            TarefaSubmissao.tarefa_id == tarefa_uuid,
+            TarefaSubmissao.student_id == student.id,
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(
+            status_code=409,
+            detail="Você já enviou uma redação para esta tarefa.",
+        )
+
+    return tarefa, True
+
+
+async def _start_correction(
+    essay: Essay,
+    user: User,
+    db: AsyncSession,
+    is_assignment: bool = False,
+) -> None:
     """
     Inicia o processo de correção pela IA.
 
@@ -451,7 +545,7 @@ async def _start_correction(essay: Essay, user: User, db: AsyncSession) -> None:
 
     try:
         service = CorrectionService()
-        await service.correct_essay(essay=essay, user=user, db=db)
+        await service.correct_essay(essay=essay, user=user, db=db, is_assignment=is_assignment)
     except Exception as e:
         logger.error("erro_correcao", essay_id=str(essay.id), error=str(e))
         essay.status = EssayStatus.ERROR

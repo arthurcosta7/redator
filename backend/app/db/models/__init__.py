@@ -8,6 +8,7 @@ from app.db.models.correction import Correction
 from app.db.models.subscription import Subscription, SubscriptionStatus
 from app.db.models.refresh_token import RefreshToken
 from app.db.models.turma import Turma, TurmaMembro, TurmaMembroStatus
+from app.db.models.tarefa import Tarefa, TarefaSubmissao
 
 __all__ = [
     "User", "UserType", "UserPlan",
@@ -16,4 +17,5 @@ __all__ = [
     "Subscription", "SubscriptionStatus",
     "RefreshToken",
     "Turma", "TurmaMembro", "TurmaMembroStatus",
+    "Tarefa", "TarefaSubmissao",
 ]

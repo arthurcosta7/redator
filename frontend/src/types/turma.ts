@@ -113,3 +113,73 @@ export interface PendingInvite {
   teacher_name: string;
   created_at: string;
 }
+
+// ─── Tarefas ──────────────────────────────────────────────────────────────────
+
+export interface MotivatingText {
+  title: string;
+  content: string;
+}
+
+export interface TarefaListItem {
+  id: string;
+  title: string;
+  essay_type: string;
+  theme: string;
+  due_date?: string | null;
+  is_ai_generated: boolean;
+  created_at: string;
+  submission_count: number;
+}
+
+export interface MinhaSubmissaoView {
+  id: string;
+  essay_id?: string | null;
+  submitted_at?: string | null;
+  total_score?: number | null;
+  max_score?: number | null;
+  teacher_comment?: string | null;
+}
+
+export interface TarefaStudentView {
+  id: string;
+  title: string;
+  instructions?: string | null;
+  essay_type: string;
+  theme: string;
+  motivating_texts?: MotivatingText[] | null;
+  due_date?: string | null;
+  is_ai_generated: boolean;
+  created_at: string;
+  is_past_due: boolean;
+  my_submission?: MinhaSubmissaoView | null;
+}
+
+export interface SubmissaoItem {
+  id: string;
+  student_id: string;
+  student_name: string;
+  essay_id?: string | null;
+  submitted_at?: string | null;
+  total_score?: number | null;
+  max_score?: number | null;
+  teacher_comment?: string | null;
+}
+
+export interface TarefaResponse {
+  id: string;
+  turma_id: string;
+  title: string;
+  instructions?: string | null;
+  essay_type: string;
+  theme: string;
+  motivating_texts?: MotivatingText[] | null;
+  due_date?: string | null;
+  is_ai_generated: boolean;
+  created_at: string;
+  submission_count: number;
+}
+
+export interface TarefaWithSubmissoes extends TarefaResponse {
+  submissoes: SubmissaoItem[];
+}
