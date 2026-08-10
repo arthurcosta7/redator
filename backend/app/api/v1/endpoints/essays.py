@@ -494,6 +494,10 @@ async def _validate_assignment_submission(
     if not tarefa:
         raise HTTPException(status_code=404, detail="Tarefa não encontrada.")
 
+    # Verifica se a tarefa está fechada
+    if tarefa.is_closed:
+        raise HTTPException(status_code=403, detail="Esta tarefa foi encerrada pelo professor.")
+
     # Verifica prazo
     if tarefa.due_date and tarefa.due_date < datetime.now(timezone.utc):
         raise HTTPException(status_code=403, detail="O prazo desta tarefa já encerrou.")

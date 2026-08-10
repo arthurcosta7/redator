@@ -26,6 +26,12 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
 
     const isTeacher = user.user_type === "teacher";
 
+    // /dashboard sem sub-rota → redireciona para o dashboard correto
+    if (pathname === "/dashboard") {
+      router.replace(isTeacher ? "/dashboard/professor" : "/dashboard/aluno");
+      return;
+    }
+
     // Professor tentando acessar rotas de aluno → redireciona para professor
     if (isTeacher && pathname.startsWith("/dashboard/aluno")) {
       router.replace("/dashboard/professor");

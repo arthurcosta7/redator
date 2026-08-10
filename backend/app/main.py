@@ -7,23 +7,51 @@ Este arquivo cria e configura a aplicação:
 3. Configura os tratadores de erro (sem vazar informações)
 4. Define o endpoint de health check
 """
+import asyncio
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta, timezone
 
 import redis.asyncio as redis
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from sqlalchemy import text
+from sqlalchemy import delete, text
 
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.logging import get_logger, setup_logging
 from app.core.middleware import setup_middlewares
-from app.db.session import engine
+from app.db.models.user import User
+from app.db.session import AsyncSessionLocal, engine
 
 # Inicializa o sistema de logging antes de tudo
 setup_logging()
 logger = get_logger(__name__)
+
+
+async def _cleanup_unverified_users() -> None:
+    """
+    Apaga contas não verificadas com mais de 3 horas.
+
+    Roda a cada hora em background. Usuários que se cadastraram mas não
+    verificaram o email dentro do prazo precisam criar uma nova conta.
+    """
+    while True:
+        await asyncio.sleep(3600)  # Espera 1h antes da primeira execução
+        try:
+            cutoff = datetime.now(timezone.utc) - timedelta(hours=3)
+            async with AsyncSessionLocal() as db:
+                result = await db.execute(
+                    delete(User).where(
+                        User.is_email_verified == False,  # noqa: E712
+                        User.created_at < cutoff,
+                    )
+                )
+                await db.commit()
+                if result.rowcount:
+                    logger.info("contas_nao_verificadas_removidas", count=result.rowcount)
+        except Exception as e:
+            logger.error("erro_cleanup_contas", error=str(e))
 
 
 @asynccontextmanager
@@ -58,9 +86,13 @@ async def lifespan(app: FastAPI):
 
     logger.info("aplicacao_pronta")
 
+    # Inicia limpeza periódica de contas não verificadas
+    cleanup_task = asyncio.create_task(_cleanup_unverified_users())
+
     yield  # A aplicação fica rodando aqui
 
     # ─── Encerramento ─────────────────────────────────────────────
+    cleanup_task.cancel()
     logger.info("aplicacao_encerrando")
     await engine.dispose()
     logger.info("conexoes_fechadas")

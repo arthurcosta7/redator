@@ -128,6 +128,7 @@ export interface TarefaListItem {
   theme: string;
   due_date?: string | null;
   is_ai_generated: boolean;
+  is_closed: boolean;
   created_at: string;
   submission_count: number;
 }
@@ -150,6 +151,7 @@ export interface TarefaStudentView {
   motivating_texts?: MotivatingText[] | null;
   due_date?: string | null;
   is_ai_generated: boolean;
+  is_closed: boolean;
   created_at: string;
   is_past_due: boolean;
   my_submission?: MinhaSubmissaoView | null;
@@ -176,6 +178,7 @@ export interface TarefaResponse {
   motivating_texts?: MotivatingText[] | null;
   due_date?: string | null;
   is_ai_generated: boolean;
+  is_closed: boolean;
   created_at: string;
   submission_count: number;
 }

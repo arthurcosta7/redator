@@ -1149,6 +1149,7 @@ async def list_tarefas(
             theme=t.theme,
             due_date=t.due_date.isoformat() if t.due_date else None,
             is_ai_generated=t.is_ai_generated,
+            is_closed=t.is_closed,
             created_at=t.created_at.isoformat(),
             submission_count=counts.get(t.id, 0),
         )
@@ -1388,6 +1389,7 @@ async def list_my_tarefas(
             motivating_texts=t.motivating_texts,
             due_date=t.due_date.isoformat() if t.due_date else None,
             is_ai_generated=t.is_ai_generated,
+            is_closed=t.is_closed,
             created_at=t.created_at.isoformat(),
             is_past_due=bool(t.due_date and t.due_date < now),
             my_submission=my_sub,
@@ -1462,10 +1464,168 @@ async def get_tarefa_aluno(
         motivating_texts=tarefa.motivating_texts,
         due_date=tarefa.due_date.isoformat() if tarefa.due_date else None,
         is_ai_generated=tarefa.is_ai_generated,
+        is_closed=tarefa.is_closed,
         created_at=tarefa.created_at.isoformat(),
         is_past_due=bool(tarefa.due_date and tarefa.due_date < now),
         my_submission=my_sub,
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Fechar / Reabrir / Estender prazo
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.post("/tarefas/{tarefa_id}/fechar", response_model=TarefaResponse)
+async def fechar_tarefa(
+    tarefa_id: str,
+    teacher: Annotated[User, Depends(get_current_teacher)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> TarefaResponse:
+    """Fecha a tarefa manualmente, bloqueando novas entregas."""
+    tarefa = await _get_tarefa_or_404(tarefa_id, teacher.id, db)
+    if tarefa.is_closed:
+        raise HTTPException(status_code=409, detail="Tarefa já está fechada.")
+    tarefa.is_closed = True
+    await db.flush()
+    logger.info("tarefa_fechada", tarefa_id=tarefa_id, teacher_id=str(teacher.id))
+    return _tarefa_to_response(tarefa)
+
+
+@router.post("/tarefas/{tarefa_id}/reabrir", response_model=TarefaResponse)
+async def reabrir_tarefa(
+    tarefa_id: str,
+    teacher: Annotated[User, Depends(get_current_teacher)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> TarefaResponse:
+    """Reabre a tarefa, permitindo novas entregas."""
+    tarefa = await _get_tarefa_or_404(tarefa_id, teacher.id, db)
+    if not tarefa.is_closed:
+        raise HTTPException(status_code=409, detail="Tarefa já está aberta.")
+    tarefa.is_closed = False
+    await db.flush()
+    logger.info("tarefa_reaberta", tarefa_id=tarefa_id, teacher_id=str(teacher.id))
+    return _tarefa_to_response(tarefa)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Insights por tarefa (apenas professores com pacote pago)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/tarefas/{tarefa_id}/insights")
+async def get_tarefa_insights(
+    tarefa_id: str,
+    teacher: Annotated[User, Depends(get_current_teacher)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    """
+    Insights agregados de uma tarefa: distribuição de notas, média por
+    competência e ranking dos alunos.
+
+    SEGURANÇA:
+    - Apenas professores com teacher_student_slots > 0 (pacote pago).
+    - IDOR prevenido verificando que a tarefa pertence à turma do professor.
+    """
+    if teacher.teacher_student_slots == 0:
+        raise HTTPException(
+            status_code=403,
+            detail="Insights por tarefa estão disponíveis apenas para professores com pacote de alunos ativo.",
+        )
+
+    tarefa = await _get_tarefa_or_404(tarefa_id, teacher.id, db)
+
+    # Busca todas as submissões com correção
+    subs_result = await db.execute(
+        select(TarefaSubmissao)
+        .options(
+            selectinload(TarefaSubmissao.student),
+            selectinload(TarefaSubmissao.essay).selectinload(Essay.correction),
+        )
+        .where(
+            TarefaSubmissao.tarefa_id == tarefa.id,
+            TarefaSubmissao.submitted_at.isnot(None),
+        )
+        .order_by(TarefaSubmissao.submitted_at)
+    )
+    subs = subs_result.scalars().all()
+
+    corrected = [
+        s for s in subs
+        if s.essay and s.essay.correction
+    ]
+
+    if not corrected:
+        return {
+            "tarefa_id": tarefa_id,
+            "submission_count": len(subs),
+            "corrected_count": 0,
+            "avg_score_pct": None,
+            "score_distribution": [],
+            "competency_averages": [],
+            "ranking": [],
+        }
+
+    max_score = corrected[0].essay.correction.max_score
+
+    # Média geral
+    pcts = [
+        (s.essay.correction.total_score / max_score * 100)
+        for s in corrected
+    ]
+    avg_pct = round(sum(pcts) / len(pcts), 1)
+
+    # Distribuição em faixas (0-39, 40-59, 60-79, 80-100)
+    bands = {"0-39": 0, "40-59": 0, "60-79": 0, "80-100": 0}
+    for p in pcts:
+        if p < 40:
+            bands["0-39"] += 1
+        elif p < 60:
+            bands["40-59"] += 1
+        elif p < 80:
+            bands["60-79"] += 1
+        else:
+            bands["80-100"] += 1
+    distribution = [{"range": k, "count": v} for k, v in bands.items()]
+
+    # Médias por competência
+    competency_totals: dict[str, list[float]] = {}
+    for s in corrected:
+        for comp in (s.essay.correction.competencies or []):
+            name = comp.get("name") or comp.get("title", "")
+            score = comp.get("score", 0)
+            max_c = comp.get("max_score", comp.get("max", 0)) or 1
+            pct_c = score / max_c * 100
+            competency_totals.setdefault(name, []).append(pct_c)
+
+    competency_averages = [
+        {"name": name, "avg_pct": round(sum(vals) / len(vals), 1)}
+        for name, vals in competency_totals.items()
+    ]
+
+    # Ranking dos alunos
+    ranking = sorted(
+        [
+            {
+                "student_name": s.student.full_name if s.student else "Aluno",
+                "total_score": s.essay.correction.total_score,
+                "max_score": max_score,
+                "score_pct": round(s.essay.correction.total_score / max_score * 100, 1),
+            }
+            for s in corrected
+        ],
+        key=lambda x: -x["score_pct"],
+    )
+
+    return {
+        "tarefa_id": tarefa_id,
+        "tarefa_title": tarefa.title,
+        "submission_count": len(subs),
+        "corrected_count": len(corrected),
+        "avg_score_pct": avg_pct,
+        "max_score": max_score,
+        "score_distribution": distribution,
+        "competency_averages": competency_averages,
+        "ranking": ranking,
+    }
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1509,6 +1669,7 @@ def _tarefa_to_response(tarefa: Tarefa, submission_count: int = 0) -> TarefaResp
         motivating_texts=tarefa.motivating_texts,
         due_date=tarefa.due_date.isoformat() if tarefa.due_date else None,
         is_ai_generated=tarefa.is_ai_generated,
+        is_closed=tarefa.is_closed,
         created_at=tarefa.created_at.isoformat(),
         submission_count=submission_count,
     )

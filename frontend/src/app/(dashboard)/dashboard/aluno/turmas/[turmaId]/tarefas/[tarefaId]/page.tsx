@@ -13,6 +13,7 @@ import {
   Send,
   ExternalLink,
   Sparkles,
+  Lock,
 } from "lucide-react";
 import { api } from "@/lib/api/client";
 import type { TarefaStudentView } from "@/types/turma";
@@ -90,6 +91,40 @@ export default function AlunoTarefaPage() {
   const wordOk = wc >= limits.min && wc <= limits.max;
   const isPastDue = tarefa.is_past_due;
   const alreadySubmitted = !!tarefa.my_submission?.submitted_at;
+
+  // ─── Closed state ─────────────────────────────────────────────────────────
+
+  if (tarefa.is_closed && !alreadySubmitted) {
+    return (
+      <div className="max-w-2xl mx-auto space-y-4">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => router.push(`/dashboard/aluno/turmas/${turmaId}`)}
+            className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors text-slate-400"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <h2 className="font-display font-bold text-xl text-slate-900">{tarefa.title}</h2>
+        </div>
+
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-10 text-center space-y-3">
+          <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto">
+            <Lock className="w-6 h-6 text-slate-400" />
+          </div>
+          <p className="font-semibold text-slate-700">Tarefa encerrada</p>
+          <p className="text-sm text-slate-400">
+            Esta tarefa foi encerrada pelo professor e não aceita mais entregas.
+          </p>
+          <button
+            onClick={() => router.push(`/dashboard/aluno/turmas/${turmaId}`)}
+            className="mt-2 inline-block px-5 py-2 rounded-xl border border-slate-200 text-sm text-slate-600 hover:bg-white transition-colors"
+          >
+            Voltar para a turma
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // ─── Success state ────────────────────────────────────────────────────────
 

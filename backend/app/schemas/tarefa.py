@@ -54,6 +54,7 @@ class TarefaResponse(BaseModel):
     motivating_texts: Optional[list]
     due_date: Optional[str]
     is_ai_generated: bool
+    is_closed: bool = False
     created_at: str
     submission_count: int = 0
 
@@ -65,6 +66,7 @@ class TarefaListItem(BaseModel):
     theme: str
     due_date: Optional[str]
     is_ai_generated: bool
+    is_closed: bool = False
     created_at: str
     submission_count: int = 0
 
@@ -95,6 +97,7 @@ class TarefaStudentView(BaseModel):
     motivating_texts: Optional[list]
     due_date: Optional[str]
     is_ai_generated: bool
+    is_closed: bool = False
     created_at: str
     is_past_due: bool
     my_submission: Optional["MinhaSubmissaoView"]

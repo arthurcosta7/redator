@@ -43,6 +43,7 @@ class UserMeResponse(BaseModel):
     created_at: str
     admin_role: str | None = None
     has_stripe_subscription: bool = False  # True = assinou pelo Stripe (pode usar portal)
+    teacher_student_slots: int = 0  # 0 = free, >0 = pacote(s) pago(s)
 
     model_config = {"from_attributes": True}
 
@@ -132,6 +133,7 @@ def _serialize_user(user: User) -> UserMeResponse:
         created_at=user.created_at.isoformat(),
         admin_role=user.admin_role.value if user.admin_role else None,
         has_stripe_subscription=user.stripe_customer_id is not None,
+        teacher_student_slots=user.teacher_student_slots,
     )
 
 

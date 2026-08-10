@@ -129,8 +129,8 @@ function UserActionMenu({
               </button>
             )}
 
-            {/* Alterar plano */}
-            {canChangePlan(adminRole) && (
+            {/* Alterar plano — apenas alunos têm plano free/standard/pro */}
+            {canChangePlan(adminRole) && user.user_type === "student" && (
               <>
                 <div className="border-t border-slate-100 my-1" />
                 <p className="px-4 py-1 text-xs text-slate-400 font-medium uppercase tracking-wide">
@@ -148,6 +148,17 @@ function UserActionMenu({
                       Mudar para {PLAN_LABELS[plan as keyof typeof PLAN_LABELS]}
                     </button>
                   ))}
+              </>
+            )}
+            {canChangePlan(adminRole) && user.user_type === "teacher" && (
+              <>
+                <div className="border-t border-slate-100 my-1" />
+                <p className="px-4 py-1 text-xs text-slate-400 font-medium uppercase tracking-wide">
+                  Plano de professor
+                </p>
+                <p className="px-4 py-2 text-xs text-slate-400 italic">
+                  Gerenciado via pacotes Stripe (slots de alunos)
+                </p>
               </>
             )}
 

@@ -20,6 +20,7 @@ export interface CurrentUser {
   created_at: string;
   admin_role?: AdminRole | null;
   has_stripe_subscription: boolean;
+  teacher_student_slots: number;
 }
 
 export const PLAN_LABELS: Record<UserPlan, string> = {
