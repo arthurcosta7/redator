@@ -193,14 +193,14 @@ export default function InsightsPage() {
                         </div>
                         <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                           <div
-                            className={`h-full rounded-full transition-all ${
+                            className={`h-full w-full origin-left rounded-full ${
                               comp.avg_percentage >= 70
                                 ? "bg-green-400"
                                 : comp.avg_percentage >= 50
                                 ? "bg-amber-400"
                                 : "bg-red-400"
                             }`}
-                            style={{ width: `${comp.avg_percentage}%` }}
+                            style={{ transform: `scaleX(${Math.min(Math.max(comp.avg_percentage, 0), 100) / 100})` }}
                           />
                         </div>
                       </div>

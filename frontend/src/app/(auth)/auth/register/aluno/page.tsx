@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { useSearchParams } from "next/navigation";
@@ -75,7 +75,7 @@ function PasswordStrength({ password }: { password: string }) {
   );
 }
 
-export default function RegisterStudentPage() {
+function RegisterStudentForm() {
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect");
   const loginHref = redirect ? `/auth/login?redirect=${encodeURIComponent(redirect)}` : "/auth/login";
@@ -361,5 +361,19 @@ export default function RegisterStudentPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function RegisterStudentPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-dvh flex items-center justify-center">
+          <Loader2 className="w-6 h-6 text-brand-500 animate-spin" />
+        </div>
+      }
+    >
+      <RegisterStudentForm />
+    </Suspense>
   );
 }

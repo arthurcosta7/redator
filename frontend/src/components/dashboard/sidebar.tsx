@@ -4,7 +4,6 @@ import type React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  PenLine,
   LayoutDashboard,
   FilePlus2,
   ScrollText,
@@ -12,10 +11,8 @@ import {
   Settings,
   X,
   GraduationCap,
-  BookOpen,
   Users,
   BarChart3,
-  Bell,
   TrendingUp,
   Dumbbell,
   Lock,
@@ -93,23 +90,21 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
       <aside
         className={clsx(
-          "fixed top-0 left-0 z-30 h-full w-64 bg-white border-r border-slate-100",
-          "flex flex-col transition-transform duration-300 ease-in-out",
+          "fixed top-0 left-0 z-30 h-full w-64 bg-paper/95 border-r border-ink-line backdrop-blur-xl",
+          "flex flex-col transition-transform duration-500 [transition-timing-function:var(--ease-drawer)]",
           "lg:translate-x-0 lg:static lg:z-auto",
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
         {/* Logo */}
-        <div className="flex items-center justify-between px-5 h-16 border-b border-slate-100">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-7 h-7 bg-brand-700 rounded-lg flex items-center justify-center">
-              <PenLine className="w-3.5 h-3.5 text-white" strokeWidth={2.5} />
-            </div>
-            <span className="font-display font-bold text-lg text-slate-900">Redator</span>
+        <div className="flex items-center justify-between px-5 h-16 border-b border-ink-line">
+          <Link href="/" className="flex items-baseline gap-2">
+            <span className="font-display italic font-medium text-2xl text-ink tracking-tight">Redator</span>
+            <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-ink-muted">painel</span>
           </Link>
           <button
             onClick={onClose}
-            className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 transition-colors"
+            className="lg:hidden p-1.5 rounded text-ink-muted hover:bg-paper-deep hover:text-ink transition-colors"
             aria-label="Fechar menu"
           >
             <X className="w-4 h-4" />
@@ -118,8 +113,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
         {/* Badge de tipo de conta */}
         {isTeacher && (
-          <div className="px-4 py-2.5 border-b border-slate-100">
-            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-purple-700 bg-purple-50 px-2.5 py-1 rounded-full">
+          <div className="px-4 py-3 border-b border-ink-line">
+            <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-accent-deep bg-accent-50 px-2.5 py-1.5 rounded">
               <GraduationCap className="w-3.5 h-3.5" />
               Conta Professor
             </span>
@@ -127,9 +122,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         )}
 
         {/* Nav principal */}
-        <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
-          <p className="px-3 pt-1 pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-            Menu
+        <nav className="flex-1 px-3 py-5 space-y-1 overflow-y-auto">
+          <p className="px-3 pt-1 pb-3 font-mono text-[10px] text-ink-muted uppercase tracking-[0.18em]">
+            Índice
           </p>
           {mainNav.map(({ label, href, icon: Icon, exact, paid }) => {
             const locked = paid && !isPaid;
@@ -138,7 +133,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 key={href}
                 href={href}
                 onClick={onClose}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:bg-slate-50 transition-colors"
+                className="flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium text-ink-muted/60 hover:bg-paper-deep transition-colors"
               >
                 <Icon className="w-4.5 h-4.5 flex-shrink-0 text-slate-300" />
                 <span className="flex-1">{label}</span>
@@ -150,13 +145,13 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 href={href}
                 onClick={onClose}
                 className={clsx(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors",
+                  "flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-colors",
                   isActive(href, exact)
-                    ? "bg-brand-50 text-brand-700"
-                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                    ? "bg-ink text-paper"
+                    : "text-ink-soft hover:bg-paper-deep hover:text-ink"
                 )}
               >
-                <Icon className={clsx("w-4.5 h-4.5 flex-shrink-0", isActive(href, exact) ? "text-brand-600" : "text-slate-400")} />
+                <Icon className={clsx("w-4.5 h-4.5 flex-shrink-0", isActive(href, exact) ? "text-paper/70" : "text-ink-muted")} />
                 {label}
               </Link>
             );
@@ -164,27 +159,27 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         </nav>
 
         {/* Nav inferior */}
-        <div className="p-3 border-t border-slate-100 space-y-0.5">
+        <div className="p-3 border-t border-ink-line space-y-1">
           {botNav.map(({ label, href, icon: Icon }) => (
             <Link
               key={href}
               href={href}
               onClick={onClose}
               className={clsx(
-                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors",
+                "flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-colors",
                 isActive(href)
-                  ? "bg-brand-50 text-brand-700"
-                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  ? "bg-ink text-paper"
+                  : "text-ink-soft hover:bg-paper-deep hover:text-ink"
               )}
             >
-              <Icon className={clsx("w-4.5 h-4.5 flex-shrink-0", isActive(href) ? "text-brand-600" : "text-slate-400")} />
+              <Icon className={clsx("w-4.5 h-4.5 flex-shrink-0", isActive(href) ? "text-paper/70" : "text-ink-muted")} />
               {label}
             </Link>
           ))}
 
           {/* Info do usuário */}
           {user && (
-            <div className="mt-3 px-3 py-3 rounded-xl bg-slate-50">
+            <div className="mt-3 px-3 py-3 rounded bg-paper-deep border border-ink-line">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs text-slate-500 font-medium truncate max-w-[100px]">
                   {user.full_name.split(" ")[0]}

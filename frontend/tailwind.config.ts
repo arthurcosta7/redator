@@ -8,88 +8,109 @@ const config: Config = {
   ],
   theme: {
     extend: {
-      // ─── Sistema de cores do Redator ────────────────────────────
+      // ─── Paleta editorial ─────────────────────────────────────
+      // Substitui o azul genérico de SaaS. Base off-white (papel),
+      // tinta preta, accent burnt sienna (caneta hidrocor de correção).
       colors: {
-        brand: {
-          50:  "#EFF6FF",
-          100: "#DBEAFE",
-          200: "#BFDBFE",
-          300: "#93C5FD",
-          400: "#60A5FA",
-          500: "#3B82F6",
-          600: "#2563EB",
-          700: "#1D4ED8",   // Cor primária
-          800: "#1E40AF",
-          900: "#1E3A8A",   // Cor escura
-          950: "#172554",
+        paper: {
+          DEFAULT: "#FAF7F2",
+          deep: "#F1ECE2",
+        },
+        ink: {
+          DEFAULT: "#0F0E0C",
+          soft: "#3A3735",
+          muted: "#6B6660",
+          line: "rgba(15, 14, 12, 0.15)",
         },
         accent: {
-          400: "#FBBF24",
-          500: "#F59E0B",   // Âmbar — usado em destaques
-          600: "#D97706",
+          50: "#FBF0E9",
+          100: "#F3DED1",
+          200: "#E8C9B5",
+          300: "#DDA785",
+          400: "#CA7950",
+          500: "#B5451B",
+          600: "#9E3A15",
+          700: "#8C330F",
+          800: "#712A12",
+          900: "#5E2513",
+          DEFAULT: "#B5451B",
+          deep: "#8C330F",
+          light: "#E8C9B5",
         },
-        success: {
-          500: "#10B981",
-          100: "#D1FAE5",
+        // Compatibilidade com as telas do produto. O antigo azul de marca
+        // passa a apontar para a mesma tinta terracota da landing page.
+        brand: {
+          50: "#FBF0E9",
+          100: "#F3DED1",
+          200: "#E8C9B5",
+          300: "#DDA785",
+          400: "#CA7950",
+          500: "#B5451B",
+          600: "#9E3A15",
+          700: "#8C330F",
+          800: "#712A12",
+          900: "#5E2513",
         },
-        warning: {
-          500: "#F59E0B",
-          100: "#FEF3C7",
+        purple: {
+          50: "#FBF0E9",
+          100: "#F3DED1",
+          200: "#E8C9B5",
+          300: "#DDA785",
+          400: "#CA7950",
+          500: "#B5451B",
+          600: "#9E3A15",
+          700: "#8C330F",
+          800: "#712A12",
+          900: "#5E2513",
         },
-        danger: {
-          500: "#EF4444",
-          100: "#FEE2E2",
+        violet: {
+          50: "#FBF0E9",
+          100: "#F3DED1",
+          200: "#E8C9B5",
+          300: "#DDA785",
+          400: "#CA7950",
+          500: "#B5451B",
+          600: "#9E3A15",
+          700: "#8C330F",
+          800: "#712A12",
+          900: "#5E2513",
         },
+        // Neutros quentes: mantém as classes existentes e elimina a ruptura
+        // entre a landing editorial e a aplicação interna.
+        slate: {
+          50: "#FAF7F2",
+          100: "#F1ECE2",
+          200: "#E2DACE",
+          300: "#C9BFB2",
+          400: "#918980",
+          500: "#6B6660",
+          600: "#514C47",
+          700: "#3A3735",
+          800: "#262320",
+          900: "#0F0E0C",
+          950: "#090806",
+        },
+        transparent: "transparent",
+        current: "currentColor",
       },
 
-      // ─── Tipografia ───────────────────────────────────────────────
+      // ─── Tipografia ────────────────────────────────────────────
       fontFamily: {
-        // Usamos Next/font para carregar essas fontes de forma otimizada
         sans: ["var(--font-inter)", "system-ui", "sans-serif"],
-        display: ["var(--font-plus-jakarta)", "var(--font-inter)", "sans-serif"],
+        display: ["var(--font-fraunces)", "Georgia", "serif"],
+        mono: ["var(--font-jetbrains)", "ui-monospace", "monospace"],
+        hand: ["var(--font-kalam)", "cursive"],
       },
 
-      // ─── Spacing extra (para classes como w-4.5, h-18 etc.) ──────
-      spacing: {
-        "4.5": "1.125rem",   // 18px — para ícones médios
-        "18": "4.5rem",      // 72px — altura da navbar desktop
-      },
-
-      // ─── Sombras customizadas ─────────────────────────────────────
+      // ─── Sombras neutras (sem tom de cor) ──────────────────────
       boxShadow: {
-        "card": "0 1px 3px 0 rgba(0,0,0,.06), 0 1px 2px -1px rgba(0,0,0,.04)",
-        "card-hover": "0 10px 25px -3px rgba(0,0,0,.08), 0 4px 6px -4px rgba(0,0,0,.05)",
-        "brand": "0 4px 14px 0 rgba(29, 78, 216, 0.25)",
-        "brand-lg": "0 10px 30px -3px rgba(29, 78, 216, 0.3)",
-        "inner-brand": "inset 0 2px 4px 0 rgba(29, 78, 216, 0.1)",
+        "card": "0 1px 2px 0 rgba(15, 14, 12, 0.04), 0 0 0 1px rgba(15, 14, 12, 0.06)",
+        "card-hover": "0 2px 8px 0 rgba(15, 14, 12, 0.06), 0 0 0 1px rgba(15, 14, 12, 0.08)",
       },
-
-      // ─── Animações ────────────────────────────────────────────────
-      animation: {
-        "fade-in": "fadeIn 0.5s ease-in-out",
-        "slide-up": "slideUp 0.4s ease-out",
-        "float": "float 3s ease-in-out infinite",
-      },
-      keyframes: {
-        fadeIn: {
-          "0%": { opacity: "0" },
-          "100%": { opacity: "1" },
-        },
-        slideUp: {
-          "0%": { opacity: "0", transform: "translateY(10px)" },
-          "100%": { opacity: "1", transform: "translateY(0)" },
-        },
-        float: {
-          "0%, 100%": { transform: "translateY(0px)" },
-          "50%": { transform: "translateY(-8px)" },
-        },
-      },
-
-      // ─── Gradientes customizados ──────────────────────────────────
-      backgroundImage: {
-        "brand-gradient": "linear-gradient(135deg, #1D4ED8 0%, #1E3A8A 100%)",
-        "brand-gradient-light": "linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)",
-        "hero-pattern": "radial-gradient(circle at 20% 50%, rgba(29, 78, 216, 0.05) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(59, 130, 246, 0.05) 0%, transparent 50%)",
+      borderRadius: {
+        lg: "0.375rem",
+        xl: "0.5rem",
+        "2xl": "0.75rem",
       },
     },
   },

@@ -1,0 +1,262 @@
+﻿"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
+
+type Plan = {
+  name: string;
+  price: { monthly: number; quarterly: number };
+  quarterlyTotal: number;
+  description: string;
+  audience: string;
+  features: { text: string; included: boolean }[];
+  cta: string;
+  highlighted: boolean;
+};
+
+const plans: Plan[] = [
+  {
+    name: "Free",
+    price: { monthly: 0, quarterly: 0 },
+    quarterlyTotal: 0,
+    description: "Para conhecer e comeÃ§ar a praticar.",
+    audience: "Estudante casual",
+    features: [
+      { text: "1 correÃ§Ã£o por dia", included: true },
+      { text: "Foto para texto (OCR)", included: true },
+      { text: "AnÃ¡lise por competÃªncias", included: true },
+      { text: "Feedback bÃ¡sico", included: true },
+      { text: "Modelos ENEM e Vestibular", included: true },
+      { text: "Sistema de correÃ§Ã£o aprimorado", included: false },
+      { text: "Grife no texto (bom/ruim)", included: false },
+      { text: "Insights avanÃ§ados de melhoria", included: false },
+      { text: "HistÃ³rico completo de evoluÃ§Ã£o", included: false },
+      { text: "Suporte prioritÃ¡rio", included: false },
+    ],
+    cta: "ComeÃ§ar grÃ¡tis",
+    highlighted: false,
+  },
+  {
+    name: "Standard",
+    price: { monthly: 18.99, quarterly: 14.99 },
+    quarterlyTotal: 47.99,
+    description: "Para quem estuda sÃ©rio para ENEM ou vestibular.",
+    audience: "ENEM & Vestibular",
+    features: [
+      { text: "3 correÃ§Ãµes por dia", included: true },
+      { text: "Foto para texto (OCR)", included: true },
+      { text: "AnÃ¡lise por competÃªncias", included: true },
+      { text: "Feedback avanÃ§ado e detalhado", included: true },
+      { text: "Modelos ENEM e Vestibular", included: true },
+      { text: "Sistema de correÃ§Ã£o aprimorado", included: true },
+      { text: "Grife no texto (bom/ruim)", included: true },
+      { text: "Insights avanÃ§ados de melhoria", included: true },
+      { text: "HistÃ³rico completo de evoluÃ§Ã£o", included: true },
+      { text: "Suporte prioritÃ¡rio", included: false },
+    ],
+    cta: "Assinar Standard",
+    highlighted: true,
+  },
+  {
+    name: "Pro",
+    price: { monthly: 29.99, quarterly: 24.99 },
+    quarterlyTotal: 74.99,
+    description: "Para quem nÃ£o pode perder tempo. CorreÃ§Ãµes sem limite.",
+    audience: "Alta performance",
+    features: [
+      { text: "10 correÃ§Ãµes por dia", included: true },
+      { text: "Foto para texto (OCR)", included: true },
+      { text: "AnÃ¡lise por competÃªncias", included: true },
+      { text: "Feedback avanÃ§ado e detalhado", included: true },
+      { text: "Modelos ENEM e Vestibular", included: true },
+      { text: "Sistema de correÃ§Ã£o aprimorado", included: true },
+      { text: "Grife no texto (bom/ruim)", included: true },
+      { text: "Insights avanÃ§ados de melhoria", included: true },
+      { text: "HistÃ³rico completo de evoluÃ§Ã£o", included: true },
+      { text: "Suporte prioritÃ¡rio", included: true },
+    ],
+    cta: "Assinar Pro",
+    highlighted: false,
+  },
+];
+
+export function Pricing() {
+  const [isQuarterly, setIsQuarterly] = useState(false);
+
+  return (
+    <section id="planos" className="section-padding bg-paper border-t border-ink-line">
+      <div className="container-site">
+
+        {/* CabeÃ§alho centralizado */}
+        <header className="text-center max-w-2xl mx-auto mb-16 lg:mb-20">
+          <p className="eyebrow mb-5">Â§ VI â€” Planos</p>
+          <h2 className="font-display font-medium text-4xl sm:text-5xl lg:text-6xl text-ink leading-[1.05] tracking-[-0.01em] mb-5 text-balance">
+            Comece grÃ¡tis. Sem cartÃ£o.
+          </h2>
+          <p className="text-lg text-ink-soft mb-10">
+            Pague sÃ³ quando precisar de mais.
+          </p>
+
+          {/* Toggle â€” links com underline animado, nÃ£o botÃµes em pill */}
+          <div className="inline-flex items-center gap-6 font-mono text-[13px] uppercase tracking-[0.15em]">
+            <button
+              onClick={() => setIsQuarterly(false)}
+              className={cn(
+                "link-underline transition-colors",
+                !isQuarterly ? "text-ink" : "text-ink-muted hover:text-ink-soft"
+              )}
+            >
+              Mensal
+            </button>
+            <span className="text-ink-line">Â·</span>
+            <button
+              onClick={() => setIsQuarterly(true)}
+              className={cn(
+                "link-underline transition-colors flex items-center gap-2",
+                isQuarterly ? "text-ink" : "text-ink-muted hover:text-ink-soft"
+              )}
+            >
+              Trimestral
+              <span className="bg-accent-light text-accent-deep px-2 py-0.5 rounded text-[10px] font-semibold">
+                âˆ’10%
+              </span>
+            </button>
+          </div>
+        </header>
+
+        {/* Cards de plano â€” sem rounded-2xl, com borda accent lateral no destaque */}
+        <div className="grid md:grid-cols-3 gap-0 border border-ink-line">
+
+          {plans.map((plan, idx) => (
+            <motion.article
+              key={plan.name}
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-60px" }}
+              transition={{ duration: 0.5, delay: idx * 0.08, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] }}
+              whileHover={plan.highlighted ? { backgroundColor: "#FAF7F2" } : undefined}
+              className={cn(
+                "relative p-8 lg:p-10 flex flex-col bg-paper transition-colors duration-300",
+                idx > 0 && "border-t md:border-t-0 md:border-l border-ink-line",
+                plan.highlighted && "bg-paper-deep"
+              )}
+            >
+              {/* Borda accent vertical no plano destacado â€” com pulse sutil */}
+              {plan.highlighted && (
+                <div className="absolute top-0 left-0 right-0 h-1 bg-accent pulse-accent" />
+              )}
+
+              {/* Header do plano */}
+              <header className="mb-8">
+                <div className="flex items-baseline justify-between gap-3 mb-3">
+                  <h3 className={cn(
+                    "font-display font-medium text-2xl text-ink"
+                  )}>
+                    {plan.name}
+                  </h3>
+                  <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink-muted whitespace-nowrap">
+                    {plan.audience}
+                  </span>
+                </div>
+                <p className="text-ink-soft text-[15px] leading-relaxed">
+                  {plan.description}
+                </p>
+              </header>
+
+              {/* PreÃ§o */}
+              <div className="mb-8 pb-8 border-b border-ink-line">
+                {plan.price.monthly === 0 ? (
+                  <div>
+                    <p className="font-display italic font-medium text-5xl text-ink leading-none">
+                      GrÃ¡tis
+                    </p>
+                    <p className="font-mono text-xs text-ink-muted uppercase tracking-[0.12em] mt-2">
+                      Para sempre
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="flex items-baseline gap-1">
+                      <span className="font-mono text-xs text-ink-muted uppercase tracking-[0.1em]">
+                        R$
+                      </span>
+                      <span className="font-display font-medium text-6xl text-ink leading-[0.95] tracking-[-0.02em]">
+                        {(isQuarterly
+                          ? plan.price.quarterly
+                          : plan.price.monthly
+                        ).toFixed(2).replace(".", ",")}
+                      </span>
+                      <span className="font-mono text-xs text-ink-muted uppercase tracking-[0.1em] ml-1">
+                        /mÃªs
+                      </span>
+                    </div>
+                    <p className="font-mono text-[11px] text-ink-muted uppercase tracking-[0.1em] mt-3 leading-relaxed">
+                      {isQuarterly ? (
+                        <>R$ {plan.quarterlyTotal.toFixed(2).replace(".", ",")} cobrado a cada 3 meses</>
+                      ) : (
+                        <>ou R$ {plan.price.quarterly.toFixed(2).replace(".", ",")} no trimestral âˆ’10%</>
+                      )}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* CTA */}
+              <Link
+                href={plan.price.monthly === 0
+                  ? "/auth/register"
+                  : `/auth/login?redirect=${encodeURIComponent(`/checkout/${plan.name.toLowerCase()}?periodo=${isQuarterly ? "trimestral" : "mensal"}`)}`
+                }
+                className={cn(
+                  "w-full text-center font-semibold py-3.5 mb-8 transition-colors block",
+                  plan.highlighted
+                    ? "bg-accent hover:bg-accent-deep text-paper"
+                    : "bg-ink hover:bg-ink-soft text-paper"
+                )}
+              >
+                {plan.cta}
+              </Link>
+
+              {/* Lista de features */}
+              <ul className="space-y-3.5 flex-1">
+                {plan.features.map((feature) => (
+                  <li key={feature.text} className="flex items-start gap-3 text-[14px]">
+                    <span className={cn(
+                      "font-mono text-xs mt-1 shrink-0 w-4",
+                      feature.included ? "text-accent" : "text-ink-muted/40"
+                    )}>
+                      {feature.included ? "+" : "âˆ’"}
+                    </span>
+                    <span className={cn(
+                      "leading-snug",
+                      feature.included ? "text-ink" : "text-ink-muted line-through decoration-1 decoration-ink-muted/30"
+                    )}>
+                      {feature.text}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </motion.article>
+          ))}
+        </div>
+
+        {/* RodapÃ© */}
+        <div className="mt-10 flex flex-col sm:flex-row items-center justify-between gap-4
+                        max-w-3xl mx-auto text-sm text-ink-muted">
+          <p className="flex items-center gap-2 font-mono text-[12px] uppercase tracking-[0.1em]">
+            7 dias de garantia &nbsp;Â·&nbsp; cancelamento sem complicaÃ§Ã£o
+          </p>
+          <Link
+            href="/auth/register?type=teacher"
+            className="text-accent hover:text-accent-deep font-medium link-underline text-[14px]"
+          >
+            Ã‰ professor? Acesso gratuito â†’
+          </Link>
+        </div>
+
+      </div>
+    </section>
+  );
+}

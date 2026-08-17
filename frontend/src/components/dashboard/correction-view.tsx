@@ -50,8 +50,8 @@ function ScoreBar({
       )}
       <div className={`w-full rounded-full bg-slate-100 ${size === "sm" ? "h-1.5" : "h-2"}`}>
         <div
-          className={`h-full rounded-full transition-all duration-700 ${color}`}
-          style={{ width: `${pct}%` }}
+          className={`h-full w-full origin-left rounded-full ${color}`}
+          style={{ transform: `scaleX(${Math.min(Math.max(pct, 0), 100) / 100})` }}
         />
       </div>
     </div>
@@ -167,7 +167,7 @@ function TotalScore({ score, max }: { score: number; max: number }) {
             strokeLinecap="round"
             strokeDasharray={circumference}
             strokeDashoffset={offset}
-            style={{ transition: "stroke-dashoffset 1s ease-in-out" }}
+            style={{ transition: "stroke-dashoffset 1s cubic-bezier(0.77, 0, 0.175, 1)" }}
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">

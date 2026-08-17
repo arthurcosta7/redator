@@ -1,109 +1,132 @@
-import { Star } from "lucide-react";
+"use client";
+
+import { motion } from "framer-motion";
 
 const testimonials = [
   {
     name: "Beatriz F.",
-    role: "Aprovada em Medicina — FUVEST",
-    initials: "BF",
-    bg: "bg-brand-100 text-brand-800",
-    rating: 5,
-    text: "Eu ficava mandando redação pro cursinho e esperando semanas. Quando chegava o feedback era uma folha com três comentários genéricos. Aqui é diferente — você vê exatamente qual parágrafo tem problema e por quê.",
+    context: "Aprovada em Medicina — FUVEST 2024",
+    quote:
+      "Eu ficava mandando redação pro cursinho e esperando semanas. Quando chegava o feedback era uma folha com três comentários genéricos. Aqui é diferente — você vê exatamente qual parágrafo tem problema e por quê.",
+    featured: true,
   },
   {
     name: "Lucas M.",
-    role: "3º ano do Ensino Médio — SP",
-    initials: "LM",
-    bg: "bg-violet-100 text-violet-800",
-    rating: 4,
-    text: "Honestamente não esperava que ia ajudar tanto. Descobri que eu começava todo parágrafo de conclusão com 'Portanto' ou 'Sendo assim'. Parece besta, mas nunca ninguém tinha me apontado isso antes.",
+    context: "3º ano do Ensino Médio — São Paulo",
+    quote:
+      "Honestamente, não esperava que fosse ajudar tanto. Descobri que eu começava todo parágrafo de conclusão com “Portanto” ou “Sendo assim”. Parece bobo, mas nunca ninguém tinha me apontado isso antes.",
   },
   {
     name: "Ana P.",
-    role: "Aprovada em Direito — USP",
-    initials: "AP",
-    bg: "bg-emerald-100 text-emerald-800",
-    rating: 5,
-    text: "Fiz mais de 60 redações nos dois meses antes do ENEM. Não teria conseguido sem um retorno rápido. Não é substituto de professor, mas pra treino constante é exatamente o que precisava.",
+    context: "Aprovada em Direito — USP 2023",
+    quote:
+      "Fiz mais de sessenta redações nos dois meses antes do ENEM. Não teria conseguido sem um retorno rápido. Não é substituto de professor, mas pra treino constante é exatamente o que precisava.",
   },
   {
     name: "Gabriel T.",
-    role: "Professor de Redação — SP",
-    initials: "GT",
-    bg: "bg-amber-100 text-amber-800",
-    rating: 5,
-    text: "Uso para acompanhar minhas turmas. Consigo ver rapidamente quem está com dificuldade em qual competência, sem precisar ler cada texto do zero. Isso me sobrou tempo pra me dedicar às dúvidas que realmente precisam de mim.",
+    context: "Professor de Redação — São Paulo",
+    quote:
+      "Uso para acompanhar minhas turmas. Consigo ver rapidamente quem está com dificuldade em qual competência, sem precisar ler cada texto do zero. Sobrou tempo pra me dedicar às dúvidas que realmente precisam de mim.",
   },
   {
     name: "Camila S.",
-    role: "Cursinho pré-vestibular — RJ",
-    initials: "CS",
-    bg: "bg-pink-100 text-pink-800",
-    rating: 4,
-    text: "Já testei dois outros serviços parecidos. Os feedbacks eram vagos demais. Aqui o comentário sobre a C5 foi tão específico que em três redações eu já tinha melhorado bastante nessa competência.",
+    context: "Cursinho pré-vestibular — Rio de Janeiro",
+    quote:
+      "Já testei dois outros serviços parecidos. Os feedbacks eram vagos demais. Aqui o comentário sobre a C5 foi tão específico que em três redações eu já tinha melhorado bastante nessa competência.",
   },
   {
     name: "Felipe N.",
-    role: "Aprovado em Engenharia — UNICAMP",
-    initials: "FN",
-    bg: "bg-blue-100 text-blue-800",
-    rating: 5,
-    text: "Minha C5 sempre foi fraca. O problema era que eu propunha a solução mas não dizia quem ia executar. Parece óbvio depois que te falam, mas eu nunca tinha percebido sozinho. A nota nessa competência subiu bastante depois disso.",
+    context: "Aprovado em Engenharia — UNICAMP 2024",
+    quote:
+      "Minha C5 sempre foi fraca. O problema era que eu propunha a solução mas não dizia quem ia executar. Parece óbvio depois que te falam, mas eu nunca tinha percebido sozinho. A nota nessa competência subiu bastante.",
   },
 ];
 
-function Stars({ count }: { count: number }) {
-  return (
-    <div className="flex items-center gap-0.5">
-      {Array.from({ length: 5 }).map((_, i) => (
-        <Star key={i}
-          className={`w-3 h-3 ${i < count ? "fill-amber-400 text-amber-400" : "text-slate-200 fill-slate-200"}`}
-        />
-      ))}
-    </div>
-  );
-}
-
 export function Testimonials() {
+  const featured = testimonials.find((t) => t.featured)!;
+  const rest = testimonials.filter((t) => !t.featured);
+
   return (
-    <section className="section-padding bg-slate-50">
+    <section className="section-padding bg-paper border-t border-ink-line">
       <div className="container-site">
 
-        <div className="mb-12">
-          <h2 className="font-display font-bold text-4xl lg:text-5xl text-slate-900 mb-3">
-            O que dizem quem usa
+        {/* Cabeçalho */}
+        <motion.header
+          initial={{ opacity: 0, transform: "translateY(12px)" }}
+          whileInView={{ opacity: 1, transform: "translateY(0)" }}
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] as [number, number, number, number] }}
+          className="mb-16 lg:mb-20 max-w-3xl"
+        >
+          <p className="eyebrow mb-5">§ IV — Vozes</p>
+          <h2 className="font-display font-semibold text-4xl sm:text-5xl lg:text-6xl text-ink leading-[1.05] tracking-[-0.01em] text-balance">
+            O que dizem quem usa.
           </h2>
-          <p className="text-slate-500 text-lg">
-            Estudantes e professores que fazem parte da plataforma.
-          </p>
-        </div>
+        </motion.header>
 
-        {/* Grade */}
-        <div className="columns-1 sm:columns-2 lg:columns-3 gap-6 space-y-6">
-          {testimonials.map((t) => (
-            <div key={t.name}
-                 className="break-inside-avoid bg-white rounded-2xl border border-slate-100
-                            shadow-card p-6">
-
-              {/* Autor */}
-              <div className="flex items-center gap-3 mb-4">
-                <div className={`w-9 h-9 rounded-full ${t.bg} flex items-center justify-center
-                                 text-xs font-bold shrink-0`}>
-                  {t.initials}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-slate-900">{t.name}</p>
-                  <p className="text-xs text-slate-400 truncate">{t.role}</p>
-                </div>
-                <Stars count={t.rating} />
-              </div>
-
-              {/* Texto */}
-              <p className="text-slate-600 text-sm leading-relaxed">
-                &ldquo;{t.text}&rdquo;
+        {/* Quote destaque */}
+        <motion.figure
+          initial={{ opacity: 0, transform: "translateY(16px)" }}
+          whileInView={{ opacity: 1, transform: "translateY(0)" }}
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] as [number, number, number, number] }}
+          className="mb-20 lg:mb-24 pb-12 border-b border-ink-line"
+        >
+          <blockquote className="grid lg:grid-cols-12 gap-8">
+            <div className="lg:col-span-2">
+              <p className="font-display italic font-medium text-7xl lg:text-8xl text-accent leading-none">
+                “
               </p>
             </div>
+            <div className="lg:col-span-10">
+              <p className="font-display font-medium text-2xl sm:text-3xl lg:text-4xl text-ink leading-[1.25] tracking-[-0.005em] text-balance">
+                {featured.quote}
+              </p>
+              <figcaption className="mt-8 flex items-center gap-4">
+                <span className="h-px w-10 bg-ink" />
+                <div>
+                  <p className="font-display font-medium text-base text-ink">
+                    {featured.name}
+                  </p>
+                  <p className="font-mono text-xs text-ink-muted uppercase tracking-[0.12em] mt-0.5">
+                    {featured.context}
+                  </p>
+                </div>
+              </figcaption>
+            </div>
+          </blockquote>
+        </motion.figure>
+
+        {/* Lista vertical compacta — sem cards, sem estrelas, sem avatares */}
+        <ol className="space-y-0 divide-y divide-ink-line border-y border-ink-line">
+          {rest.map((t, i) => (
+            <motion.li
+              key={t.name}
+              initial={{ opacity: 0, transform: "translateY(12px)" }}
+              whileInView={{ opacity: 1, transform: "translateY(0)" }}
+              viewport={{ once: true, margin: "-60px" }}
+              transition={{ duration: 0.45, delay: i * 0.06, ease: [0.23, 1, 0.32, 1] as [number, number, number, number] }}
+              className="grid grid-cols-12 gap-6 lg:gap-10 py-10 lg:py-12"
+            >
+              <span className="col-span-2 sm:col-span-1 font-mono text-xs text-ink-muted pt-1">
+                0{i + 2}
+              </span>
+              <blockquote className="col-span-10 sm:col-span-8">
+                <p className="font-display italic text-xl lg:text-2xl text-ink leading-[1.4] text-balance">
+                  “{t.quote}”
+                </p>
+              </blockquote>
+              <figcaption className="col-span-12 sm:col-span-3 sm:pl-6 sm:border-l border-ink-line pt-2 sm:pt-1">
+                <p className="font-display font-medium text-base text-ink">
+                  {t.name}
+                </p>
+                <p className="font-mono text-[11px] text-ink-muted uppercase tracking-[0.12em] mt-1 leading-relaxed">
+                  {t.context}
+                </p>
+              </figcaption>
+            </motion.li>
           ))}
-        </div>
+        </ol>
 
       </div>
     </section>

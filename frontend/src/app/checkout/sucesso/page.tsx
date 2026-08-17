@@ -5,7 +5,7 @@ import { CheckCircle2 } from "lucide-react";
 
 export default function CheckoutSucessoPage() {
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+    <main id="conteudo-principal" className="app-canvas min-h-dvh flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-10 w-full max-w-md text-center">
         <CheckCircle2 className="w-14 h-14 text-green-500 mx-auto mb-5" />
         <h1 className="font-display font-bold text-2xl text-slate-900 mb-2">
@@ -22,6 +22,6 @@ export default function CheckoutSucessoPage() {
           Ir para o dashboard →
         </Link>
       </div>
-    </div>
+    </main>
   );
 }

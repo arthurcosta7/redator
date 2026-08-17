@@ -4,27 +4,51 @@
 
 /* ─── Variáveis CSS globais ─────────────────────────────────────────── */
 :root {
-  --radius: 0.625rem;
+  --radius: 0.25rem;
+  --paper: #FAF7F2;
+  --paper-deep: #F1ECE2;
+  --ink: #0F0E0C;
+  --ink-soft: #3A3735;
+  --ink-muted: #6B6660;
+  --accent: #B5451B;
+  --accent-deep: #8C330F;
+  --accent-light: #E8C9B5;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --duration-fast: 160ms;
+  --duration-ui: 200ms;
+  /* Cores funcionais para grifes */
+  --good-bg: #DCEFD3;
+  --good-fg: #1F4D1A;
+  --bad-bg: #F8D6D2;
+  --bad-fg: #7A1F12;
 }
 
 /* ─── Reset e base ──────────────────────────────────────────────────── */
 @layer base {
-  * {
-    @apply border-slate-200;
-  }
-
   html {
     scroll-behavior: smooth;
+    overflow-x: clip;
   }
 
   body {
-    @apply text-slate-900 bg-white;
+    @apply text-ink bg-paper font-sans;
+    font-weight: 400;
     font-feature-settings: "rlig" 1, "calt" 1;
+    min-height: 100dvh;
   }
 
-  /* Tipografia dos headings — usa Plus Jakarta Sans */
+  /* Tipografia dos headings — Fraunces (serif editorial) com mais peso para calor */
   h1, h2, h3, h4, h5, h6 {
     @apply font-display;
+    font-weight: 600;
+    font-feature-settings: "ss01", "ss02";
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
   }
 
   /* Links acessíveis */
@@ -33,37 +57,257 @@
   input:focus-visible,
   textarea:focus-visible,
   select:focus-visible {
-    @apply outline-none ring-2 ring-brand-600 ring-offset-2;
+    @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-paper;
+  }
+
+  /* Seleção de texto — accent */
+  ::selection {
+    background-color: var(--accent);
+    color: var(--paper);
   }
 }
 
 /* ─── Componentes reutilizáveis ─────────────────────────────────────── */
 @layer components {
-  /* Container padrão */
   .container-site {
-    @apply mx-auto max-w-7xl px-4 sm:px-6 lg:px-8;
+    @apply mx-auto max-w-7xl px-5 sm:px-8 lg:px-10;
   }
 
-  /* Gradiente de texto */
-  .text-gradient {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-brand-700 to-brand-500;
-  }
-
-  /* Section padding padrão */
   .section-padding {
-    @apply py-16 sm:py-20 lg:py-24;
+    @apply py-20 sm:py-28 lg:py-32;
   }
 
-  /* Card base */
-  .card {
-    @apply bg-white rounded-2xl border border-slate-100 shadow-card
-           transition-all duration-200 hover:shadow-card-hover;
+  .eyebrow {
+    @apply font-mono text-[11px] uppercase tracking-[0.18em] text-ink-muted;
+  }
+
+  .rule {
+    @apply relative h-px w-full bg-ink/15;
+  }
+
+  .rule-indent::before,
+  .rule-indent::after {
+    content: "";
+    @apply absolute top-1/2 -translate-y-1/2 h-px w-12 bg-ink/15;
+  }
+  .rule-indent::before {
+    @apply left-0;
+  }
+  .rule-indent::after {
+    @apply right-0;
+  }
+
+  .link-underline {
+    @apply relative inline-block;
+  }
+  .link-underline::after {
+    content: "";
+    @apply absolute left-0 right-0 -bottom-0.5 h-px bg-current origin-right scale-x-0;
+    transition: transform 200ms var(--ease-out);
+  }
+  .link-underline:hover::after {
+    @apply origin-left scale-x-100;
+  }
+
+  /* Grifes na redação exemplo */
+  .grife-good {
+    position: relative;
+    background-color: var(--good-bg);
+    color: var(--good-fg);
+    border-radius: 2px;
+    padding: 0 3px;
+    cursor: help;
+    text-decoration: underline solid 2px currentColor;
+    text-underline-offset: 0.15em;
+    transition: background-color 200ms ease;
+  }
+  .grife-good::before {
+    content: "✓ ";
+    font-weight: 700;
+  }
+  .grife-good:hover {
+    background-color: #C5DDB8;
+  }
+  .grife-bad {
+    position: relative;
+    background-color: var(--bad-bg);
+    color: var(--bad-fg);
+    border-radius: 2px;
+    padding: 0 3px;
+    cursor: help;
+    text-decoration: underline wavy 2px currentColor;
+    text-underline-offset: 0.18em;
+    transition: background-color 200ms ease;
+  }
+  .grife-bad::before {
+    content: "⚠ ";
+    font-weight: 700;
+  }
+  .grife-bad:hover {
+    background-color: #F4BFB8;
+  }
+
+  /* Anchor de tooltip com ponte invisível que cobre o gap entre a grife e
+     o balão. Sem a ponte, o mouse "sai" da grife antes de entrar no balão
+     (que é pointer-events-none) e o balão desaparece. O ::before cria
+     uma camada sólida invisível estendendo a área de hover até o balão. */
+  .tip-anchor {
+    position: relative;
+  }
+  .tip-anchor:focus {
+    outline: none;
+  }
+  /* Ponte invisível entre o span e o balão (que está acima dele). */
+  .tip-anchor::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 100%;
+    height: 0.75rem; /* cobre o mb-2 do balão + folga */
+    pointer-events: auto;
+  }
+
+  /* Balão do tooltip — começa invisível; aparece no hover/focus do anchor. */
+  .tip-bubble {
+    opacity: 0;
+    transform: translate(-50%, -4px);
+    transition:
+      opacity 150ms var(--ease-out),
+      transform 150ms var(--ease-out);
+    pointer-events: none;
+  }
+  .tip-anchor:hover .tip-bubble,
+  .tip-anchor:focus-visible .tip-bubble {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+
+  @media (max-width: 639px) {
+    .tip-bubble {
+      position: fixed !important;
+      left: 1rem !important;
+      right: 1rem !important;
+      bottom: 1rem !important;
+      width: auto !important;
+      transform: translateY(8px) !important;
+      z-index: 60 !important;
+    }
+
+    .tip-anchor:hover .tip-bubble,
+    .tip-anchor:focus-visible .tip-bubble {
+      transform: translateY(0) !important;
+    }
+  }
+
+  /* Cursor de digitação para a demo animada */
+  .caret::after {
+    content: "";
+    @apply inline-block w-[2px] h-[1.05em] bg-ink align-middle ml-0.5 -mb-0.5;
+    animation: caretBlink 1s steps(1) infinite;
+  }
+
+  /* Régua de caderno (para a seção manuscrito) */
+  .caderno {
+    background-image: repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 31px,
+      rgba(15, 14, 12, 0.10) 31px,
+      rgba(15, 14, 12, 0.10) 32px
+    );
+    background-color: #FFFCF5;
+  }
+
+  /* Superfície compartilhada do produto: papel, luz quente e grade editorial. */
+  .app-canvas {
+    position: relative;
+    isolation: isolate;
+    background-color: var(--paper);
+    background-image:
+      radial-gradient(circle at 92% 4%, rgba(181, 69, 27, 0.075), transparent 28rem),
+      linear-gradient(rgba(15, 14, 12, 0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(15, 14, 12, 0.025) 1px, transparent 1px);
+    background-size: auto, 4rem 4rem, 4rem 4rem;
+  }
+
+  .app-canvas::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    opacity: 0.035;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
+  }
+
+  .auth-shell > div {
+    background-color: transparent;
+  }
+
+  .auth-shell > div > .bg-white,
+  .auth-shell .bg-white.shadow-card {
+    background: rgba(255, 253, 249, 0.9);
+    border-color: rgba(15, 14, 12, 0.11);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.8) inset,
+      0 18px 56px rgba(81, 49, 31, 0.07);
+    backdrop-filter: blur(18px);
+  }
+
+  .product-surface {
+    background: rgba(255, 253, 249, 0.86);
+    border-color: rgba(15, 14, 12, 0.1);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.72) inset,
+      0 12px 36px rgba(81, 49, 31, 0.055);
+    backdrop-filter: blur(18px);
+  }
+
+  .ui-popover {
+    transform-origin: top right;
+    transition:
+      opacity 200ms var(--ease-out),
+      transform 200ms var(--ease-out);
+  }
+
+  @starting-style {
+    .ui-popover {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+  }
+
+  .mobile-menu-enter {
+    transform-origin: top;
+    transition:
+      opacity 200ms var(--ease-out),
+      transform 200ms var(--ease-out);
+  }
+
+  @starting-style {
+    .mobile-menu-enter {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+  }
+
+  .scroll-reveal {
+    clip-path: inset(0 0 100% 0);
+    transition: clip-path 600ms var(--ease-in-out);
+  }
+
+  .scroll-reveal[data-visible="true"] {
+    clip-path: inset(0 0 0 0);
+  }
+
+  .page-enter {
+    animation: pageEnter 220ms var(--ease-out) both;
   }
 }
 
 /* ─── Utilitários ───────────────────────────────────────────────────── */
 @layer utilities {
-  /* Esconde scrollbar mas mantém funcionalidade */
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
@@ -72,8 +316,111 @@
     display: none;
   }
 
-  /* Texto balanceado para headings */
   .text-balance {
     text-wrap: balance;
+  }
+
+  .drop-cap::first-letter {
+    @apply font-display float-left mr-3 mt-1 leading-[0.85] text-ink;
+    font-size: 5.5rem;
+    font-weight: 600;
+  }
+
+  /* Live region (acessibilidade) */
+  .live-region {
+    @apply sr-only;
+  }
+
+  /* Animação de digitação cursor */
+  @keyframes caretBlink {
+    0%, 50%   { opacity: 1; }
+    51%, 100% { opacity: 0; }
+  }
+
+  /* Shimmer sutil para estado "analisando" */
+  @keyframes shimmer {
+    0%   { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(181, 69, 27, 0.15) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.6s linear infinite;
+  }
+
+  /* Pulse do accent border no card destacado do pricing */
+  @keyframes pulseAccent {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(181, 69, 27, 0.0); }
+    50%      { box-shadow: 0 0 0 6px rgba(181, 69, 27, 0.18); }
+  }
+  .pulse-accent {
+    animation: pulseAccent 3.5s ease-in-out infinite;
+  }
+
+  @keyframes pageEnter {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Live region para a demo */
+}
+
+/* Feedback físico curto para controles; hover só existe em dispositivos precisos. */
+button:not(:disabled):not([class*="translate"]),
+a[class*="bg-brand-"],
+a[class*="bg-ink"],
+a[class*="bg-accent"] {
+  transition-property: color, background-color, border-color, opacity, transform, box-shadow;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
+}
+
+button:not(:disabled):not([class*="translate"]):active,
+a[class*="bg-brand-"]:active,
+a[class*="bg-ink"]:active,
+a[class*="bg-accent"]:active {
+  transform: scale(0.97);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .interactive-lift:hover {
+    transform: translateY(-2px);
+  }
+}
+
+/* ─── Reduced motion: mantém feedback por cor/opacidade, remove deslocamento ─ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .scroll-reveal,
+  .scroll-reveal[data-visible="true"] {
+    clip-path: none;
+  }
+
+  .page-enter {
+    animation-name: reducedPageEnter;
+  }
+
+  @keyframes reducedPageEnter {
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
 }

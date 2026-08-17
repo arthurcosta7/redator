@@ -31,7 +31,7 @@ export default function RegisterTypePage() {
             href="/auth/register/aluno"
             className="group flex flex-col items-center gap-3 p-6 rounded-xl border-2
                        border-slate-200 hover:border-brand-500 hover:bg-brand-50/50
-                       transition-all duration-200 cursor-pointer"
+                       transition-[border-color,background-color,color,transform] duration-200 cursor-pointer"
           >
             <div className="w-14 h-14 bg-brand-50 group-hover:bg-brand-100
                             rounded-2xl flex items-center justify-center transition-colors">
@@ -52,7 +52,7 @@ export default function RegisterTypePage() {
             href="/auth/register/professor"
             className="group flex flex-col items-center gap-3 p-6 rounded-xl border-2
                        border-slate-200 hover:border-violet-500 hover:bg-violet-50/50
-                       transition-all duration-200 cursor-pointer"
+                       transition-[border-color,background-color,color,transform] duration-200 cursor-pointer"
           >
             <div className="w-14 h-14 bg-violet-50 group-hover:bg-violet-100
                             rounded-2xl flex items-center justify-center transition-colors">

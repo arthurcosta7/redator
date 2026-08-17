@@ -15,13 +15,9 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useUser();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Painel admin tem layout próprio — não envolve com sidebar/topbar do aluno
-  if (pathname.startsWith("/dashboard/admin")) {
-    return <>{children}</>;
-  }
-
   // Redirect baseado em tipo de conta (só após carregar o usuário)
   useEffect(() => {
+    if (pathname.startsWith("/dashboard/admin")) return;
     if (isLoading || !user) return;
 
     const isTeacher = user.user_type === "teacher";
@@ -45,8 +41,14 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
     }
   }, [user, isLoading, pathname, router]);
 
+  // Painel admin tem layout próprio — não envolve com sidebar/topbar do aluno.
+  // Mantido depois dos hooks para preservar a ordem de execução do React.
+  if (pathname.startsWith("/dashboard/admin")) {
+    return <>{children}</>;
+  }
+
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden">
+    <div className="app-canvas flex min-h-dvh h-dvh overflow-hidden">
       {/* Sidebar */}
       <Sidebar
         isOpen={sidebarOpen}
@@ -56,8 +58,10 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
       {/* Conteúdo principal */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Topbar onMenuClick={() => setSidebarOpen(true)} />
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
-          {children}
+        <main id="conteudo-principal" className="flex-1 overflow-y-auto px-4 py-6 sm:px-7 sm:py-8 lg:px-10">
+          <div key={pathname} className="page-enter">
+            {children}
+          </div>
         </main>
       </div>
     </div>

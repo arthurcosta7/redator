@@ -103,7 +103,7 @@ export default function SimuladosPage() {
                 <button
                   key={type}
                   onClick={() => { setSelectedType(type); setSimulado(null); }}
-                  className={`p-4 rounded-2xl border-2 text-left transition-all ${
+                  className={`p-4 rounded-2xl border-2 text-left transition-[border-color,background-color,color,transform] ${
                     isActive ? cfg.activeColor : `${cfg.color} hover:opacity-80`
                   }`}
                 >

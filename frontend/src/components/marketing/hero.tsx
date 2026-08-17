@@ -1,204 +1,105 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, Star } from "lucide-react";
+import { motion } from "framer-motion";
+import { ArrowRight } from "lucide-react";
+import { LiveCorrectionDemo } from "./live-correction-demo";
 
-function EssayCorrectionMockup() {
-  return (
-    <div className="relative">
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-[0_20px_60px_-10px_rgba(0,0,0,0.12)] overflow-hidden">
-        {/* Header */}
-        <div className="px-5 py-3.5 border-b border-slate-100 flex items-center gap-3">
-          <div className="flex gap-1.5">
-            <div className="w-3 h-3 rounded-full bg-red-400" />
-            <div className="w-3 h-3 rounded-full bg-yellow-400" />
-            <div className="w-3 h-3 rounded-full bg-green-400" />
-          </div>
-          <span className="text-xs text-slate-400 font-medium">Correção — Modelo ENEM</span>
-          <div className="ml-auto flex items-center gap-1.5 bg-green-50 px-2 py-1 rounded-full">
-            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-xs text-green-700 font-medium">Corrigida</span>
-          </div>
-        </div>
-
-        {/* Texto com grifes */}
-        <div className="px-5 py-4">
-          <p className="text-sm text-slate-600 leading-relaxed">
-            <span className="bg-green-100 text-green-900 rounded px-0.5 cursor-help"
-                  title="✓ Bom uso de argumento de autoridade">
-              Segundo dados do IBGE (2023)
-            </span>
-            , o Brasil ocupa a 79ª posição no ranking mundial de educação.{" "}
-            <span className="bg-red-100 text-red-900 rounded px-0.5 cursor-help"
-                  title="⚠ Conectivo inadequado para iniciar conclusão">
-              Então, é necessário
-            </span>{" "}
-            que o governo tome providências imediatas.{" "}
-            <span className="bg-green-100 text-green-900 rounded px-0.5 cursor-help"
-                  title="✓ Boa contextualização do tema">
-              A violência e a desigualdade social são fatores que agravam esse cenário
-            </span>
-            , tornando urgente a reflexão sobre políticas públicas eficazes...
-          </p>
-        </div>
-
-        {/* Competências */}
-        <div className="px-5 pb-4 space-y-2.5">
-          {[
-            { label: "C1 — Linguagem formal", score: 160, max: 200, color: "bg-brand-600" },
-            { label: "C2 — Desenvolvimento do tema", score: 160, max: 200, color: "bg-brand-600" },
-            { label: "C3 — Argumentação", score: 120, max: 200, color: "bg-amber-500" },
-            { label: "C4 — Coesão e coerência", score: 120, max: 200, color: "bg-amber-500" },
-            { label: "C5 — Proposta de intervenção", score: 120, max: 200, color: "bg-amber-500" },
-          ].map((comp) => (
-            <div key={comp.label} className="flex items-center gap-2">
-              <span className="text-xs text-slate-500 w-44 shrink-0 truncate">{comp.label}</span>
-              <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                <div className={`h-full ${comp.color} rounded-full`}
-                     style={{ width: `${(comp.score / comp.max) * 100}%` }} />
-              </div>
-              <span className="text-xs font-semibold text-slate-700 w-14 text-right shrink-0">
-                {comp.score}/200
-              </span>
-            </div>
-          ))}
-        </div>
-
-        {/* Nota */}
-        <div className="mx-5 mb-5 p-4 bg-brand-50 rounded-xl flex items-center justify-between">
-          <div>
-            <p className="text-xs text-slate-500 font-medium">Nota Final</p>
-            <p className="text-3xl font-display font-bold text-brand-700">
-              680<span className="text-lg text-slate-400 font-normal">/1000</span>
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs text-slate-500">Nível</p>
-            <p className="text-sm font-semibold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full">
-              Intermediário
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Card flutuante — sugestão */}
-      <div className="absolute -bottom-4 -left-4 bg-white rounded-xl border border-slate-100
-                      shadow-card-hover p-3 flex items-center gap-3 max-w-[210px]">
-        <div className="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center shrink-0 text-base">
-          💡
-        </div>
-        <p className="text-xs text-slate-600 leading-tight">
-          <span className="font-semibold text-slate-800">C5 fraca:</span>{" "}
-          faltou indicar quem executa a solução
-        </p>
-      </div>
-    </div>
-  );
-}
+const enterEase = [0.23, 1, 0.32, 1] as [number, number, number, number];
 
 export function Hero() {
   return (
-    <section className="relative min-h-[90vh] flex items-center pt-20 pb-16
-                        bg-hero-pattern overflow-hidden">
+    <section className="relative pt-28 lg:pt-36 pb-16 lg:pb-24 bg-paper">
+      <div className="container-site">
 
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-1/4 right-0 w-96 h-96 bg-brand-50 rounded-full
-                        blur-3xl opacity-60 translate-x-1/2" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-50 rounded-full
-                        blur-3xl opacity-40 -translate-x-1/4" />
-      </div>
+        {/* Eyebrow */}
+        <motion.div
+          initial={{ opacity: 0, transform: "translateY(8px)" }}
+          animate={{ opacity: 1, transform: "translateY(0)" }}
+          transition={{ duration: 0.5, ease: enterEase }}
+          className="flex items-center gap-3 mb-8 lg:mb-10"
+        >
+          <span className="eyebrow">Nº 01 — Edição de agosto</span>
+          <span className="hidden sm:block flex-1 max-w-[120px] h-px bg-ink-line" />
+        </motion.div>
 
-      <div className="container-site relative">
-        <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+        <div className="grid lg:grid-cols-12 gap-12 lg:gap-16 items-start">
 
-          {/* Texto */}
-          <div className="space-y-7 animate-fade-in">
-
+          {/* Texto principal */}
+          <div className="lg:col-span-7 space-y-7">
             {/* Headline */}
-            <div className="space-y-5">
-              <h1 className="font-display font-bold text-5xl lg:text-6xl xl:text-7xl
-                             text-slate-900 leading-[1.08] tracking-tight text-balance">
-                Saiba onde
-                <br />
-                você está
-                <br />
-                <span className="text-gradient">errando.</span>
-              </h1>
+            <motion.h1
+              initial={{ opacity: 0, transform: "translateY(12px)" }}
+              animate={{ opacity: 1, transform: "translateY(0)" }}
+              transition={{ duration: 0.55, ease: enterEase, delay: 0.1 }}
+              className="font-display font-semibold text-[2.65rem] sm:text-6xl lg:text-7xl xl:text-[5.25rem]
+                         text-ink leading-[1.04] tracking-[-0.015em] text-balance"
+            >
+              Sua redação corrigida em menos de um minuto.
+            </motion.h1>
 
-              <p className="text-lg lg:text-xl text-slate-500 leading-relaxed max-w-lg">
-                Corrija sua redação e receba um retorno completo —
-                nota por competência, grifes no texto e o que exatamente mudar.
-                Tudo em menos de um minuto.
-              </p>
-            </div>
+            {/* Subhead */}
+            <motion.p
+              initial={{ opacity: 0, transform: "translateY(12px)" }}
+              animate={{ opacity: 1, transform: "translateY(0)" }}
+              transition={{ duration: 0.55, ease: enterEase, delay: 0.2 }}
+              className="text-lg lg:text-xl text-ink-soft leading-[1.55] max-w-xl font-sans"
+            >
+              Envie o texto ou foto. A plataforma devolve grife nos trechos, nota por competência e o que mudar da próxima vez — sem esperar o cursinho devolver em duas semanas.
+            </motion.p>
 
             {/* CTAs */}
-            <div className="flex flex-col sm:flex-row gap-3">
+            <motion.div
+              initial={{ opacity: 0, transform: "translateY(12px)" }}
+              animate={{ opacity: 1, transform: "translateY(0)" }}
+              transition={{ duration: 0.55, ease: enterEase, delay: 0.3 }}
+              className="flex flex-col sm:flex-row sm:items-center gap-5 pt-2"
+            >
               <Link
                 href="/auth/register"
-                className="inline-flex items-center justify-center gap-2 bg-brand-700
-                           hover:bg-brand-800 text-white font-semibold px-7 py-3.5
-                           rounded-xl shadow-brand hover:shadow-brand-lg
-                           transition-all duration-200 text-base group"
+                className="inline-flex items-center justify-center gap-2.5 bg-accent hover:bg-accent-deep
+                           text-paper font-semibold px-7 py-4 rounded text-[17px]
+                           transition-colors group w-fit interactive-lift"
               >
                 Começar grátis
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" strokeWidth={2.25} />
               </Link>
               <a
                 href="#como-funciona"
-                className="inline-flex items-center justify-center gap-2 bg-white
-                           hover:bg-slate-50 text-slate-700 font-semibold px-7 py-3.5
-                           rounded-xl border border-slate-200 hover:border-slate-300
-                           transition-all duration-200 text-base"
+                className="text-ink-soft hover:text-ink text-[15px] font-medium link-underline w-fit"
               >
-                Ver como funciona
+                ou veja como funciona ↓
               </a>
-            </div>
+            </motion.div>
 
-            {/* Trust */}
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-              {["Grátis para começar", "ENEM e Vestibular", "Resultado na hora"].map((item) => (
-                <div key={item} className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-brand-600 shrink-0" />
-                  <span className="text-sm text-slate-600">{item}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* Social proof */}
-            <div className="flex items-center gap-3 pt-1">
-              {/* Avatares com iniciais */}
-              <div className="flex -space-x-2">
-                {[
-                  { initials: "BF", bg: "bg-brand-200 text-brand-800" },
-                  { initials: "LM", bg: "bg-violet-200 text-violet-800" },
-                  { initials: "AP", bg: "bg-emerald-200 text-emerald-800" },
-                  { initials: "GT", bg: "bg-amber-200 text-amber-800" },
-                ].map((a) => (
-                  <div key={a.initials}
-                       className={`w-9 h-9 rounded-full ${a.bg} border-2 border-white
-                                  flex items-center justify-center text-xs font-bold`}>
-                    {a.initials}
-                  </div>
-                ))}
-              </div>
-              <div>
-                <div className="flex items-center gap-1">
-                  {[1,2,3,4,5].map((s) => (
-                    <Star key={s} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                  ))}
-                </div>
-                <p className="text-xs text-slate-500">
-                  Usado por <span className="font-semibold text-slate-700">diversos estudantes</span>
-                </p>
-              </div>
-            </div>
+            {/* Trust line */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.45 }}
+              className="pt-6 border-t border-ink-line"
+            >
+              <p className="font-mono text-[13px] text-ink-muted leading-relaxed">
+                <span className="text-ink">[01]</span> feedback em ~30 segundos &nbsp;·&nbsp;
+                <span className="text-ink">[02]</span> sem cartão de crédito &nbsp;·&nbsp;
+                <span className="text-ink">[03]</span> consistência em correção
+              </p>
+            </motion.div>
           </div>
 
-          {/* Mockup */}
-          <div className="relative animate-slide-up lg:pl-8">
-            <EssayCorrectionMockup />
-          </div>
+          {/* Demo ao vivo */}
+          <motion.div
+            initial={{ opacity: 0, transform: "translateY(20px)" }}
+            animate={{ opacity: 1, transform: "translateY(0)" }}
+            transition={{ duration: 0.7, ease: enterEase, delay: 0.25 }}
+            className="lg:col-span-5 lg:pt-2"
+          >
+            <p className="eyebrow mb-3 text-accent">↓ Como aparece na prática</p>
+            <LiveCorrectionDemo />
+            <p className="mt-3 font-mono text-[11px] text-ink-muted uppercase tracking-[0.12em]">
+              ↑ demo ao vivo · loop de ~12s · passe o mouse nas grifes
+            </p>
+          </motion.div>
         </div>
       </div>
     </section>

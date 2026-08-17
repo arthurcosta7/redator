@@ -5,5 +5,9 @@ export default function AuthLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <>{children}</>;
+  return (
+    <main id="conteudo-principal" className="auth-shell app-canvas min-h-dvh">
+      {children}
+    </main>
+  );
 }

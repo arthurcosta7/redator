@@ -33,7 +33,7 @@ function SlotBar({ used, total }: { used: number; total: number }) {
   return (
     <div className="space-y-1">
       <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-        <div className={`h-full ${color} rounded-full transition-all`} style={{ width: `${pct}%` }} />
+        <div className={`h-full w-full origin-left ${color} rounded-full`} style={{ transform: `scaleX(${pct / 100})` }} />
       </div>
       <p className="text-xs text-slate-400">{used} de {total} slots usados</p>
     </div>

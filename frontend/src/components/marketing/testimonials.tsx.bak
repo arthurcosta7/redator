@@ -1,0 +1,134 @@
+﻿"use client";
+
+import { motion } from "framer-motion";
+
+const testimonials = [
+  {
+    name: "Beatriz F.",
+    context: "Aprovada em Medicina â€” FUVEST 2024",
+    quote:
+      "Eu ficava mandando redaÃ§Ã£o pro cursinho e esperando semanas. Quando chegava o feedback era uma folha com trÃªs comentÃ¡rios genÃ©ricos. Aqui Ã© diferente â€” vocÃª vÃª exatamente qual parÃ¡grafo tem problema e por quÃª.",
+    featured: true,
+  },
+  {
+    name: "Lucas M.",
+    context: "3Âº ano do Ensino MÃ©dio â€” SÃ£o Paulo",
+    quote:
+      "Honestamente nÃ£o esperava que ia ajudar tanto. Descobri que eu comeÃ§ava todo parÃ¡grafo de conclusÃ£o com &ldquo;Portanto&rdquo; ou &ldquo;Sendo assim&rdquo;. Parece besta, mas nunca ninguÃ©m tinha me apontado isso antes.",
+  },
+  {
+    name: "Ana P.",
+    context: "Aprovada em Direito â€” USP 2023",
+    quote:
+      "Fiz mais de sessenta redaÃ§Ãµes nos dois meses antes do ENEM. NÃ£o teria conseguido sem um retorno rÃ¡pido. NÃ£o Ã© substituto de professor, mas pra treino constante Ã© exatamente o que precisava.",
+  },
+  {
+    name: "Gabriel T.",
+    context: "Professor de RedaÃ§Ã£o â€” SÃ£o Paulo",
+    quote:
+      "Uso para acompanhar minhas turmas. Consigo ver rapidamente quem estÃ¡ com dificuldade em qual competÃªncia, sem precisar ler cada texto do zero. Sobrou tempo pra me dedicar Ã s dÃºvidas que realmente precisam de mim.",
+  },
+  {
+    name: "Camila S.",
+    context: "Cursinho prÃ©-vestibular â€” Rio de Janeiro",
+    quote:
+      "JÃ¡ testei dois outros serviÃ§os parecidos. Os feedbacks eram vagos demais. Aqui o comentÃ¡rio sobre a C5 foi tÃ£o especÃ­fico que em trÃªs redaÃ§Ãµes eu jÃ¡ tinha melhorado bastante nessa competÃªncia.",
+  },
+  {
+    name: "Felipe N.",
+    context: "Aprovado em Engenharia â€” UNICAMP 2024",
+    quote:
+      "Minha C5 sempre foi fraca. O problema era que eu propunha a soluÃ§Ã£o mas nÃ£o dizia quem ia executar. Parece Ã³bvio depois que te falam, mas eu nunca tinha percebido sozinho. A nota nessa competÃªncia subiu bastante.",
+  },
+];
+
+export function Testimonials() {
+  const featured = testimonials.find((t) => t.featured)!;
+  const rest = testimonials.filter((t) => !t.featured);
+
+  return (
+    <section className="section-padding bg-paper border-t border-ink-line">
+      <div className="container-site">
+
+        {/* CabeÃ§alho */}
+        <motion.header
+          initial={{ opacity: 0, y: 12 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] }}
+          className="mb-16 lg:mb-20 max-w-3xl"
+        >
+          <p className="eyebrow mb-5">Â§ IV â€” Vozes</p>
+          <h2 className="font-display font-semibold text-4xl sm:text-5xl lg:text-6xl text-ink leading-[1.05] tracking-[-0.01em] text-balance">
+            O que dizem quem usa.
+          </h2>
+        </motion.header>
+
+        {/* Quote destaque */}
+        <motion.figure
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] }}
+          className="mb-20 lg:mb-24 pb-12 border-b border-ink-line"
+        >
+          <blockquote className="grid lg:grid-cols-12 gap-8">
+            <div className="lg:col-span-2">
+              <p className="font-display italic font-medium text-7xl lg:text-8xl text-accent leading-none">
+                &ldquo;
+              </p>
+            </div>
+            <div className="lg:col-span-10">
+              <p className="font-display font-medium text-2xl sm:text-3xl lg:text-4xl text-ink leading-[1.25] tracking-[-0.005em] text-balance">
+                {featured.quote}
+              </p>
+              <figcaption className="mt-8 flex items-center gap-4">
+                <span className="h-px w-10 bg-ink" />
+                <div>
+                  <p className="font-display font-medium text-base text-ink">
+                    {featured.name}
+                  </p>
+                  <p className="font-mono text-xs text-ink-muted uppercase tracking-[0.12em] mt-0.5">
+                    {featured.context}
+                  </p>
+                </div>
+              </figcaption>
+            </div>
+          </blockquote>
+        </motion.figure>
+
+        {/* Lista vertical compacta â€” sem cards, sem estrelas, sem avatares */}
+        <ol className="space-y-0 divide-y divide-ink-line border-y border-ink-line">
+          {rest.map((t, i) => (
+            <motion.li
+              key={t.name}
+              initial={{ opacity: 0, y: 12 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-60px" }}
+              transition={{ duration: 0.45, delay: i * 0.06, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] }}
+              className="grid grid-cols-12 gap-6 lg:gap-10 py-10 lg:py-12"
+            >
+              <span className="col-span-2 sm:col-span-1 font-mono text-xs text-ink-muted pt-1">
+                0{i + 2}
+              </span>
+              <blockquote className="col-span-10 sm:col-span-8">
+                <p className="font-display italic text-xl lg:text-2xl text-ink leading-[1.4] text-balance">
+                  &ldquo;{t.quote}&rdquo;
+                </p>
+              </blockquote>
+              <figcaption className="col-span-12 sm:col-span-3 sm:pl-6 sm:border-l border-ink-line pt-2 sm:pt-1">
+                <p className="font-display font-medium text-base text-ink">
+                  {t.name}
+                </p>
+                <p className="font-mono text-[11px] text-ink-muted uppercase tracking-[0.12em] mt-1 leading-relaxed">
+                  {t.context}
+                </p>
+              </figcaption>
+            </motion.li>
+          ))}
+        </ol>
+
+      </div>
+    </section>
+  );
+}

@@ -1,0 +1,109 @@
+﻿"use client";
+
+import Link from "next/link";
+import { motion } from "framer-motion";
+import { ArrowRight } from "lucide-react";
+
+const steps = [
+  {
+    number: "I",
+    title: "Envie sua redaÃ§Ã£o",
+    description:
+      "Digite o texto ou tire uma foto da redaÃ§Ã£o manuscrita. A tecnologia OCR extrai o texto automaticamente â€” funciona com letra cursiva, mesmo nas mais apertadas.",
+    detail: "Texto digitado ou foto (JPG/PNG) â€” atÃ© 5 MB",
+  },
+  {
+    number: "II",
+    title: "A anÃ¡lise percorre cada competÃªncia",
+    description:
+      "A redaÃ§Ã£o Ã© avaliada nos critÃ©rios do ENEM ou da banca de vestibular escolhida. Cada competÃªncia recebe nota individual e comentÃ¡rio especÃ­fico.",
+    detail: "Resultado em ~30 segundos",
+  },
+  {
+    number: "III",
+    title: "VocÃª evolui de verdade",
+    description:
+      "Nota por competÃªncia, grife nos trechos que funcionam e nos que travam, e um plano claro para a prÃ³xima redaÃ§Ã£o. VocÃª sabe exatamente o que melhorar â€” em vez de adivinhar.",
+    detail: "Grifes, insights, histÃ³rico e comparativo de evoluÃ§Ã£o",
+  },
+];
+
+const fadeUp = {
+  initial: { opacity: 0, y: 16 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true, margin: "-80px" },
+  transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] },
+};
+
+const stamp = {
+  initial: { opacity: 0, scale: 0.85 },
+  whileInView: { opacity: 1, scale: 1 },
+  viewport: { once: true, margin: "-80px" },
+  transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] },
+};
+
+export function HowItWorks() {
+  return (
+    <section id="como-funciona" className="section-padding bg-paper border-t border-ink-line">
+      <div className="container-site">
+
+        <motion.header {...fadeUp} className="mb-20 lg:mb-24 max-w-3xl">
+          <p className="eyebrow mb-5">Â§ II â€” Como funciona</p>
+          <h2 className="font-display font-semibold text-4xl sm:text-5xl lg:text-6xl text-ink leading-[1.05] tracking-[-0.01em] text-balance">
+            TrÃªs passos, menos de um minuto.
+          </h2>
+        </motion.header>
+
+        <ol className="space-y-0 divide-y divide-ink-line border-y border-ink-line">
+
+          {steps.map((step, idx) => (
+            <motion.li
+              key={step.number}
+              {...fadeUp}
+              transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] as [number, number, number, number], delay: idx * 0.08 }}
+              className="grid grid-cols-12 gap-6 lg:gap-10 py-10 lg:py-14 group"
+            >
+              {/* NÃºmero romano */}
+              <div className="col-span-2 sm:col-span-1">
+                <motion.span
+                  {...stamp}
+                  transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] as [number, number, number, number], delay: idx * 0.08 + 0.1 }}
+                  className="font-display italic font-medium text-6xl lg:text-7xl text-paper-deep leading-none block group-hover:text-accent-light transition-colors duration-300"
+                >
+                  {step.number}
+                </motion.span>
+              </div>
+
+              {/* TÃ­tulo e descriÃ§Ã£o */}
+              <div className="col-span-10 sm:col-span-7">
+                <h3 className="font-display font-semibold text-2xl lg:text-3xl text-ink mb-3 leading-tight">
+                  {step.title}
+                </h3>
+                <p className="text-ink-soft leading-[1.6] max-w-xl text-[16px]">
+                  {step.description}
+                </p>
+              </div>
+
+              {/* Detalhe mono */}
+              <div className="col-span-12 sm:col-span-4 sm:pl-6 sm:border-l border-ink-line flex sm:items-end">
+                <p className="font-mono text-[13px] text-ink-muted leading-relaxed uppercase tracking-[0.08em]">
+                  {step.detail}
+                </p>
+              </div>
+            </motion.li>
+          ))}
+        </ol>
+
+        <motion.div {...fadeUp} className="mt-12 flex items-center gap-3">
+          <Link
+            href="/auth/register"
+            className="inline-flex items-center gap-2 text-ink font-semibold text-[17px] link-underline"
+          >
+            Experimentar grÃ¡tis
+            <ArrowRight className="w-4 h-4" strokeWidth={2.25} />
+          </Link>
+        </motion.div>
+      </div>
+    </section>
+  );
+}

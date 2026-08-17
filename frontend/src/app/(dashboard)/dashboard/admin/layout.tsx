@@ -156,6 +156,7 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, isLoading } = useUser();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -181,7 +182,7 @@ export default function AdminLayout({
   const role = user.admin_role;
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
+    <div className="app-canvas min-h-dvh flex">
       {/* Sidebar — desktop */}
       <div className="hidden lg:flex lg:flex-shrink-0">
         <AdminSidebar role={role} />
@@ -224,8 +225,10 @@ export default function AdminLayout({
         </div>
 
         {/* Conteúdo da página */}
-        <main className="flex-1 overflow-auto p-6">
-          {children}
+        <main id="conteudo-principal" className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
+          <div key={pathname} className="page-enter">
+            {children}
+          </div>
         </main>
       </div>
     </div>

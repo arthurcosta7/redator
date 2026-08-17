@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 const faqs = [
@@ -18,7 +18,7 @@ const faqs = [
   {
     question: "Como funciona o plano Free?",
     answer:
-      "Uma correção por dia, para sempre, sem cartão. Você recebe nota por competência e feedback básico. Grifes no texto e insights avançados são exclusivos dos planos pagos.",
+      "Uma correção por dia, para sempre, sem cartão. Você recebe nota por competência e feedback básico. Grife no texto e insights avançados são exclusivos dos planos pagos.",
   },
   {
     question: "O OCR funciona bem com letra à mão?",
@@ -28,7 +28,7 @@ const faqs = [
   {
     question: "Funciona para vestibulares além do ENEM?",
     answer:
-      "Sim. Há dois modelos: ENEM (5 competências, 0–200 cada) e Vestibular Tradicional, com os critérios de FUVEST, UNICAMP, UNESP e similares.",
+      "Sim. Há dois modelos: ENEM (cinco competências, 0–200 cada) e Vestibular Tradicional, com os critérios de FUVEST, UNICAMP, UNESP e similares.",
   },
   {
     question: "Posso cancelar quando quiser?",
@@ -38,7 +38,7 @@ const faqs = [
   {
     question: "E a garantia?",
     answer:
-      "7 dias a partir do primeiro pagamento. Se não ficou satisfeito, manda um email e devolvemos tudo — sem perguntas.",
+      "Sete dias a partir do primeiro pagamento. Se não ficou satisfeito, manda um email e devolvemos tudo — sem perguntas.",
   },
   {
     question: "Sou professor. Como funciona para mim?",
@@ -47,70 +47,101 @@ const faqs = [
   },
 ];
 
-function FaqItem({ question, answer }: { question: string; answer: string }) {
+function FaqItem({
+  question,
+  answer,
+  number,
+}: {
+  question: string;
+  answer: string;
+  number: string;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="border border-slate-100 rounded-2xl overflow-hidden bg-white">
-      <button
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-start justify-between gap-4 px-6 py-5 text-left
-                   hover:bg-slate-50/50 transition-colors"
-        aria-expanded={open}
-      >
-        <span className="font-medium text-slate-900 text-sm leading-relaxed">
-          {question}
-        </span>
-        <ChevronDown
-          className={cn(
-            "w-4 h-4 text-slate-400 shrink-0 mt-0.5 transition-transform duration-200",
-            open && "rotate-180"
-          )}
-        />
-      </button>
+    <li
+      className={cn(
+        "relative grid grid-cols-12 gap-6 lg:gap-8 py-8 lg:py-10 transition-colors",
+        open && "pl-4 -ml-4 border-l-2 border-accent"
+      )}
+    >
+      <span className="col-span-2 sm:col-span-1 font-mono text-xs text-ink-muted pt-1.5">
+        {number}
+      </span>
+      <div className="col-span-10 sm:col-span-11">
+        <button
+          onClick={() => setOpen(!open)}
+          className="w-full text-left group"
+          aria-expanded={open}
+        >
+          <h3 className="font-display font-semibold text-xl lg:text-2xl text-ink leading-snug group-hover:text-accent transition-colors">
+            {question}
+          </h3>
+        </button>
 
-      <div className={cn(
-        "overflow-hidden transition-all duration-300",
-        open ? "max-h-96" : "max-h-0"
-      )}>
-        <div className="px-6 pb-5">
-          <div className="h-px bg-slate-100 mb-4" />
-          <p className="text-slate-500 text-sm leading-relaxed">{answer}</p>
-        </div>
+        <AnimatePresence initial={false}>
+          {open && (
+            <motion.div
+              key="content"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] as [number, number, number, number] }}
+              className="overflow-hidden"
+            >
+              <p className="text-ink-soft text-[15px] leading-[1.65] max-w-2xl pt-5">
+                {answer}
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
-    </div>
+    </li>
   );
 }
 
 export function FAQ() {
   return (
-    <section className="section-padding bg-white">
+    <section className="section-padding bg-paper border-t border-ink-line">
       <div className="container-site">
 
-        <div className="grid lg:grid-cols-[1fr_2fr] gap-16 items-start">
-          {/* Lado esquerdo */}
-          <div className="lg:sticky lg:top-24">
-            <h2 className="font-display font-bold text-4xl lg:text-5xl text-slate-900 mb-4">
-              Perguntas
-              <br />
-              frequentes
+        <div className="grid lg:grid-cols-12 gap-12 lg:gap-16 items-start">
+
+          {/* Lado esquerdo — sticky */}
+          <motion.div
+            initial={{ opacity: 0, transform: "translateY(12px)" }}
+            whileInView={{ opacity: 1, transform: "translateY(0)" }}
+            viewport={{ once: true, margin: "-80px" }}
+            transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] as [number, number, number, number] }}
+            className="lg:col-span-4 lg:sticky lg:top-28"
+          >
+            <p className="eyebrow mb-5">§ VII — Perguntas</p>
+            <h2 className="font-display font-semibold text-4xl sm:text-5xl lg:text-6xl text-ink leading-[1.05] tracking-[-0.01em] mb-5 text-balance">
+              Perguntas frequentes.
             </h2>
-            <p className="text-slate-500">
+            <p className="text-ink-soft leading-relaxed">
               Não achou o que precisava?{" "}
-              <a href="mailto:contato@redator.com.br"
-                 className="text-brand-600 hover:text-brand-700 font-medium">
+              <a
+                href="mailto:contato@redator.com.br"
+                className="text-accent hover:text-accent-deep font-medium link-underline"
+              >
                 Manda um email
               </a>
               .
             </p>
-          </div>
+          </motion.div>
 
-          {/* Lado direito — perguntas */}
-          <div className="space-y-3">
-            {faqs.map((faq) => (
-              <FaqItem key={faq.question} question={faq.question} answer={faq.answer} />
+          {/* Lado direito — lista numerada, sem rounded, réguas horizontais */}
+          <ol className="lg:col-span-8 divide-y divide-ink-line border-y border-ink-line">
+            {faqs.map((faq, idx) => (
+              <FaqItem
+                key={faq.question}
+                question={faq.question}
+                answer={faq.answer}
+                number={String(idx + 1).padStart(2, "0")}
+              />
             ))}
-          </div>
+          </ol>
         </div>
 
       </div>

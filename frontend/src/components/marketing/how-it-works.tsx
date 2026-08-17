@@ -1,112 +1,108 @@
-import { FileText, Cpu, BarChart3, ArrowRight } from "lucide-react";
+﻿"use client";
+
 import Link from "next/link";
+import { motion } from "framer-motion";
+import { ArrowRight } from "lucide-react";
 
 const steps = [
   {
-    number: "01",
-    icon: FileText,
+    number: "I",
     title: "Envie sua redação",
     description:
-      "Digite o texto ou tire uma foto da redação escrita à mão. Nossa tecnologia OCR extrai o texto automaticamente, mesmo com letras cursivas difíceis.",
+      "Digite o texto ou tire uma foto da redação manuscrita. A tecnologia OCR reconhece a maior parte das letras manuscritas, incluindo cursiva. Letra muito apertada ou ilegível pode exigir revisão manual do texto extraído antes de enviar.",
     detail: "Texto digitado ou foto (JPG/PNG) — até 5 MB",
-    color: "bg-brand-50 text-brand-600",
-    borderColor: "border-brand-100",
   },
   {
-    number: "02",
-    icon: Cpu,
-    title: "A IA analisa cada competência",
+    number: "II",
+    title: "A análise percorre cada competência",
     description:
-      "A IA avalia sua redação seguindo os critérios do ENEM ou da banca de vestibular escolhida. Cada competência recebe nota e comentário individual.",
+      "A redação é avaliada nos critérios do ENEM ou da banca de vestibular escolhida. Cada competência recebe nota individual e comentário específico.",
     detail: "Resultado em ~30 segundos",
-    color: "bg-violet-50 text-violet-600",
-    borderColor: "border-violet-100",
   },
   {
-    number: "03",
-    icon: BarChart3,
-    title: "Evolua de verdade",
+    number: "III",
+    title: "Você evolui de verdade",
     description:
-      "Receba nota por competência, grifes nos trechos bons e ruins, e um plano de ação claro para a próxima redação. Você saberá exatamente o que melhorar.",
+      "Nota por competência, grife nos trechos que funcionam e nos que travam, e um plano claro para a próxima redação. Você sabe exatamente o que melhorar — em vez de adivinhar.",
     detail: "Grifes, insights, histórico e comparativo de evolução",
-    color: "bg-emerald-50 text-emerald-600",
-    borderColor: "border-emerald-100",
   },
 ];
 
+const fadeUp = {
+  initial: { opacity: 0, transform: "translateY(16px)" },
+  whileInView: { opacity: 1, transform: "translateY(0)" },
+  viewport: { once: true, margin: "-80px" },
+  transition: { duration: 0.5, ease: [0.23, 1, 0.32, 1] as [number, number, number, number] },
+};
+
+const stamp = {
+  initial: { opacity: 0, transform: "scale(0.95)" },
+  whileInView: { opacity: 1, transform: "scale(1)" },
+  viewport: { once: true, margin: "-80px" },
+  transition: { duration: 0.6, ease: [0.23, 1, 0.32, 1] as [number, number, number, number] },
+};
+
 export function HowItWorks() {
   return (
-    <section id="como-funciona" className="section-padding bg-slate-50">
+    <section id="como-funciona" className="section-padding bg-paper border-t border-ink-line">
       <div className="container-site">
 
-        <div className="mb-14">
-          <h2 className="font-display font-bold text-4xl lg:text-5xl text-slate-900 mb-3">
-            Como funciona
-          </h2>
-          <p className="text-lg text-slate-500">
+        <motion.header {...fadeUp} className="mb-20 lg:mb-24 max-w-3xl">
+          <p className="eyebrow mb-5">§ II — Como funciona</p>
+          <h2 className="font-display font-semibold text-4xl sm:text-5xl lg:text-6xl text-ink leading-[1.05] tracking-[-0.01em] text-balance">
             Três passos, menos de um minuto.
-          </p>
-        </div>
+          </h2>
+        </motion.header>
 
-        {/* Steps */}
-        <div className="relative">
+        <ol className="space-y-0 divide-y divide-ink-line border-y border-ink-line">
 
-          {/* Linha conectora (desktop) */}
-          <div className="hidden lg:block absolute top-16 left-0 right-0 h-px
-                          bg-gradient-to-r from-transparent via-slate-200 to-transparent
-                          pointer-events-none mx-[16.5%]" />
+          {steps.map((step, idx) => (
+            <motion.li
+              key={step.number}
+              {...fadeUp}
+              transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] as [number, number, number, number], delay: idx * 0.08 }}
+              className="grid grid-cols-12 gap-6 lg:gap-10 py-10 lg:py-14 group"
+            >
+              {/* Número romano */}
+              <div className="col-span-2 sm:col-span-1">
+                <motion.span
+                  {...stamp}
+                  transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] as [number, number, number, number], delay: idx * 0.08 + 0.1 }}
+                  className="font-display italic font-medium text-6xl lg:text-7xl text-paper-deep leading-none block group-hover:text-accent-light transition-colors duration-300"
+                >
+                  {step.number}
+                </motion.span>
+              </div>
 
-          <div className="grid lg:grid-cols-3 gap-8">
-            {steps.map((step, index) => {
-              const Icon = step.icon;
-              return (
-                <div key={step.number} className="relative">
-                  <div className={`card p-8 border ${step.borderColor} h-full`}>
+              {/* Título e descrição */}
+              <div className="col-span-10 sm:col-span-7">
+                <h3 className="font-display font-semibold text-2xl lg:text-3xl text-ink mb-3 leading-tight">
+                  {step.title}
+                </h3>
+                <p className="text-ink-soft leading-[1.6] max-w-xl text-[16px]">
+                  {step.description}
+                </p>
+              </div>
 
-                    {/* Número do step */}
-                    <div className="flex items-start justify-between mb-6">
-                      <div className={`w-14 h-14 rounded-2xl ${step.color} flex items-center justify-center`}>
-                        <Icon className="w-6 h-6" strokeWidth={1.75} />
-                      </div>
-                      <span className="font-display font-bold text-5xl text-slate-100 leading-none">
-                        {step.number}
-                      </span>
-                    </div>
+              {/* Detalhe mono */}
+              <div className="col-span-12 sm:col-span-4 sm:pl-6 sm:border-l border-ink-line flex sm:items-end">
+                <p className="font-mono text-[13px] text-ink-muted leading-relaxed uppercase tracking-[0.08em]">
+                  {step.detail}
+                </p>
+              </div>
+            </motion.li>
+          ))}
+        </ol>
 
-                    {/* Conteúdo */}
-                    <h3 className="font-display font-semibold text-xl text-slate-900 mb-3">
-                      {step.title}
-                    </h3>
-                    <p className="text-slate-500 leading-relaxed mb-4">
-                      {step.description}
-                    </p>
-                    <p className="text-sm text-slate-400 font-medium">
-                      {step.detail}
-                    </p>
-                  </div>
-
-                  {/* Seta entre steps (mobile) */}
-                  {index < steps.length - 1 && (
-                    <div className="lg:hidden flex justify-center py-2">
-                      <ArrowRight className="w-5 h-5 text-slate-300 rotate-90" />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="text-center mt-12">
+        <motion.div {...fadeUp} className="mt-12 flex items-center gap-3">
           <Link
             href="/auth/register"
-            className="inline-flex items-center gap-2 text-brand-700 font-semibold
-                       hover:gap-3 transition-all duration-200"
+            className="inline-flex items-center gap-2 text-ink font-semibold text-[17px] link-underline"
           >
-            Experimentar grátis
-            <ArrowRight className="w-4 h-4" />
+            Começar grátis
+            <ArrowRight className="w-4 h-4" strokeWidth={2.25} />
           </Link>
-        </div>
+        </motion.div>
       </div>
     </section>
   );

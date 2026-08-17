@@ -27,7 +27,7 @@ function ScoreBar({ pct }: { pct: number | null | undefined }) {
   return (
     <div className="flex items-center gap-2">
       <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-        <div className={`h-full ${color} rounded-full transition-all`} style={{ width: `${pct}%` }} />
+        <div className={`h-full w-full origin-left ${color} rounded-full`} style={{ transform: `scaleX(${Math.min(Math.max(pct, 0), 100) / 100})` }} />
       </div>
       <span className="text-xs font-semibold w-10 text-right">{pct.toFixed(0)}%</span>
     </div>

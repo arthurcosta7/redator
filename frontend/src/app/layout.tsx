@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Plus_Jakarta_Sans } from "next/font/google";
+import { Inter, Fraunces, JetBrains_Mono, Kalam } from "next/font/google";
 import "./globals.css";
 
 // Fontes carregadas de forma otimizada (Next.js elimina FOUT)
@@ -9,35 +9,48 @@ const inter = Inter({
   display: "swap",
 });
 
-const plusJakarta = Plus_Jakarta_Sans({
+const fraunces = Fraunces({
   subsets: ["latin"],
-  variable: "--font-plus-jakarta",
+  variable: "--font-fraunces",
   display: "swap",
-  weight: ["400", "500", "600", "700", "800"],
+  axes: ["opsz", "SOFT"],
+});
+
+const jetbrains = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-jetbrains",
+  display: "swap",
+  weight: ["400", "500"],
+});
+
+const kalam = Kalam({
+  subsets: ["latin"],
+  variable: "--font-kalam",
+  display: "swap",
+  weight: ["400", "700"],
 });
 
 export const metadata: Metadata = {
   title: {
-    default: "Redator — Corrija sua redação com IA",
+    default: "Redator — Corrija sua redação em menos de um minuto",
     template: "%s | Redator",
   },
   description:
-    "Corrija suas redações no modelo ENEM e Vestibular com feedback preciso, " +
-    "detalhado e fiel ao corretor humano. Análise por competências, grifes no texto e mais.",
+    "Correção de redações ENEM e vestibular com grife, nota por competência e motivo de cada nota. " +
+    "Sem esperar duas semanas o cursinho devolver.",
   keywords: [
     "correção de redação",
     "redação ENEM",
     "vestibular",
-    "inteligência artificial",
     "feedback de redação",
     "análise de redação",
   ],
   openGraph: {
     type: "website",
     locale: "pt_BR",
-    title: "Redator — Corrija sua redação com IA",
+    title: "Redator — Corrija sua redação em menos de um minuto",
     description:
-      "Feedback preciso e detalhado para suas redações. Modelo ENEM e Vestibular.",
+      "Grife, nota por competência e motivo de cada nota. Resultado em ~30 segundos.",
     siteName: "Redator",
   },
   robots: {
@@ -52,8 +65,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="pt-BR" className={`${inter.variable} ${plusJakarta.variable}`}>
-      <body className="font-sans antialiased bg-white text-slate-900">
+    <html lang="pt-BR" className={`${inter.variable} ${fraunces.variable} ${jetbrains.variable} ${kalam.variable}`}>
+      <body className="font-sans antialiased bg-paper text-ink">
+        <a
+          href="#conteudo-principal"
+          className="fixed left-4 top-4 z-[60] -translate-y-24 bg-ink px-4 py-2 text-sm font-semibold text-paper transition-transform focus:translate-y-0"
+        >
+          Pular para o conteúdo
+        </a>
         {children}
       </body>
     </html>

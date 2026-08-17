@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, CreditCard, Loader2, Check, Shield } from "lucide-react";
@@ -38,7 +38,7 @@ const PLAN_INFO = {
 type PlanKey = keyof typeof PLAN_INFO;
 type PeriodKey = "mensal" | "trimestral";
 
-export default function CheckoutPage() {
+function CheckoutContent() {
   const params = useParams<{ plano: string }>();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -62,7 +62,7 @@ export default function CheckoutPage() {
 
   if (isLoading || !user) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="app-canvas min-h-dvh flex items-center justify-center">
         <Loader2 className="w-6 h-6 animate-spin text-brand-700" />
       </div>
     );
@@ -87,7 +87,7 @@ export default function CheckoutPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
+    <main id="conteudo-principal" className="app-canvas min-h-dvh flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md">
         <Link
           href="/dashboard/aluno/plano"
@@ -97,7 +97,7 @@ export default function CheckoutPage() {
           Voltar aos planos
         </Link>
 
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-8">
+        <div className="product-surface rounded-2xl border p-8">
           <h1 className="font-display font-bold text-2xl text-slate-900 mb-1">
             Assinar {plan.label}
           </h1>
@@ -146,6 +146,20 @@ export default function CheckoutPage() {
           </div>
         </div>
       </div>
-    </div>
+    </main>
+  );
+}
+
+export default function CheckoutPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="app-canvas min-h-dvh flex items-center justify-center">
+          <Loader2 className="w-6 h-6 text-brand-500 animate-spin" />
+        </div>
+      }
+    >
+      <CheckoutContent />
+    </Suspense>
   );
 }

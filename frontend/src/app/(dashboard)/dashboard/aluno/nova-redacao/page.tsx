@@ -51,7 +51,7 @@ function EssayTypeSelector({
           key={opt.value}
           type="button"
           onClick={() => onChange(opt.value)}
-          className={`p-4 rounded-xl border-2 text-left transition-all ${
+          className={`p-4 rounded-xl border-2 text-left transition-[border-color,background-color,color,transform] ${
             value === opt.value
               ? "border-brand-500 bg-brand-50"
               : "border-slate-200 hover:border-slate-300 bg-white"
@@ -239,7 +239,7 @@ export default function NovaRedacaoPage() {
             <button
               type="button"
               onClick={() => setMode("text")}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 text-sm font-medium transition-all ${
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 text-sm font-medium transition-[border-color,background-color,color,transform] ${
                 mode === "text"
                   ? "border-brand-500 bg-brand-50 text-brand-700"
                   : "border-slate-200 text-slate-500 hover:border-slate-300"
@@ -251,7 +251,7 @@ export default function NovaRedacaoPage() {
             <button
               type="button"
               onClick={() => setMode("photo")}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 text-sm font-medium transition-all ${
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 text-sm font-medium transition-[border-color,background-color,color,transform] ${
                 mode === "photo"
                   ? "border-brand-500 bg-brand-50 text-brand-700"
                   : "border-slate-200 text-slate-500 hover:border-slate-300"

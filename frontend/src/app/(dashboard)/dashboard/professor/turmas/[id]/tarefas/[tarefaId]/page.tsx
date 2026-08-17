@@ -156,8 +156,8 @@ function InsightsPanel({ tarefaId, isPaid }: { tarefaId: string; isPaid: boolean
                           <span className="text-xs text-slate-500 w-14 text-right">{b.range}%</span>
                           <div className="flex-1 h-5 bg-slate-100 rounded-md overflow-hidden">
                             <div
-                              className="h-full bg-brand-400 rounded-md transition-all"
-                              style={{ width: `${pct}%` }}
+                              className="h-full w-full origin-left bg-brand-400 rounded-md"
+                              style={{ transform: `scaleX(${Math.min(Math.max(pct, 0), 100) / 100})` }}
                             />
                           </div>
                           <span className="text-xs font-medium text-slate-600 w-8">{b.count}</span>

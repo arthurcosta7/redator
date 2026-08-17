@@ -418,7 +418,7 @@ export default function TurmaDetailPage() {
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-medium text-slate-900 truncate">{t.title}</p>
                       {t.is_ai_generated && (
-                        <Sparkles className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" title="Gerada por IA" />
+                        <Sparkles className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" aria-label="Gerada por IA" />
                       )}
                     </div>
                     <p className="text-xs text-slate-400 truncate">{t.theme}</p>
