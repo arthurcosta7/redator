@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
     ENVIRONMENT: Literal["development", "staging", "production"] = "production"
+    ACCESS_LOG_SUCCESS_SAMPLE_RATE: float = 0.05
 
     # ─── Segurança JWT ────────────────────────────────────────────
     # OBRIGATÓRIO: Gere com `python -c "import secrets; print(secrets.token_hex(64))"`
@@ -42,11 +43,16 @@ class Settings(BaseSettings):
 
     # ─── Banco de Dados ───────────────────────────────────────────
     DATABASE_URL: str  # Ex: postgresql+asyncpg://user:pass@host/db
-    DATABASE_POOL_SIZE: int = 10
-    DATABASE_MAX_OVERFLOW: int = 20
+    DATABASE_POOL_SIZE: int = 5
+    DATABASE_MAX_OVERFLOW: int = 5
+    DATABASE_POOL_TIMEOUT_SECONDS: int = 10
+    DATABASE_POOL_RECYCLE_SECONDS: int = 1800
 
     # ─── Redis ────────────────────────────────────────────────────
     REDIS_URL: str  # Ex: redis://:senha@localhost:6379/0
+    REDIS_MAX_CONNECTIONS: int = 50
+    REDIS_SOCKET_TIMEOUT_SECONDS: int = 2
+    REDIS_CONNECT_TIMEOUT_SECONDS: int = 2
 
     # ─── OpenAI API (IA) ─────────────────────────────────────────
     # OBRIGATÓRIO: Obtenha em platform.openai.com
@@ -54,9 +60,19 @@ class Settings(BaseSettings):
     OPENAI_FREE_MODEL: str = "gpt-5.6-luna"
     OPENAI_PAID_MODEL: str = "gpt-5.4-mini"
     OPENAI_MAX_OUTPUT_TOKENS: int = 4096
+    OPENAI_TIMEOUT_SECONDS: int = 90
+    OPENAI_MAX_RETRIES: int = 2
+
+    # ─── Processamento assíncrono ────────────────────────────────
+    CORRECTION_WORKER_MAX_JOBS: int = 2
+    CORRECTION_JOB_TIMEOUT_SECONDS: int = 180
+    CORRECTION_JOB_MAX_TRIES: int = 3
+    CORRECTION_JOB_EXPIRES_SECONDS: int = 3600
 
     # ─── Google Cloud Vision (OCR) ────────────────────────────────
     GOOGLE_APPLICATION_CREDENTIALS: str = ""       # Opcional, pode usar ADC
+    OCR_TIMEOUT_SECONDS: int = 30
+    OCR_MAX_CONCURRENCY: int = 2
 
     # ─── Stripe (Pagamentos) ──────────────────────────────────────
     # Opcional em desenvolvimento — funcionalidades de pagamento ficam inativas
@@ -113,6 +129,34 @@ class Settings(BaseSettings):
         if "postgresql://" in v and "asyncpg" not in v:
             # Converte automaticamente para o driver assíncrono
             return v.replace("postgresql://", "postgresql+asyncpg://")
+        return v
+
+    @field_validator("ACCESS_LOG_SUCCESS_SAMPLE_RATE")
+    @classmethod
+    def validate_access_log_sample_rate(cls, v: float) -> float:
+        if not 0 <= v <= 1:
+            raise ValueError("ACCESS_LOG_SUCCESS_SAMPLE_RATE deve estar entre 0 e 1")
+        return v
+
+    @field_validator(
+        "DATABASE_POOL_SIZE",
+        "DATABASE_POOL_TIMEOUT_SECONDS",
+        "DATABASE_POOL_RECYCLE_SECONDS",
+        "REDIS_MAX_CONNECTIONS",
+        "REDIS_SOCKET_TIMEOUT_SECONDS",
+        "REDIS_CONNECT_TIMEOUT_SECONDS",
+        "OPENAI_TIMEOUT_SECONDS",
+        "CORRECTION_WORKER_MAX_JOBS",
+        "CORRECTION_JOB_TIMEOUT_SECONDS",
+        "CORRECTION_JOB_MAX_TRIES",
+        "CORRECTION_JOB_EXPIRES_SECONDS",
+        "OCR_TIMEOUT_SECONDS",
+        "OCR_MAX_CONCURRENCY",
+    )
+    @classmethod
+    def validate_positive_resource_limits(cls, v: int) -> int:
+        if v < 1:
+            raise ValueError("Limites de recursos e timeouts devem ser maiores que zero")
         return v
 
     @model_validator(mode="after")

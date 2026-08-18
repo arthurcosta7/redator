@@ -200,11 +200,16 @@ async def test_teacher_theme_generation_uses_free_model(monkeypatch):
         ],
     }
     client = FakeClient(json.dumps(payload))
-    monkeypatch.setattr("openai.AsyncOpenAI", lambda api_key: client)
+    monkeypatch.setattr("openai.AsyncOpenAI", lambda **kwargs: client)
+
+    class AllowingRedis:
+        async def eval(self, *args):
+            return [1, 1]
 
     result = await generate_theme(
         data=GenerateThemeRequest(essay_type="enem"),
         teacher=SimpleNamespace(id=uuid.uuid4()),
+        redis_client=AllowingRedis(),
     )
 
     request = client.responses.calls[0]

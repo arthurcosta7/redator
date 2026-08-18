@@ -43,6 +43,9 @@ class _FailingPipeline:
 
 
 class _FailingRedis:
+    async def eval(self, *args):
+        raise redis.ConnectionError("redis unavailable")
+
     def pipeline(self):
         return _FailingPipeline()
 

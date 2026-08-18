@@ -175,12 +175,12 @@ export default function StudentDashboard() {
       )}
 
       {/* Ação rápida */}
-      <div className="bg-brand-gradient rounded-2xl p-6 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+      <div className="rounded-2xl border border-accent-800/30 bg-accent-700 p-6 flex flex-col sm:flex-row items-start sm:items-center gap-4 shadow-card">
         <div className="flex-1">
-          <h3 className="font-display font-bold text-lg text-white">
+          <h3 className="font-display font-bold text-lg text-paper">
             Enviar nova redação
           </h3>
-          <p className="text-brand-200 text-sm mt-1">
+          <p className="text-accent-100 text-sm mt-1">
             Corrija no modelo ENEM ou Vestibular com feedback detalhado por competência.
           </p>
         </div>
@@ -188,8 +188,8 @@ export default function StudentDashboard() {
           href="/dashboard/aluno/nova-redacao"
           className={`flex-shrink-0 px-5 py-2.5 rounded-xl font-semibold text-sm transition-colors ${
             canSubmit
-              ? "bg-white text-brand-700 hover:bg-brand-50"
-              : "bg-white/30 text-white/70 cursor-not-allowed pointer-events-none"
+              ? "bg-paper text-accent-800 hover:bg-paper-deep"
+              : "bg-paper/15 text-paper/75 cursor-not-allowed pointer-events-none"
           }`}
         >
           {canSubmit ? "Enviar redação →" : "Limite atingido"}

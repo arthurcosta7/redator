@@ -14,6 +14,7 @@ from pydantic import BaseModel
 
 from app.core.dependencies import get_current_user, get_redis
 from app.core.logging import get_logger
+from app.core.rate_limiter import RateLimiter
 from app.db.models.user import User, UserPlan
 from app.services.ai.simulado_service import SimuladoService
 
@@ -47,6 +48,13 @@ async def get_new_simulado(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Simulados disponíveis nos planos Standard e Pro.",
+        )
+
+    limiter = RateLimiter(redis_client)
+    if not await limiter.check("simulado_generation", str(current_user.id), 10, 600):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Muitos simulados solicitados. Aguarde alguns minutos.",
         )
 
     service = SimuladoService()

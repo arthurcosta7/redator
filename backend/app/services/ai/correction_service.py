@@ -45,7 +45,11 @@ class CorrectionService:
     """
 
     def __init__(self, client: AsyncOpenAI | None = None) -> None:
-        self.client = client or AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+        self.client = client or AsyncOpenAI(
+            api_key=settings.OPENAI_API_KEY,
+            timeout=settings.OPENAI_TIMEOUT_SECONDS,
+            max_retries=settings.OPENAI_MAX_RETRIES,
+        )
 
     async def correct_essay(
         self,

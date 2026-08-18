@@ -1,81 +1,54 @@
 import Link from "next/link";
-import { GraduationCap, BookOpen, PenLine } from "lucide-react";
+import { ArrowRight, BookOpen, GraduationCap } from "lucide-react";
+
+import { RegistrationShell } from "@/components/auth/registration-shell";
 
 export default function RegisterTypePage() {
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
+    <RegistrationShell contentClassName="max-w-md">
+      <header>
+        <h1 className="font-display text-4xl font-semibold leading-tight tracking-[-0.02em] text-ink sm:text-5xl">
+          Como você vai usar o Redator?
+        </h1>
+        <p className="mt-3 text-base leading-relaxed text-ink-muted">
+          Escolha seu perfil. Os recursos e o painel serão preparados para a sua rotina.
+        </p>
+      </header>
 
-      {/* Logo */}
-      <Link href="/" className="flex items-center gap-2.5 mb-10 group">
-        <div className="w-9 h-9 bg-brand-700 rounded-lg flex items-center justify-center">
-          <PenLine className="w-5 h-5 text-white" strokeWidth={2.5} />
-        </div>
-        <span className="font-display font-bold text-2xl text-slate-900">Redator</span>
-      </Link>
-
-      {/* Card de seleção */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-8 w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="font-display font-bold text-2xl text-slate-900 mb-2">
-            Criar conta
-          </h1>
-          <p className="text-slate-500">
-            Escolha o tipo de conta que se encaixa para você
-          </p>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-
-          {/* Aluno */}
+      <div className="mt-8 space-y-3">
           <Link
             href="/auth/register/aluno"
-            className="group flex flex-col items-center gap-3 p-6 rounded-xl border-2
-                       border-slate-200 hover:border-brand-500 hover:bg-brand-50/50
-                       transition-[border-color,background-color,color,transform] duration-200 cursor-pointer"
+            className="group flex min-h-28 items-center gap-5 border border-ink-line bg-transparent p-5 transition-[border-color,background-color] hover:border-accent hover:bg-accent-50"
           >
-            <div className="w-14 h-14 bg-brand-50 group-hover:bg-brand-100
-                            rounded-2xl flex items-center justify-center transition-colors">
-              <GraduationCap className="w-7 h-7 text-brand-600" strokeWidth={1.75} />
+            <span className="flex size-12 shrink-0 items-center justify-center border border-accent/25 bg-accent-50 text-accent">
+              <GraduationCap className="size-6" strokeWidth={1.8} aria-hidden />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="font-display text-xl font-semibold text-ink">Sou aluno</p>
+              <p className="mt-1 text-sm leading-relaxed text-ink-muted">Quero corrigir redações e acompanhar minha evolução.</p>
             </div>
-            <div className="text-center">
-              <p className="font-semibold text-slate-900 group-hover:text-brand-700 transition-colors">
-                Sou aluno
-              </p>
-              <p className="text-xs text-slate-400 mt-1">
-                Corrija suas redações
-              </p>
-            </div>
+            <ArrowRight className="size-5 shrink-0 text-ink-muted transition-transform group-hover:translate-x-1 group-hover:text-accent" aria-hidden />
           </Link>
 
-          {/* Professor */}
           <Link
             href="/auth/register/professor"
-            className="group flex flex-col items-center gap-3 p-6 rounded-xl border-2
-                       border-slate-200 hover:border-violet-500 hover:bg-violet-50/50
-                       transition-[border-color,background-color,color,transform] duration-200 cursor-pointer"
+            className="group flex min-h-28 items-center gap-5 border border-ink-line bg-transparent p-5 transition-[border-color,background-color] hover:border-accent hover:bg-accent-50"
           >
-            <div className="w-14 h-14 bg-violet-50 group-hover:bg-violet-100
-                            rounded-2xl flex items-center justify-center transition-colors">
-              <BookOpen className="w-7 h-7 text-violet-600" strokeWidth={1.75} />
+            <span className="flex size-12 shrink-0 items-center justify-center border border-accent/25 bg-accent-50 text-accent">
+              <BookOpen className="size-6" strokeWidth={1.8} aria-hidden />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="font-display text-xl font-semibold text-ink">Sou professor</p>
+              <p className="mt-1 text-sm leading-relaxed text-ink-muted">Quero organizar turmas e acompanhar meus alunos.</p>
             </div>
-            <div className="text-center">
-              <p className="font-semibold text-slate-900 group-hover:text-violet-700 transition-colors">
-                Sou professor
-              </p>
-              <p className="text-xs text-slate-400 mt-1">
-                Acompanhe turmas
-              </p>
-            </div>
+            <ArrowRight className="size-5 shrink-0 text-ink-muted transition-transform group-hover:translate-x-1 group-hover:text-accent" aria-hidden />
           </Link>
-        </div>
-
-        <p className="text-center text-sm text-slate-400 mt-6">
-          Já tem conta?{" "}
-          <Link href="/auth/login" className="text-brand-700 hover:text-brand-800 font-medium">
-            Entrar
-          </Link>
-        </p>
       </div>
-    </div>
+
+      <p className="mt-8 border-t border-ink-line pt-5 text-sm text-ink-muted">
+        Já tem uma conta?{" "}
+        <Link href="/auth/login" className="link-underline font-semibold text-accent hover:text-accent-deep">Entrar</Link>
+      </p>
+    </RegistrationShell>
   );
 }

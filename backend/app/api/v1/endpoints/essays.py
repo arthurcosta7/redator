@@ -8,6 +8,7 @@ Rotas:
 - GET  /essays/{id}         — Detalhe de uma redação
 - DELETE /essays/{id}       — Remove uma redação
 """
+import asyncio
 import uuid
 from typing import Annotated
 
@@ -16,12 +17,19 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.config import settings
 from app.core.dependencies import get_current_user, get_db, get_redis
+from app.core.job_queue import enqueue_correction
 from app.core.logging import get_logger
-from app.core.rate_limiter import check_daily_correction_limit, increment_daily_correction_count
+from app.core.rate_limiter import (
+    RateLimiter,
+    check_daily_correction_limit,
+    release_daily_correction_slot,
+    reserve_daily_correction_slot,
+)
 from app.db.models.essay import Essay, EssayInputType, EssayStatus, EssayType
 from app.db.models.tarefa import Tarefa, TarefaSubmissao
-from app.db.models.turma import TurmaMembro, TurmaMembroStatus, Turma
+from app.db.models.turma import TurmaMembro, TurmaMembroStatus
 from app.db.models.user import User
 from app.schemas.essay import EssayDetailResponse, EssayListItem, EssayListResponse, EssayResponse, SubmitEssayRequest
 from app.utils.file_validator import validate_image_file
@@ -60,6 +68,14 @@ async def submit_essay(
             detail="O texto da redação é obrigatório para envio por texto."
         )
 
+    current_user_id = str(current_user.id)
+    limiter = RateLimiter(redis_client)
+    if not await limiter.check("essay_submission", current_user_id, 10, 300):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Muitas redações enviadas em pouco tempo. Aguarde alguns minutos.",
+        )
+
     # ── Verifica se é uma entrega de tarefa ──────────────────────────────────
     tarefa: Tarefa | None = None
     is_assignment = False
@@ -72,20 +88,6 @@ async def submit_essay(
         )
         # Tarefa define o tema — sobrescreve qualquer tema enviado pelo aluno
         data = data.model_copy(update={"theme": tarefa.theme})
-
-    if not is_assignment:
-        # Verifica limite diário baseado no plano (só para redações livres)
-        allowed, used_today, daily_limit = await check_daily_correction_limit(
-            user_id=str(current_user.id),
-            plan=current_user.plan.value,
-            redis_client=redis_client,
-        )
-        if not allowed:
-            upgrade_message = _get_upgrade_message(current_user.plan.value)
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=f"Você atingiu o limite de {daily_limit} correção(ões) por dia. {upgrade_message}",
-            )
 
     # Valida tamanho do texto
     word_count = count_words(data.content)
@@ -103,6 +105,24 @@ async def submit_essay(
             detail=f"Redação muito longa. Máximo: {max_words} palavras. Atual: {word_count}.",
         )
 
+    quota_reserved = False
+    if not is_assignment:
+        allowed, _, daily_limit = await reserve_daily_correction_slot(
+            user_id=current_user_id,
+            plan=current_user.plan.value,
+            redis_client=redis_client,
+        )
+        if not allowed:
+            upgrade_message = _get_upgrade_message(current_user.plan.value)
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=(
+                    f"Você atingiu o limite de {daily_limit} correção(ões) por dia. "
+                    f"{upgrade_message}"
+                ),
+            )
+        quota_reserved = True
+
     # Cria a redação no banco
     essay = Essay(
         user_id=current_user.id,
@@ -114,42 +134,60 @@ async def submit_essay(
         status=EssayStatus.PENDING,
         word_count=word_count,
     )
-    db.add(essay)
-    await db.flush()  # Obtém o ID sem commit
+    essay_db_id = None
+    response_created_at = ""
+    try:
+        db.add(essay)
+        await db.flush()  # Obtém o ID sem commit
+        essay_db_id = essay.id
+        response_created_at = essay.created_at.isoformat()
 
-    if is_assignment and tarefa:
-        # Registra a submissão da tarefa
-        from datetime import datetime, timezone
-        submissao = TarefaSubmissao(
-            tarefa_id=tarefa.id,
-            student_id=current_user.id,
-            essay_id=essay.id,
-            submitted_at=datetime.now(timezone.utc),
-        )
-        db.add(submissao)
-        await db.flush()
-    else:
-        # Incrementa contador de uso (só para redações livres)
-        await increment_daily_correction_count(str(current_user.id), redis_client)
+        if is_assignment and tarefa:
+            # Registra a submissão da tarefa
+            from datetime import datetime, timezone
+            submissao = TarefaSubmissao(
+                tarefa_id=tarefa.id,
+                student_id=current_user.id,
+                essay_id=essay.id,
+                submitted_at=datetime.now(timezone.utc),
+            )
+            db.add(submissao)
+            await db.flush()
 
-    # Inicia a correção assíncrona
-    await _start_correction(essay, current_user, db, is_assignment=is_assignment)
+        # O worker usa outra conexão e só pode ler dados já confirmados.
+        await db.commit()
+        await enqueue_correction(str(essay_db_id), is_assignment=is_assignment)
+    except Exception as exc:
+        await db.rollback()
+        if quota_reserved:
+            await release_daily_correction_slot(current_user_id, redis_client)
+        if essay_db_id is not None:
+            persisted = await db.get(Essay, essay_db_id)
+            if persisted is not None:
+                persisted.status = EssayStatus.ERROR
+                persisted.error_message = "Não foi possível agendar a correção. Tente novamente."
+                await db.commit()
+        logger.error("erro_enfileirando_correcao", error_type=type(exc).__name__)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Não foi possível agendar a correção. Tente novamente.",
+        ) from exc
 
     logger.info(
         "redacao_submetida",
-        essay_id=str(essay.id),
-        user_id=str(current_user.id),
+        essay_id=str(essay_db_id),
+        user_id=current_user_id,
         essay_type=data.essay_type,
         word_count=word_count,
     )
 
     return EssayResponse(
-        id=str(essay.id),
-        title=essay.title,
-        essay_type=essay.essay_type.value,
-        status=essay.status.value,
-        word_count=essay.word_count,
-        created_at=essay.created_at.isoformat(),
+        id=str(essay_db_id),
+        title=data.title or "Redação sem título",
+        essay_type=data.essay_type.value,
+        status=EssayStatus.PENDING.value,
+        word_count=word_count,
+        created_at=response_created_at,
     )
 
 
@@ -176,21 +214,34 @@ async def submit_essay_photo(
     3. Não armazena no servidor — processa e descarta
     4. Sanitiza o texto extraído pelo OCR
     """
-    # Verifica limite diário
-    allowed, used_today, daily_limit = await check_daily_correction_limit(
-        user_id=str(current_user.id),
+    current_user_id = str(current_user.id)
+    limiter = RateLimiter(redis_client)
+    if not await limiter.check("essay_submission", current_user_id, 10, 300):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Muitas redações enviadas em pouco tempo. Aguarde alguns minutos.",
+        )
+
+    # Lê no máximo um byte além do limite, sem alocar uploads arbitrariamente grandes.
+    file_content = await photo.read(settings.max_file_size_bytes + 1)
+    await photo.close()
+    await asyncio.to_thread(
+        validate_image_file,
+        file_content,
+        photo.filename or "",
+        photo.content_type or "",
+    )
+
+    allowed, _, daily_limit = await reserve_daily_correction_slot(
+        user_id=current_user_id,
         plan=current_user.plan.value,
         redis_client=redis_client,
     )
     if not allowed:
         raise HTTPException(
-            status_code=429,
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=f"Limite diário atingido ({daily_limit}/dia).",
         )
-
-    # Lê o arquivo e valida
-    file_content = await photo.read()
-    validate_image_file(file_content, photo.filename or "", photo.content_type or "")
 
     # Extrai texto via OCR
     try:
@@ -198,6 +249,7 @@ async def submit_essay_photo(
         ocr_service = OCRService()
         extracted_text = await ocr_service.extract_text(file_content)
     except Exception as e:
+        await release_daily_correction_slot(current_user_id, redis_client)
         logger.error("erro_ocr", error=str(e))
         raise HTTPException(
             status_code=422,
@@ -206,6 +258,7 @@ async def submit_essay_photo(
         )
 
     if not extracted_text or len(extracted_text.strip()) < 50:
+        await release_daily_correction_slot(current_user_id, redis_client)
         raise HTTPException(
             status_code=422,
             detail="Não foi possível extrair texto suficiente da imagem. "
@@ -216,10 +269,18 @@ async def submit_essay_photo(
     min_words, max_words = _get_word_limits(essay_type)
 
     if word_count < min_words:
+        await release_daily_correction_slot(current_user_id, redis_client)
         raise HTTPException(
             status_code=422,
             detail=f"Texto extraído muito curto ({word_count} palavras). "
                    f"Verifique se a foto capturou toda a redação.",
+        )
+
+    if word_count > max_words:
+        await release_daily_correction_slot(current_user_id, redis_client)
+        raise HTTPException(
+            status_code=422,
+            detail=f"Texto extraído muito longo ({word_count} palavras).",
         )
 
     # Cria a redação
@@ -233,19 +294,37 @@ async def submit_essay_photo(
         status=EssayStatus.PENDING,
         word_count=word_count,
     )
-    db.add(essay)
-    await db.flush()
-
-    await increment_daily_correction_count(str(current_user.id), redis_client)
-    await _start_correction(essay, current_user, db)
+    essay_db_id = None
+    response_created_at = ""
+    try:
+        db.add(essay)
+        await db.flush()
+        essay_db_id = essay.id
+        response_created_at = essay.created_at.isoformat()
+        await db.commit()
+        await enqueue_correction(str(essay_db_id))
+    except Exception as exc:
+        await db.rollback()
+        await release_daily_correction_slot(current_user_id, redis_client)
+        if essay_db_id is not None:
+            persisted = await db.get(Essay, essay_db_id)
+            if persisted is not None:
+                persisted.status = EssayStatus.ERROR
+                persisted.error_message = "Não foi possível agendar a correção. Tente novamente."
+                await db.commit()
+        logger.error("erro_enfileirando_correcao", error_type=type(exc).__name__)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Não foi possível agendar a correção. Tente novamente.",
+        ) from exc
 
     return EssayResponse(
-        id=str(essay.id),
-        title=essay.title,
-        essay_type=essay.essay_type.value,
-        status=essay.status.value,
-        word_count=essay.word_count,
-        created_at=essay.created_at.isoformat(),
+        id=str(essay_db_id),
+        title=title or "Redação sem título",
+        essay_type=essay_type.value,
+        status=EssayStatus.PENDING.value,
+        word_count=word_count,
+        created_at=response_created_at,
     )
 
 
@@ -259,7 +338,7 @@ async def get_daily_limit(
     redis_client=Depends(get_redis),
 ) -> dict:
     """Retorna o uso de correções do dia e o limite do plano."""
-    from datetime import date, datetime, timezone, timedelta
+    from datetime import datetime, timezone, timedelta
 
     _, used_today, daily_limit = await check_daily_correction_limit(
         user_id=str(current_user.id),
@@ -293,8 +372,7 @@ async def list_essays(
     SEGURANÇA IDOR: A query filtra por user_id = current_user.id
     Isso garante que um usuário NUNCA veja redações de outro.
     """
-    from sqlalchemy import func, outerjoin
-    from app.db.models.correction import Correction
+    from sqlalchemy import func
 
     page = max(1, page)
     per_page = min(max(1, per_page), 50)
@@ -392,7 +470,6 @@ async def get_essay(
 
     correction_data = None
     if essay.correction:
-        from app.schemas.correction import CorrectionResponse
         # Plano Free recebe versão básica (sem grifes)
         if current_user.plan.value == "free":
             correction_data = _build_basic_correction(essay.correction)
@@ -459,7 +536,7 @@ def _get_upgrade_message(plan: str) -> str:
     if plan == "free":
         return "Faça upgrade para o plano Standard e tenha 3 correções por dia."
     elif plan == "standard":
-        return "Faça upgrade para o plano Pro e tenha correções ilimitadas."
+        return "Faça upgrade para o plano Pro e tenha 10 correções por dia."
     return ""
 
 
@@ -527,33 +604,6 @@ async def _validate_assignment_submission(
         )
 
     return tarefa, True
-
-
-async def _start_correction(
-    essay: Essay,
-    user: User,
-    db: AsyncSession,
-    is_assignment: bool = False,
-) -> None:
-    """
-    Inicia o processo de correção pela IA.
-
-    Em uma implementação completa, isso seria processado por uma fila
-    (Celery + Redis) para não bloquear a resposta HTTP.
-    Por ora, processa de forma assíncrona simples.
-    """
-    from app.services.ai.correction_service import CorrectionService
-
-    essay.status = EssayStatus.PROCESSING
-    await db.flush()
-
-    try:
-        service = CorrectionService()
-        await service.correct_essay(essay=essay, user=user, db=db, is_assignment=is_assignment)
-    except Exception as e:
-        logger.error("erro_correcao", essay_id=str(essay.id), error=str(e))
-        essay.status = EssayStatus.ERROR
-        essay.error_message = "Erro ao processar correção. Tente novamente."
 
 
 def _build_basic_correction(correction) -> dict:

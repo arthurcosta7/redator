@@ -22,7 +22,9 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    # A fila de correções compartilha este Redis: noeviction impede que jobs sejam
+    # descartados silenciosamente quando a memória atingir o limite.
+    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes --maxmemory 512mb --maxmemory-policy noeviction
     volumes:
       - redis_data:/data
     healthcheck:
@@ -44,8 +46,41 @@ services:
       # Sobrescreve as URLs locais para apontar para os containers
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-redator}:${POSTGRES_PASSWORD}@postgres:5432/redator
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
-    expose:
-      - "8000"
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--limit-concurrency", "200", "--backlog", "512", "--timeout-keep-alive", "5", "--no-access-log", "--log-level", "error"]
+    ports:
+      - "127.0.0.1:8000:8000"
+    mem_limit: 768m
+    cpus: 1.5
+    pids_limit: 256
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - redator_net
+
+  # ─── Worker de correção por IA ──────────────────────────────────────────────
+  correction_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: ["arq", "app.workers.correction.WorkerSettings"]
+    env_file: ./backend/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-redator}:${POSTGRES_PASSWORD}@postgres:5432/redator
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+    mem_limit: 768m
+    cpus: 1.5
+    pids_limit: 128
+    stop_grace_period: 3m
+    healthcheck:
+      test: ["CMD", "arq", "--check", "app.workers.correction.WorkerSettings"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     depends_on:
       postgres:
         condition: service_healthy

@@ -13,6 +13,7 @@ Headers implementados:
 - Permissions-Policy: desativa APIs do browser não utilizadas
 """
 import re
+import random
 import time
 import uuid
 from typing import Callable
@@ -109,15 +110,23 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         if not settings.is_production:
             response.headers["X-Process-Time"] = f"{process_time:.3f}s"
 
-        # Log de acesso (sem dados sensíveis)
-        logger.info(
-            "http_request",
-            method=request.method,
-            path=request.url.path,          # Caminho, sem query string (pode ter dados sensíveis)
-            status_code=response.status_code,
-            process_time_ms=round(process_time * 1000, 2),
-            request_id=request_id,
+        # Probes são muito frequentes e já são monitorados pelo balanceador.
+        # Registrar cada sucesso geraria I/O e custo de armazenamento sob carga.
+        is_probe = request.url.path in {"/health", "/ready"}
+        should_log = (
+            response.status_code >= 400
+            or process_time >= 1
+            or random.random() < settings.ACCESS_LOG_SUCCESS_SAMPLE_RATE
         )
+        if should_log and (not is_probe or response.status_code >= 400):
+            logger.info(
+                "http_request",
+                method=request.method,
+                path=request.url.path,  # Sem query string (pode conter dados sensíveis)
+                status_code=response.status_code,
+                process_time_ms=round(process_time * 1000, 2),
+                request_id=request_id,
+            )
 
         return response
 

@@ -11,7 +11,10 @@ Estratégia: Sliding Window Counter com Redis
 - Mais preciso que Fixed Window
 - Resiliente a "border attacks" (atacar exatamente na virada do minuto)
 """
+import secrets
 import time
+from datetime import datetime, timedelta, timezone
+from typing import Any
 
 import redis.asyncio as redis
 
@@ -19,6 +22,45 @@ from app.core.config import settings
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+_SLIDING_WINDOW_SCRIPT = """
+local key = KEYS[1]
+local window_start = tonumber(ARGV[1])
+local now = tonumber(ARGV[2])
+local member = ARGV[3]
+local maximum = tonumber(ARGV[4])
+local ttl = tonumber(ARGV[5])
+
+redis.call('ZREMRANGEBYSCORE', key, 0, window_start)
+local count = redis.call('ZCARD', key)
+if count >= maximum then
+    return {0, count}
+end
+redis.call('ZADD', key, now, member)
+redis.call('EXPIRE', key, ttl)
+return {1, count + 1}
+"""
+
+_RESERVE_DAILY_SCRIPT = """
+local current = tonumber(redis.call('GET', KEYS[1]) or '0')
+local maximum = tonumber(ARGV[1])
+if current >= maximum then
+    return {0, current}
+end
+current = redis.call('INCR', KEYS[1])
+redis.call('EXPIRE', KEYS[1], tonumber(ARGV[2]))
+return {1, current}
+"""
+
+_RELEASE_DAILY_SCRIPT = """
+local current = tonumber(redis.call('GET', KEYS[1]) or '0')
+if current <= 1 then
+    redis.call('DEL', KEYS[1])
+    return 0
+end
+return redis.call('DECR', KEYS[1])
+"""
 
 
 class RateLimiter:
@@ -34,13 +76,14 @@ class RateLimiter:
             raise HTTPException(429, "Muitas tentativas. Aguarde 15 minutos.")
     """
 
-    def __init__(self, redis_client: redis.Redis) -> None:
+    def __init__(self, redis_client: Any) -> None:
         self.redis = redis_client
 
     # Ações de autenticação — falham fechadas se Redis cair (segurança > disponibilidade)
     _FAIL_CLOSED_ACTIONS = frozenset({
         "login", "registration", "password_reset", "password_reset_confirmation",
-        "resend_verification",
+        "resend_verification", "essay_submission", "theme_generation",
+        "simulado_generation",
     })
 
     async def check(
@@ -66,24 +109,19 @@ class RateLimiter:
         window_start = now - window_seconds
 
         try:
-            pipe = self.redis.pipeline()
+            member = f"{time.time_ns()}:{secrets.token_hex(8)}"
+            allowed, current_count = await self.redis.eval(
+                _SLIDING_WINDOW_SCRIPT,
+                1,
+                key,
+                str(window_start),
+                str(now),
+                member,
+                str(max_requests),
+                str(window_seconds + 1),
+            )
 
-            # Remove entradas antigas (fora da janela deslizante)
-            await pipe.zremrangebyscore(key, 0, window_start)
-
-            # Conta requisições na janela atual
-            await pipe.zcard(key)
-
-            # Adiciona a requisição atual
-            await pipe.zadd(key, {str(now): now})
-
-            # Define expiração (limpeza automática no Redis)
-            await pipe.expire(key, window_seconds + 1)
-
-            results = await pipe.execute()
-            current_count = results[1]  # Resultado do zcard
-
-            if current_count >= max_requests:
+            if not allowed:
                 logger.warning(
                     "rate_limit_exceeded",
                     action=action,
@@ -130,10 +168,28 @@ class RateLimiter:
 # Verificação de limite de plano
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _daily_limit(plan: str) -> int:
+    return int({
+        "free": settings.PLAN_FREE_DAILY_CORRECTIONS,
+        "standard": settings.PLAN_STANDARD_DAILY_CORRECTIONS,
+        "pro": settings.PLAN_PRO_DAILY_CORRECTIONS,
+    }.get(plan, settings.PLAN_FREE_DAILY_CORRECTIONS))
+
+
+def _daily_key(user_id: str) -> str:
+    return f"corrections:{user_id}:{datetime.now(timezone.utc).date().isoformat()}"
+
+
+def _seconds_until_midnight() -> int:
+    now = datetime.now(timezone.utc)
+    midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    return max(1, int((midnight - now).total_seconds()) + 1)
+
+
 async def check_daily_correction_limit(
     user_id: str,
     plan: str,
-    redis_client: redis.Redis,
+    redis_client: Any,
 ) -> tuple[bool, int, int]:
     """
     Verifica se o usuário pode fazer uma nova correção hoje.
@@ -143,19 +199,8 @@ async def check_daily_correction_limit(
 
     A chave expira à meia-noite (início do próximo dia).
     """
-    from datetime import date
-
-    # Limite por plano
-    limits = {
-        "free": settings.PLAN_FREE_DAILY_CORRECTIONS,
-        "standard": settings.PLAN_STANDARD_DAILY_CORRECTIONS,
-        "pro": settings.PLAN_PRO_DAILY_CORRECTIONS,
-    }
-    daily_limit = limits.get(plan, 1)
-
-    # Chave única por usuário por dia
-    today = date.today().isoformat()
-    key = f"corrections:{user_id}:{today}"
+    daily_limit = _daily_limit(plan)
+    key = _daily_key(user_id)
 
     try:
         count = await redis_client.get(key)
@@ -168,35 +213,38 @@ async def check_daily_correction_limit(
 
     except redis.RedisError:
         logger.error("redis_error_checking_correction_limit", user_id=user_id)
-        # Fail-open: permite a correção se o Redis falhar
-        return True, 0, daily_limit
+        # Correções geram custo externo: indisponibilidade do limitador não pode
+        # virar consumo ilimitado (denial of wallet).
+        return False, 0, daily_limit
 
 
-async def increment_daily_correction_count(
+async def reserve_daily_correction_slot(
     user_id: str,
-    redis_client: redis.Redis,
-) -> None:
-    """
-    Incrementa o contador de correções do dia.
-    Chamado DEPOIS que a correção é gerada com sucesso.
-    """
-    from datetime import date, datetime, timedelta
-
-    today = date.today().isoformat()
-    key = f"corrections:{user_id}:{today}"
-
-    # Calcula segundos até meia-noite (para expirar o contador no dia seguinte)
-    now = datetime.now()
-    midnight = datetime(now.year, now.month, now.day) + timedelta(days=1)
-    seconds_until_midnight = int((midnight - now).total_seconds()) + 1
-
+    plan: str,
+    redis_client: Any,
+) -> tuple[bool, int, int]:
+    """Reserva uma correção de forma atômica, sem corrida entre requisições."""
+    daily_limit = _daily_limit(plan)
     try:
-        pipe = redis_client.pipeline()
-        await pipe.incr(key)
-        await pipe.expire(key, seconds_until_midnight)
-        await pipe.execute()
-    except redis.RedisError as e:
-        logger.error("redis_error_incrementing_correction", user_id=user_id, error=str(e))
+        allowed, used_today = await redis_client.eval(
+            _RESERVE_DAILY_SCRIPT,
+            1,
+            _daily_key(user_id),
+            str(daily_limit),
+            str(_seconds_until_midnight()),
+        )
+        return bool(allowed), int(used_today), daily_limit
+    except redis.RedisError as exc:
+        logger.error("redis_error_reserving_correction", user_id=user_id, error=str(exc))
+        return False, 0, daily_limit
+
+
+async def release_daily_correction_slot(user_id: str, redis_client: Any) -> None:
+    """Devolve uma reserva quando a correção não pôde ser enfileirada/concluída."""
+    try:
+        await redis_client.eval(_RELEASE_DAILY_SCRIPT, 1, _daily_key(user_id))
+    except redis.RedisError as exc:
+        logger.error("redis_error_releasing_correction", user_id=user_id, error=str(exc))
 
 
 # ─────────────────────────────────────────────────────────────────────────────

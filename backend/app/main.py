@@ -19,6 +19,8 @@ from sqlalchemy import delete, text
 
 from app.api.v1.router import api_router
 from app.core.config import settings
+from app.core.dependencies import close_redis, get_redis
+from app.core.job_queue import close_job_queue
 from app.core.logging import get_logger, setup_logging
 from app.core.middleware import setup_middlewares
 from app.db.models.user import User
@@ -76,9 +78,13 @@ async def lifespan(app: FastAPI):
 
     # Testa a conexão com o Redis
     try:
-        redis_client = redis.from_url(settings.REDIS_URL)
+        redis_client = redis.from_url(
+            settings.REDIS_URL,
+            socket_timeout=settings.REDIS_SOCKET_TIMEOUT_SECONDS,
+            socket_connect_timeout=settings.REDIS_CONNECT_TIMEOUT_SECONDS,
+        )
         await redis_client.ping()
-        await redis_client.close()
+        await redis_client.aclose()
         logger.info("redis_conectado")
     except Exception as e:
         logger.error("falha_conexao_redis", error=str(e))
@@ -94,6 +100,8 @@ async def lifespan(app: FastAPI):
     # ─── Encerramento ─────────────────────────────────────────────
     cleanup_task.cancel()
     logger.info("aplicacao_encerrando")
+    await close_job_queue()
+    await close_redis()
     await engine.dispose()
     logger.info("conexoes_fechadas")
 
@@ -205,3 +213,16 @@ async def health_check() -> dict:
     Apenas indica se a aplicação está respondendo.
     """
     return {"status": "ok"}
+
+
+@app.get("/ready", tags=["Sistema"], include_in_schema=False)
+async def readiness_check() -> JSONResponse:
+    """Indica se dependências essenciais aceitam trabalho novo, sem revelar detalhes."""
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+        redis_client = await get_redis()
+        await redis_client.ping()
+        return JSONResponse(status_code=200, content={"status": "ready"})
+    except Exception:
+        return JSONResponse(status_code=503, content={"status": "unavailable"})

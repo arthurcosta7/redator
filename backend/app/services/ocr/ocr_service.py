@@ -8,11 +8,14 @@ Segurança:
 - O texto extraído é sanitizado antes de usar
 - Tamanho máximo validado antes de enviar para a API
 """
+import asyncio
 import re
 
+from app.core.config import settings
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
+_ocr_slots = asyncio.Semaphore(settings.OCR_MAX_CONCURRENCY)
 
 
 class OCRService:
@@ -40,34 +43,26 @@ class OCRService:
         Raises:
             Exception: Se a API falhar ou não conseguir extrair texto
         """
-        try:
-            from google.cloud import vision
+        async with _ocr_slots:
+            async with asyncio.timeout(settings.OCR_TIMEOUT_SECONDS):
+                try:
+                    full_text = await asyncio.to_thread(self._google_ocr_sync, image_bytes)
+                except ImportError:
+                    logger.warning("google_vision_nao_disponivel_usando_fallback")
+                    full_text = await asyncio.to_thread(self._fallback_ocr_sync, image_bytes)
 
-            # Cria cliente da Google Vision
-            client = vision.ImageAnnotatorClient()
+        return self._sanitize_extracted_text(full_text) if full_text else ""
 
-            # Cria objeto Image com os bytes
-            image = vision.Image(content=image_bytes)
+    @staticmethod
+    def _google_ocr_sync(image_bytes: bytes) -> str:
+        """Executa o SDK síncrono fora do event loop do FastAPI."""
+        from google.cloud import vision
 
-            # Solicita detecção de documento (melhor para textos longos/manuscritos)
-            response = client.document_text_detection(image=image)
-
-            if response.error.message:
-                raise Exception(f"Google Vision API error: {response.error.message}")
-
-            # Pega o texto completo detectado
-            full_text = response.full_text_annotation.text
-
-            if not full_text:
-                return ""
-
-            # Sanitiza e normaliza o texto extraído
-            return self._sanitize_extracted_text(full_text)
-
-        except ImportError:
-            # Fallback se google-cloud-vision não estiver disponível
-            logger.warning("google_vision_nao_disponivel_usando_fallback")
-            return await self._fallback_ocr(image_bytes)
+        client = vision.ImageAnnotatorClient()
+        response = client.document_text_detection(image=vision.Image(content=image_bytes))
+        if response.error.message:
+            raise RuntimeError("Google Vision não conseguiu processar a imagem")
+        return str(response.full_text_annotation.text)
 
     def _sanitize_extracted_text(self, text: str) -> str:
         """
@@ -102,12 +97,14 @@ class OCRService:
         # Limita tamanho (segurança: não processa textos gigantes)
         max_chars = 15000  # ~3x o máximo de uma redação
         if len(result) > max_chars:
+            original_length = len(result)
             result = result[:max_chars]
-            logger.warning("texto_ocr_truncado", original_length=len(result))
+            logger.warning("texto_ocr_truncado", original_length=original_length)
 
         return result.strip()
 
-    async def _fallback_ocr(self, image_bytes: bytes) -> str:
+    @staticmethod
+    def _fallback_ocr_sync(image_bytes: bytes) -> str:
         """
         Fallback OCR usando Tesseract (open source, menos preciso).
 
@@ -128,7 +125,7 @@ class OCRService:
                 lang="por",  # Português
                 config="--psm 3",  # Modo automático de segmentação
             )
-            return self._sanitize_extracted_text(text)
+            return str(text)
 
         except ImportError:
             raise Exception(

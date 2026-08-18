@@ -34,8 +34,9 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.dependencies import get_current_user, get_db
+from app.core.dependencies import get_current_user, get_db, get_redis
 from app.core.logging import get_logger
+from app.core.rate_limiter import RateLimiter
 from app.db.models.correction import Correction
 from app.db.models.essay import Essay, EssayStatus
 from app.db.models.tarefa import Tarefa, TarefaSubmissao
@@ -1267,6 +1268,7 @@ async def add_teacher_comment(
 async def generate_theme(
     data: GenerateThemeRequest,
     teacher: Annotated[User, Depends(get_current_teacher)],
+    redis_client=Depends(get_redis),
 ) -> GenerateThemeResponse:
     """
     Gera um tema e textos motivadores via IA (GPT-5.6 Luna).
@@ -1278,7 +1280,18 @@ async def generate_theme(
     from openai import AsyncOpenAI
     from app.core.config import settings
 
-    client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+    limiter = RateLimiter(redis_client)
+    if not await limiter.check("theme_generation", str(teacher.id), 5, 300):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Muitos temas solicitados. Aguarde alguns minutos.",
+        )
+
+    client = AsyncOpenAI(
+        api_key=settings.OPENAI_API_KEY,
+        timeout=settings.OPENAI_TIMEOUT_SECONDS,
+        max_retries=settings.OPENAI_MAX_RETRIES,
+    )
 
     essay_label = "ENEM" if data.essay_type == "enem" else "Vestibular"
     prompt = (
