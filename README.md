@@ -202,7 +202,7 @@ Este projeto foi desenvolvido com **Security by Design**:
 
 **Backend**: Python 3.11, FastAPI, SQLAlchemy 2.0, PostgreSQL, Redis, Alembic  
 **Frontend**: Next.js 14, TypeScript, Tailwind CSS, Zod  
-**IA**: Claude API (Anthropic)  
+**IA**: OpenAI Responses API
 **OCR**: Google Cloud Vision  
 **Pagamentos**: Stripe  
 **Email**: Resend

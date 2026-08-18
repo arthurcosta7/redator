@@ -1,8 +1,9 @@
 "use client";
 
 import { useRef } from "react";
-import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
+import { motion, useScroll, useTransform } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useHydratedReducedMotion } from "@/hooks/use-hydrated-reduced-motion";
 
 type ScrollParallaxProps = {
   children: React.ReactNode;
@@ -22,7 +23,7 @@ export function ScrollParallax({
   rotateTo = 0,
 }: ScrollParallaxProps) {
   const ref = useRef<HTMLDivElement>(null);
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = useHydratedReducedMotion();
   const { scrollYProgress } = useScroll({
     target: ref,
     offset: ["start end", "end start"],

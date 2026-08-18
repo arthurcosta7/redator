@@ -1,17 +1,19 @@
 """
-correction_service.py — Serviço de correção de redações com Claude (Anthropic)
+correction_service.py — Serviço de correção de redações com OpenAI
 
 Responsável por:
 1. Montar o prompt correto baseado no tipo de redação
-2. Chamar a API Claude (claude-sonnet-4-6)
+2. Chamar a Responses API da OpenAI
 3. Parsear a resposta JSON
 4. Ajustar o nível de detalhe baseado no plano do usuário
 5. Salvar o resultado no banco
 """
+import hashlib
 import json
 import time
 
-import anthropic
+import openai
+from openai import AsyncOpenAI
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -33,19 +35,14 @@ logger = get_logger(__name__)
 
 class CorrectionService:
     """
-    Serviço que gerencia a correção de redações usando Claude (Anthropic).
+    Serviço que gerencia a correção de redações usando a OpenAI.
 
-    Claude Sonnet 4.6 oferece:
-    - Análise textual profunda em português brasileiro
-    - Seguimento fiel de instruções de formato JSON
-    - Feedback construtivo e detalhado
-    - Custo equilibrado para uso em produção
+    O plano gratuito usa GPT-5.6 Luna; Standard, Pro e tarefas usam
+    GPT-5.4 mini.
     """
 
-    def __init__(self) -> None:
-        self.client = anthropic.AsyncAnthropic(
-            api_key=settings.ANTHROPIC_API_KEY
-        )
+    def __init__(self, client: AsyncOpenAI | None = None) -> None:
+        self.client = client or AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
 
     async def correct_essay(
         self,
@@ -59,7 +56,7 @@ class CorrectionService:
 
         Processo:
         1. Seleciona o prompt correto (ENEM ou Vestibular)
-        2. Chama a API Claude
+        2. Chama a Responses API da OpenAI
         3. Parseia o JSON retornado
         4. Ajusta o nível de detalhe baseado no plano do usuário
         5. Salva no banco
@@ -83,11 +80,11 @@ class CorrectionService:
                 )
                 max_score = 100.0
 
-            # Tarefas sempre usam Sonnet (professor paga); Free usa Haiku
+            # Tarefas usam o modelo pago; redações individuais respeitam o plano.
             model = (
-                settings.ANTHROPIC_MODEL
+                settings.OPENAI_PAID_MODEL
                 if is_assignment or user.plan.value != "free"
-                else "claude-haiku-4-5-20251001"
+                else settings.OPENAI_FREE_MODEL
             )
 
             logger.info(
@@ -97,21 +94,23 @@ class CorrectionService:
                 model=model,
             )
 
-            # Chama a API Claude
-            # Nota: Claude segue instruções de formato JSON com alta fidelidade.
-            # Usamos temperature baixa para respostas consistentes e precisas.
-            response = await self.client.messages.create(
+            response = await self.client.responses.create(
                 model=model,
-                max_tokens=settings.ANTHROPIC_MAX_TOKENS,
-                temperature=0.3,   # Baixa temperatura → consistência e precisão
-                system=system_prompt,
-                messages=[
+                max_output_tokens=settings.OPENAI_MAX_OUTPUT_TOKENS,
+                reasoning={"effort": "none"},
+                safety_identifier=hashlib.sha256(str(user.id).encode()).hexdigest(),
+                store=False,
+                input=[
+                    {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_message},
                 ],
+                text={"format": {"type": "json_object"}},
             )
 
-            # Extrai o texto da resposta Claude
-            response_text = response.content[0].text if response.content else ""
+            if response.status == "incomplete":
+                raise ValueError("Resposta da IA incompleta")
+
+            response_text = response.output_text
 
             # Parseia o JSON
             correction_data = self._parse_correction_response(response_text)
@@ -145,8 +144,8 @@ class CorrectionService:
                 score=correction.total_score,
                 max_score=max_score,
                 processing_time=round(processing_time, 2),
-                input_tokens=response.usage.input_tokens,
-                output_tokens=response.usage.output_tokens,
+                input_tokens=response.usage.input_tokens if response.usage else 0,
+                output_tokens=response.usage.output_tokens if response.usage else 0,
             )
 
             return correction
@@ -157,12 +156,12 @@ class CorrectionService:
             essay.error_message = "Erro ao processar resposta da IA"
             raise
 
-        except anthropic.APIStatusError as e:
+        except openai.APIStatusError as e:
             logger.error(
-                "erro_api_claude",
+                "erro_api_openai",
                 essay_id=str(essay.id),
                 status_code=e.status_code,
-                error=str(e.message),
+                error=str(e),
             )
             essay.status = EssayStatus.ERROR
             essay.error_message = "Serviço de IA temporariamente indisponível"
@@ -181,10 +180,7 @@ class CorrectionService:
 
     def _parse_correction_response(self, response_text: str) -> dict:
         """
-        Parseia a resposta JSON do Claude.
-
-        Claude é altamente fiel ao formato JSON solicitado no prompt,
-        mas fazemos validações de segurança mesmo assim.
+        Parseia e valida a resposta JSON da OpenAI.
         """
         text = response_text.strip()
 

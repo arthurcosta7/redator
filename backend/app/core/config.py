@@ -47,11 +47,12 @@ class Settings(BaseSettings):
     # ─── Redis ────────────────────────────────────────────────────
     REDIS_URL: str  # Ex: redis://:senha@localhost:6379/0
 
-    # ─── Anthropic Claude API (IA) ───────────────────────────────
-    # OBRIGATÓRIO: Obtenha em console.anthropic.com
-    ANTHROPIC_API_KEY: str = ""
-    ANTHROPIC_MODEL: str = "claude-sonnet-4-6"     # Sonnet 4.6 — equilíbrio custo/qualidade
-    ANTHROPIC_MAX_TOKENS: int = 4096               # Máximo de tokens na resposta
+    # ─── OpenAI API (IA) ─────────────────────────────────────────
+    # OBRIGATÓRIO: Obtenha em platform.openai.com
+    OPENAI_API_KEY: str = ""
+    OPENAI_FREE_MODEL: str = "gpt-5.6-luna"
+    OPENAI_PAID_MODEL: str = "gpt-5.4-mini"
+    OPENAI_MAX_OUTPUT_TOKENS: int = 4096
 
     # ─── Google Cloud Vision (OCR) ────────────────────────────────
     GOOGLE_APPLICATION_CREDENTIALS: str = ""       # Opcional, pode usar ADC

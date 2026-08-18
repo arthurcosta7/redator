@@ -73,6 +73,21 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const mainNav   = isTeacher ? teacherNav       : studentNav;
   const botNav    = isTeacher ? teacherBottomNav  : studentBottomNav;
   const isPaid    = user?.plan === "standard" || user?.plan === "pro";
+  const teacherSlots = user?.teacher_student_slots ?? 0;
+  const displayedPlan = isTeacher
+    ? teacherSlots > 0
+      ? `${teacherSlots} alunos`
+      : "Professor grátis"
+    : user
+      ? PLAN_LABELS[user.plan]
+      : "";
+  const displayedPlanColor = isTeacher
+    ? teacherSlots > 0
+      ? "bg-accent-50 text-accent-deep"
+      : "bg-slate-100 text-slate-600"
+    : user
+      ? PLAN_COLORS[user.plan]
+      : "";
 
   const isActive = (href: string, exact = false) =>
     exact ? pathname === href : pathname.startsWith(href);
@@ -184,8 +199,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 <span className="text-xs text-slate-500 font-medium truncate max-w-[100px]">
                   {user.full_name.split(" ")[0]}
                 </span>
-                <span className={clsx("text-xs font-semibold px-2 py-0.5 rounded-full", PLAN_COLORS[user.plan])}>
-                  {PLAN_LABELS[user.plan]}
+                <span className={clsx("text-xs font-semibold px-2 py-0.5 rounded-full", displayedPlanColor)}>
+                  {displayedPlan}
                 </span>
               </div>
               <p className="text-xs text-slate-400 truncate">{user.email}</p>

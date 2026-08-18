@@ -1269,16 +1269,16 @@ async def generate_theme(
     teacher: Annotated[User, Depends(get_current_teacher)],
 ) -> GenerateThemeResponse:
     """
-    Gera um tema e textos motivadores via IA (Claude Haiku).
+    Gera um tema e textos motivadores via IA (GPT-5.6 Luna).
 
     Uso: professor clica em 'Gerar com IA' ao criar uma tarefa.
     """
     import json
     import re
-    import anthropic
+    from openai import AsyncOpenAI
     from app.core.config import settings
 
-    client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+    client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
 
     essay_label = "ENEM" if data.essay_type == "enem" else "Vestibular"
     prompt = (
@@ -1290,14 +1290,19 @@ async def generate_theme(
         "]}"
     )
 
-    response = await client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=800,
-        temperature=0.9,
-        messages=[{"role": "user", "content": prompt}],
+    response = await client.responses.create(
+        model=settings.OPENAI_FREE_MODEL,
+        max_output_tokens=800,
+        reasoning={"effort": "none"},
+        store=False,
+        input=[{"role": "user", "content": prompt}],
+        text={"format": {"type": "json_object"}},
     )
 
-    raw = response.content[0].text.strip()
+    if response.status == "incomplete":
+        raise HTTPException(status_code=502, detail="Erro ao gerar tema. Tente novamente.")
+
+    raw = response.output_text.strip()
     try:
         parsed = json.loads(raw)
     except json.JSONDecodeError:

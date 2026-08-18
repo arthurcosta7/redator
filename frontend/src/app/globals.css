@@ -29,7 +29,14 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    scroll-padding-top: 5rem;
     overflow-x: clip;
+  }
+
+  @media (min-width: 1024px) {
+    html {
+      scroll-padding-top: 6rem;
+    }
   }
 
   body {

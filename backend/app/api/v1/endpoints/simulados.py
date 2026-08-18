@@ -3,7 +3,7 @@ simulados.py — Endpoints de simulados de redação
 
 GET /simulados/new?type=enem|vestibular — Retorna um simulado do pool Redis
 
-Simulados são gerados em lote pelo Claude Haiku e cacheados no Redis por 7 dias.
+Simulados são gerados em lote pelo GPT-5.6 Luna e cacheados no Redis por 7 dias.
 Cada requisição consome um item do pool; o pool é reabastecido em background
 quando cai abaixo do mínimo configurado.
 """
@@ -41,7 +41,7 @@ async def get_new_simulado(
     Retorna um simulado de redação para praticar.
 
     Requer plano Standard ou Pro.
-    Servido de um pool Redis — geração com Claude Haiku em lote para reduzir custo.
+    Servido de um pool Redis — geração com GPT-5.6 Luna em lote para reduzir custo.
     """
     if current_user.plan == UserPlan.FREE:
         raise HTTPException(

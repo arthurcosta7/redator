@@ -43,7 +43,7 @@ const faqs = [
   {
     question: "Sou professor. Como funciona para mim?",
     answer:
-      "Professores têm acesso gratuito à área de turmas: crie turmas, adicione alunos, atribua temas e veja o desempenho de cada aluno por competência. Os alunos gerenciam as próprias assinaturas.",
+      "Professores começam gratuitamente com até 3 alunos ativos por turma. Para ampliar, cada pacote de R$ 11,99/mês adiciona 10 vagas distribuídas livremente entre as turmas, além dos insights detalhados por tarefa. As assinaturas pessoais dos alunos continuam separadas.",
   },
 ];
 

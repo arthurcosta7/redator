@@ -81,7 +81,7 @@ class Correction(UUIDMixin, TimestampMixin, Base):
     insights: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
 
     # ─── Metadados ────────────────────────────────────────────────
-    # Modelo Claude usado (para rastreabilidade)
+    # Modelo de IA usado (para rastreabilidade)
     ai_model_used: Mapped[str | None] = mapped_column(
         String(100), nullable=True
     )

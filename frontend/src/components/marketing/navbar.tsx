@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type MouseEvent } from "react";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
 
@@ -13,6 +13,38 @@ const navLinks = [
 
 export function Navbar() {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+  const handleNavClick = (event: MouseEvent<HTMLAnchorElement>, href: string) => {
+    if (
+      event.defaultPrevented ||
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    ) {
+      return;
+    }
+
+    const target = document.querySelector<HTMLElement>(href);
+
+    if (!target) {
+      return;
+    }
+
+    event.preventDefault();
+    setIsMobileOpen(false);
+
+    const prefersReducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+
+    target.scrollIntoView({
+      behavior: prefersReducedMotion ? "auto" : "smooth",
+      block: "start",
+    });
+    window.history.pushState(null, "", href);
+  };
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-paper/85 backdrop-blur-md border-b border-ink-line">
@@ -35,6 +67,7 @@ export function Navbar() {
               <a
                 key={link.label}
                 href={link.href}
+                onClick={(event) => handleNavClick(event, link.href)}
                 className="text-[15px] font-medium text-ink-soft hover:text-ink link-underline transition-colors"
               >
                 {link.label}
@@ -79,7 +112,7 @@ export function Navbar() {
                 <a
                   key={link.label}
                   href={link.href}
-                  onClick={() => setIsMobileOpen(false)}
+                  onClick={(event) => handleNavClick(event, link.href)}
                   className="block px-2 py-2.5 text-base font-medium text-ink-soft
                              hover:text-ink rounded transition-colors"
                 >

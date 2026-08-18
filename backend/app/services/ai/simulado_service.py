@@ -6,14 +6,14 @@ Estratégia de cache:
 - Cada chamada do usuário consome um item do pool (RPOP)
 - Quando pool < POOL_MIN_SIZE, dispara reabastecimento em background
 - TTL do pool: 7 dias (os temas continuam relevantes por uma semana)
-- Modelo usado: Haiku (geração de conteúdo sem alta precisão analítica)
+- Modelo usado: GPT-5.6 Luna (geração de conteúdo de alto volume)
 """
 import asyncio
 import json
 import uuid
 from datetime import datetime, timezone
 
-import anthropic
+from openai import AsyncOpenAI
 
 from app.core.config import settings
 from app.core.logging import get_logger
@@ -62,8 +62,8 @@ Os 5 temas devem ser distintos: literatura e sociedade, filosofia prática, ciê
 
 
 class SimuladoService:
-    def __init__(self) -> None:
-        self.client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+    def __init__(self, client: AsyncOpenAI | None = None) -> None:
+        self.client = client or AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
 
     async def get_simulado(self, essay_type: str, redis_client) -> dict:
         """
@@ -109,17 +109,21 @@ class SimuladoService:
             logger.error("erro_refill_simulado_pool", essay_type=essay_type, error=str(e))
 
     async def _generate_batch(self, essay_type: str) -> list[dict]:
-        """Gera 5 simulados via Claude Haiku e retorna como lista."""
+        """Gera 5 simulados via GPT-5.6 Luna e retorna como lista."""
         prompt = _GENERATION_PROMPTS.get(essay_type, _GENERATION_PROMPTS["enem"])
 
-        response = await self.client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=4096,
-            temperature=0.9,  # Alta temperatura para variar os temas
-            messages=[{"role": "user", "content": prompt}],
+        response = await self.client.responses.create(
+            model=settings.OPENAI_FREE_MODEL,
+            max_output_tokens=settings.OPENAI_MAX_OUTPUT_TOKENS,
+            reasoning={"effort": "none"},
+            store=False,
+            input=[{"role": "user", "content": prompt}],
         )
 
-        text = response.content[0].text.strip()
+        if response.status == "incomplete":
+            raise ValueError("Resposta da IA incompleta")
+
+        text = response.output_text.strip()
 
         # Remove markdown code block se presente
         if text.startswith("```"):

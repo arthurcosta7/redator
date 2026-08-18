@@ -45,7 +45,7 @@ function SlotBar({ used, total }: { used: number; total: number }) {
 const FREE_FEATURES = [
   { icon: Users,         label: "Turmas ilimitadas" },
   { icon: ClipboardList, label: "Tarefas com tema e prazos" },
-  { icon: Sparkles,      label: "Geração de temas por IA (Haiku)" },
+  { icon: Sparkles,      label: "Geração de temas por IA (GPT-5.6 Luna)" },
   { icon: BookOpen,      label: "Correção automática das entregas" },
   { icon: BarChart3,     label: "Analytics geral por turma e aluno" },
 ];
