@@ -3,6 +3,7 @@
 import { useState, type MouseEvent } from "react";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
+import VariableFontHoverNav from "@/components/ui/m-variable-font-hover-1";
 
 const navLinks = [
   { label: "Como funciona", href: "#como-funciona" },
@@ -62,18 +63,7 @@ export function Navbar() {
           </Link>
 
           {/* Links desktop */}
-          <div className="hidden lg:flex items-center gap-10">
-            {navLinks.map((link) => (
-              <a
-                key={link.label}
-                href={link.href}
-                onClick={(event) => handleNavClick(event, link.href)}
-                className="text-[15px] font-medium text-ink-soft hover:text-ink link-underline transition-colors"
-              >
-                {link.label}
-              </a>
-            ))}
-          </div>
+          <VariableFontHoverNav links={navLinks} onLinkClick={handleNavClick} />
 
           {/* CTAs desktop */}
           <div className="hidden lg:flex items-center gap-5">

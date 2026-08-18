@@ -116,6 +116,33 @@
     @apply origin-left scale-x-100;
   }
 
+  /* Peso tipográfico em onda para a navegação editorial. O link permanece
+     semanticamente inteiro; apenas a camada visual é separada em glifos. */
+  .variable-font-hover,
+  .variable-font-hover__visual {
+    display: inline-flex;
+  }
+
+  .variable-font-hover__glyph {
+    display: inline-block;
+    font-variation-settings: var(--variable-font-from);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .variable-font-hover__glyph {
+      transition-property: font-variation-settings;
+      transition-duration: 180ms;
+      transition-timing-function: var(--ease-out);
+      transition-delay: calc(var(--variable-font-delay) * 0.55);
+    }
+
+    .variable-font-hover-trigger:hover .variable-font-hover__glyph,
+    .variable-font-hover-trigger:focus-visible .variable-font-hover__glyph {
+      font-variation-settings: var(--variable-font-to);
+      transition-delay: var(--variable-font-delay);
+    }
+  }
+
   /* Grifes na redação exemplo */
   .grife-good {
     position: relative;
