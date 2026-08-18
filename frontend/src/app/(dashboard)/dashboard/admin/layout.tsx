@@ -21,6 +21,7 @@ import {
   Menu,
   X,
   AlertTriangle,
+  Scale,
 } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
 import { ADMIN_ROLE_LABELS, ADMIN_ROLE_COLORS, canManageTeam, canViewAnalytics } from "@/types/admin";
@@ -35,7 +36,7 @@ function getNavItems(role: AdminRole) {
       label: "Visão Geral",
       icon: LayoutDashboard,
       exact: true,
-      visible: true,
+      visible: role !== "licensed_teacher",
     },
     {
       href: "/dashboard/admin/usuarios",
@@ -49,7 +50,14 @@ function getNavItems(role: AdminRole) {
       label: "Redações",
       icon: FileText,
       exact: false,
-      visible: true,
+      visible: role !== "licensed_teacher",
+    },
+    {
+      href: "/dashboard/admin/contestacoes",
+      label: "Contestações",
+      icon: Scale,
+      exact: false,
+      visible: ["superadmin", "licensed_teacher"].includes(role),
     },
     {
       href: "/dashboard/admin/analytics",
@@ -166,6 +174,16 @@ export default function AdminLayout({
       router.replace("/dashboard/aluno");
     }
   }, [user, isLoading, router]);
+
+  useEffect(() => {
+    if (
+      !isLoading &&
+      user?.admin_role === "licensed_teacher" &&
+      !pathname.startsWith("/dashboard/admin/contestacoes")
+    ) {
+      router.replace("/dashboard/admin/contestacoes");
+    }
+  }, [user, isLoading, pathname, router]);
 
   if (isLoading) {
     return (

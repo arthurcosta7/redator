@@ -13,6 +13,7 @@ import {
 import { api, getApiError } from "@/lib/api/client";
 import type { Essay } from "@/types/essay";
 import { CorrectionView } from "@/components/dashboard/correction-view";
+import { AppealPanel } from "@/components/dashboard/appeal-panel";
 
 // ─── Estado de processamento ─────────────────────────────────────────────────
 
@@ -175,7 +176,10 @@ export default function CorrectionPage() {
       {essay.status === "error" && <ErrorState />}
 
       {essay.status === "completed" && essay.correction && (
-        <CorrectionView essay={essay} correction={essay.correction} />
+        <>
+          <CorrectionView essay={essay} correction={essay.correction} />
+          <AppealPanel correction={essay.correction} />
+        </>
       )}
 
       {essay.status === "completed" && !essay.correction && (

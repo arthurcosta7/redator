@@ -71,6 +71,10 @@ class TestPasswordHashing:
         with pytest.raises(ValueError, match="72 bytes"):
             hash_password(password)
 
+    def test_hash_uses_configured_bcrypt_cost(self):
+        hashed = hash_password("MinhaSenhaSegura123")
+        assert hashed.startswith(("$2b$12$", "$2a$12$"))
+
 
 class TestJWTTokens:
     """Testes de tokens JWT."""
@@ -161,6 +165,27 @@ class TestJWTTokens:
         payload2 = decode_token(token2)
 
         assert payload1["jti"] != payload2["jti"]
+
+    def test_rejects_algorithm_confusion(self):
+        import jwt
+        from datetime import datetime, timedelta, timezone
+        from app.core.config import settings
+
+        now = datetime.now(timezone.utc)
+        token = jwt.encode(
+            {
+                "sub": "user-123",
+                "type": "access",
+                "exp": now + timedelta(minutes=5),
+                "iat": now,
+                "jti": "algorithm-confusion-test",
+            },
+            settings.SECRET_KEY,
+            algorithm="HS384",
+        )
+
+        with pytest.raises(jwt.InvalidAlgorithmError):
+            decode_token(token)
 
 
 class TestSecureTokens:

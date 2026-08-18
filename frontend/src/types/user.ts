@@ -5,7 +5,7 @@
 export type UserType = "student" | "teacher";
 export type UserPlan = "free" | "standard" | "pro";
 
-export type AdminRole = "superadmin" | "admin" | "analyst" | "support";
+export type AdminRole = "superadmin" | "admin" | "analyst" | "support" | "licensed_teacher";
 
 export interface CurrentUser {
   id: string;

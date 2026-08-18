@@ -10,8 +10,11 @@ Responsável por:
 """
 import hashlib
 import json
+import math
+import re
 import time
 
+import bleach
 import openai
 from openai import AsyncOpenAI
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -113,7 +116,7 @@ class CorrectionService:
             response_text = response.output_text
 
             # Parseia o JSON
-            correction_data = self._parse_correction_response(response_text)
+            correction_data = self._parse_correction_response(response_text, essay.essay_type)
 
             processing_time = time.perf_counter() - start_time
 
@@ -178,7 +181,9 @@ class CorrectionService:
             essay.error_message = "Serviço de IA temporariamente indisponível"
             raise
 
-    def _parse_correction_response(self, response_text: str) -> dict:
+    def _parse_correction_response(
+        self, response_text: str, essay_type: EssayType
+    ) -> dict:
         """
         Parseia e valida a resposta JSON da OpenAI.
         """
@@ -190,7 +195,15 @@ class CorrectionService:
             # Remove primeira linha (```json) e última (```)
             text = "\n".join(lines[1:-1] if lines[-1] == "```" else lines[1:])
 
-        data = json.loads(text)
+        data = json.loads(
+            text,
+            parse_constant=lambda value: (_ for _ in ()).throw(
+                ValueError(f"Numero JSON nao finito: {value}")
+            ),
+        )
+
+        if not isinstance(data, dict):
+            raise ValueError("Resposta da IA deve ser um objeto JSON")
 
         # Validações básicas da estrutura
         required_fields = ["total_score", "competencies", "highlights", "insights"]
@@ -198,10 +211,91 @@ class CorrectionService:
             if field not in data:
                 raise ValueError(f"Campo obrigatório ausente na resposta da IA: {field}")
 
-        if not isinstance(data["competencies"], list):
-            raise ValueError("Campo 'competencies' deve ser uma lista")
+        self._validate_scores(data, essay_type)
 
         if not isinstance(data["highlights"], list):
             data["highlights"] = []  # Garante lista mesmo se IA retornar null
 
-        return data
+        if not isinstance(data["insights"], dict):
+            raise ValueError("Campo 'insights' deve ser um objeto")
+
+        return self._sanitize_ai_output(data)
+
+    @staticmethod
+    def _validate_scores(data: dict, essay_type: EssayType) -> None:
+        """Trata a resposta do modelo como entrada nao confiavel."""
+        if essay_type == EssayType.ENEM:
+            expected_count = 5
+            expected_max = 200.0
+            allowed_scores = {0.0, 40.0, 80.0, 120.0, 160.0, 200.0}
+            max_total = 1000.0
+        else:
+            expected_count = 4
+            expected_max = 25.0
+            allowed_scores = {0.0, 5.0, 10.0, 15.0, 20.0, 25.0}
+            max_total = 100.0
+
+        competencies = data.get("competencies")
+        if not isinstance(competencies, list) or len(competencies) != expected_count:
+            raise ValueError(f"A correcao deve conter {expected_count} competencias")
+
+        total_score = data.get("total_score")
+        if (
+            isinstance(total_score, bool)
+            or not isinstance(total_score, (int, float))
+            or not math.isfinite(float(total_score))
+            or not 0 <= float(total_score) <= max_total
+        ):
+            raise ValueError("Nota total invalida na resposta da IA")
+
+        seen_numbers: set[int] = set()
+        calculated_total = 0.0
+        required_keys = {
+            "number", "name", "score", "max_score", "feedback", "strengths", "improvements"
+        }
+        for competency in competencies:
+            if not isinstance(competency, dict) or not required_keys.issubset(competency):
+                raise ValueError("Competencia incompleta na resposta da IA")
+            number = competency["number"]
+            score = competency["score"]
+            max_score = competency["max_score"]
+            if isinstance(number, bool) or not isinstance(number, int):
+                raise ValueError("Numero de competencia invalido")
+            if number in seen_numbers or not 1 <= number <= expected_count:
+                raise ValueError("Competencias duplicadas ou fora da faixa")
+            if (
+                isinstance(score, bool)
+                or not isinstance(score, (int, float))
+                or not math.isfinite(float(score))
+                or float(score) not in allowed_scores
+            ):
+                raise ValueError(f"Nota invalida na competencia {number}")
+            if max_score != expected_max:
+                raise ValueError(f"Nota maxima invalida na competencia {number}")
+            if not isinstance(competency["name"], str) or not isinstance(
+                competency["feedback"], str
+            ):
+                raise ValueError("Textos da competencia sao invalidos")
+            if not isinstance(competency["strengths"], list) or not isinstance(
+                competency["improvements"], list
+            ):
+                raise ValueError("Listas da competencia sao invalidas")
+            seen_numbers.add(number)
+            calculated_total += float(score)
+
+        if seen_numbers != set(range(1, expected_count + 1)):
+            raise ValueError("Conjunto de competencias incompleto")
+        if abs(calculated_total - float(total_score)) > 0.01:
+            raise ValueError("Nota total difere da soma das competencias")
+
+    @classmethod
+    def _sanitize_ai_output(cls, value):
+        """Remove HTML e controles de qualquer texto devolvido pelo modelo."""
+        if isinstance(value, str):
+            cleaned = bleach.clean(value, tags=[], strip=True)
+            return re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", cleaned)
+        if isinstance(value, list):
+            return [cls._sanitize_ai_output(item) for item in value]
+        if isinstance(value, dict):
+            return {key: cls._sanitize_ai_output(item) for key, item in value.items()}
+        return value

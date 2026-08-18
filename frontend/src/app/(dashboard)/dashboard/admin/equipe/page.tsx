@@ -93,6 +93,7 @@ function AddMemberModal({
               className="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-50 transition-colors bg-white"
             >
               <option value="support">Suporte — visualizar e ações de suporte</option>
+              <option value="licensed_teacher">Professor licenciado — revisar contestações</option>
               <option value="analyst">Analista — somente leitura + analytics</option>
               <option value="admin">Admin — gerenciar usuários e redações</option>
             </select>
@@ -186,6 +187,7 @@ function EditRoleModal({
             className="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 outline-none focus:border-brand-400 bg-white"
           >
             <option value="support">Suporte</option>
+            <option value="licensed_teacher">Professor licenciado</option>
             <option value="analyst">Analista</option>
             <option value="admin">Admin</option>
           </select>
@@ -267,6 +269,7 @@ export default function AdminTeamPage() {
     admin: 1,
     analyst: 2,
     support: 3,
+    licensed_teacher: 4,
   };
   const sorted = [...members].sort((a, b) =>
     (roleOrder[a.admin_role] ?? 99) - (roleOrder[b.admin_role] ?? 99)
@@ -419,6 +422,10 @@ export default function AdminTeamPage() {
             {
               role: "support",
               perms: "Visualiza usuários/redações, pode banir/desbanir e verificar emails. Não altera planos.",
+            },
+            {
+              role: "licensed_teacher",
+              perms: "Acessa apenas contestações, confere a correção e registra uma decisão pedagógica auditável.",
             },
           ].map((item) => (
             <div key={item.role} className="flex gap-3">

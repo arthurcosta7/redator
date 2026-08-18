@@ -40,6 +40,7 @@ class AdminRole(str, enum.Enum):
     - ADMIN: Gerenciamento de usuários e redações. Não pode gerenciar admins.
     - ANALYST: Somente leitura — analytics, relatórios, dados agregados.
     - SUPPORT: Pode ver usuários/redações e agir em suporte (ban, verificar email).
+    - LICENSED_TEACHER: Analisa contestações de correção, sem acesso administrativo geral.
 
     Usuários sem admin_role (None) são usuários comuns — sem acesso ao painel.
     SEGURANÇA: Este campo é verificado no servidor a cada requisição admin,
@@ -49,6 +50,7 @@ class AdminRole(str, enum.Enum):
     ADMIN = "admin"
     ANALYST = "analyst"
     SUPPORT = "support"
+    LICENSED_TEACHER = "licensed_teacher"
 
 
 class User(UUIDMixin, TimestampMixin, Base):

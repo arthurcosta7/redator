@@ -11,7 +11,11 @@ Assinaturas dos formatos suportados:
 - PNG:  89 50 4E 47 0D 0A 1A 0A
 - WEBP: 52 49 46 46 ... 57 45 42 50
 """
+import io
+import warnings
+
 from fastapi import HTTPException
+from PIL import Image, UnidentifiedImageError
 
 from app.core.config import settings
 from app.core.logging import get_logger
@@ -26,6 +30,7 @@ IMAGE_SIGNATURES = {
 }
 
 MAX_FILE_SIZE = settings.max_file_size_bytes
+MAX_IMAGE_PIXELS = 40_000_000
 
 
 def validate_image_file(
@@ -73,6 +78,35 @@ def validate_image_file(
             status_code=422,
             detail=f"Tipo de imagem não permitido: {detected_type}. "
                    f"Use: JPG, PNG ou WEBP.",
+        )
+
+    # Magic bytes so identificam um candidato. A decodificacao completa impede
+    # arquivos truncados, poliglotas simples e imagens-bomba por dimensoes.
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            with Image.open(io.BytesIO(file_content)) as image:
+                width, height = image.size
+                if width <= 0 or height <= 0 or width * height > MAX_IMAGE_PIXELS:
+                    raise ValueError("dimensoes de imagem invalidas")
+                expected_format = {
+                    "image/jpeg": "JPEG",
+                    "image/png": "PNG",
+                    "image/webp": "WEBP",
+                }[detected_type]
+                if image.format != expected_format:
+                    raise ValueError("formato interno divergente")
+                image.verify()
+    except (
+        Image.DecompressionBombError,
+        Image.DecompressionBombWarning,
+        UnidentifiedImageError,
+        OSError,
+        ValueError,
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail="Imagem invalida, corrompida ou com dimensoes nao permitidas.",
         )
 
     # Verifica se o tipo declarado bate com o detectado

@@ -4,23 +4,25 @@ from uuid import uuid4
 
 import pytest
 import redis.asyncio as redis
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from httpx import ASGITransport, AsyncClient
 from pydantic import ValidationError
 from starlette.requests import Request
 
-from app.api.v1.endpoints.auth import create_user, register_student
+from app.api.v1.endpoints.auth import create_user, register_student, set_auth_cookies
 from app.api.v1.endpoints.essays import get_essay
+from app.api.v1.endpoints.stripe import stripe_webhook
 from app.api.v1.endpoints.users import _serialize_user
 from app.core.config import Settings, settings
-from app.core.dependencies import get_current_admin
+from app.core.dependencies import get_current_admin, get_current_user_id
 from app.core.logging import remove_sensitive_data
 from app.core.middleware import RequestIDMiddleware, SecurityHeadersMiddleware
 from app.core.rate_limiter import RateLimiter
-from app.core.security import hash_password
+from app.core.security import create_refresh_token, hash_password
 from app.db.models.essay import Essay, EssayInputType, EssayStatus, EssayType
 from app.db.models.user import User, UserPlan, UserType
 from app.schemas.auth import RegisterStudentRequest
+from app.schemas.appeal import CreateAppealRequest, ResolveAppealRequest
 
 
 class _FailingPipeline:
@@ -171,8 +173,8 @@ def test_production_rejects_any_insecure_cors_origin():
     with pytest.raises(ValidationError, match="ALLOWED_ORIGINS"):
         Settings(
             SECRET_KEY="0123456789abcdef" * 4,
-            DATABASE_URL="postgresql+asyncpg://user:pass@db/redator",
-            REDIS_URL="redis://:strong-password@redis:6379/0",
+            DATABASE_URL="postgresql+asyncpg://user:pass@db/redator?ssl=require",
+            REDIS_URL="rediss://:strong-password@redis:6379/0",
             ENVIRONMENT="production",
             DEBUG=False,
             FRONTEND_URL="https://redator.example",
@@ -181,6 +183,37 @@ def test_production_rejects_any_insecure_cors_origin():
                 "http://localhost:3000",
             ],
         )
+
+
+def test_production_requires_tls_for_database_and_redis():
+    secure_base = {
+        "SECRET_KEY": "0123456789abcdef" * 4,
+        "ENVIRONMENT": "production",
+        "DEBUG": False,
+        "FRONTEND_URL": "https://redator.example",
+        "ALLOWED_ORIGINS": ["https://redator.example"],
+    }
+
+    with pytest.raises(ValidationError, match="DATABASE_URL.*TLS"):
+        Settings(
+            **secure_base,
+            DATABASE_URL="postgresql+asyncpg://user:pass@db.example/redator",
+            REDIS_URL="rediss://:strong-password@redis.example:6379/0",
+        )
+
+    with pytest.raises(ValidationError, match="REDIS_URL.*TLS"):
+        Settings(
+            **secure_base,
+            DATABASE_URL="postgresql+asyncpg://user:pass@db.example/redator?ssl=require",
+            REDIS_URL="redis://:strong-password@redis.example:6379/0",
+        )
+
+    internal = Settings(
+        **secure_base,
+        DATABASE_URL="postgresql+asyncpg://user:pass@postgres/redator",
+        REDIS_URL="redis://:strong-password@redis:6379/0",
+    )
+    assert internal.ENVIRONMENT == "production"
 
 
 @pytest.mark.asyncio
@@ -211,3 +244,131 @@ async def test_request_id_is_sanitized_and_api_is_not_cacheable(monkeypatch):
     assert response.headers["Strict-Transport-Security"].startswith("max-age=31536000")
     assert "default-src 'none'" in response.headers["Content-Security-Policy"]
     assert "X-Process-Time" not in response.headers
+
+
+def test_appeal_payload_rejects_mass_assignment_fields():
+    with pytest.raises(ValidationError):
+        CreateAppealRequest.model_validate(
+            {
+                "correction_id": str(uuid4()),
+                "reason": "Motivo valido com mais de trinta caracteres para analise.",
+                "status": "corrected",
+                "reviewer_id": str(uuid4()),
+                "training_eligible": True,
+            }
+        )
+
+
+def test_appeal_text_strips_html_and_control_characters():
+    request = CreateAppealRequest(
+        correction_id=str(uuid4()),
+        reason=(
+            "<script>alert('xss')</script> Motivo detalhado da contestacao"
+            "\x00\x07 com texto adicional suficiente."
+        ),
+    )
+    resolution = ResolveAppealRequest(
+        decision="upheld",
+        explanation=(
+            "<img src=x onerror=alert(1)> A decisao foi fundamentada com base "
+            "nos criterios da avaliacao e nos trechos apresentados.\x00"
+        ),
+    )
+
+    assert "<" not in request.reason and ">" not in request.reason
+    assert "\x00" not in request.reason and "\x07" not in request.reason
+    assert "<" not in resolution.explanation and ">" not in resolution.explanation
+    assert "\x00" not in resolution.explanation
+
+
+def test_appeal_scores_reject_nan_infinity_and_duplicate_competencies():
+    for invalid_score in (float("nan"), float("inf"), float("-inf")):
+        with pytest.raises(ValidationError):
+            ResolveAppealRequest(
+                decision="corrected",
+                explanation=(
+                    "Parecer suficientemente longo para validar a rejeicao de valores "
+                    "numericos nao finitos enviados por um cliente malicioso."
+                ),
+                corrected_total_score=invalid_score,
+            )
+
+    with pytest.raises(ValidationError):
+        ResolveAppealRequest(
+            decision="corrected",
+            explanation=(
+                "Parecer suficientemente longo para validar competencias duplicadas "
+                "enviadas deliberadamente no mesmo payload de decisao."
+            ),
+            corrected_total_score=320,
+            competency_scores=[
+                {"number": 1, "score": 160},
+                {"number": 1, "score": 160},
+            ],
+        )
+
+
+@pytest.mark.asyncio
+async def test_refresh_token_cannot_be_used_as_access_token():
+    with pytest.raises(HTTPException) as exc:
+        await get_current_user_id(
+            access_token=create_refresh_token(str(uuid4())),
+            request=None,
+        )
+    assert exc.value.status_code == 401
+
+
+def test_production_auth_cookies_are_secure_and_scope_refresh(monkeypatch):
+    monkeypatch.setattr(settings, "ENVIRONMENT", "production")
+    response = Response()
+    set_auth_cookies(response, "access-secret", "refresh-secret")
+    cookies = response.headers.getlist("set-cookie")
+
+    assert len(cookies) == 2
+    assert all("HttpOnly" in cookie for cookie in cookies)
+    assert all("Secure" in cookie for cookie in cookies)
+    assert all("SameSite=strict" in cookie for cookie in cookies)
+    refresh_cookie = next(cookie for cookie in cookies if cookie.startswith("refresh_token="))
+    assert "Path=/api/v1/auth/refresh" in refresh_cookie
+
+
+@pytest.mark.asyncio
+async def test_stripe_handler_failure_returns_retryable_error(monkeypatch, db_session):
+    import app.api.v1.endpoints.stripe as stripe_endpoint
+
+    monkeypatch.setattr(
+        stripe_endpoint.stripe.Webhook,
+        "construct_event",
+        lambda payload, signature, secret: {
+            "type": "checkout.session.completed",
+            "data": {"object": {"id": "cs_test"}},
+        },
+    )
+
+    async def failing_handler(session, db):
+        raise RuntimeError("temporary database failure")
+
+    monkeypatch.setattr(stripe_endpoint, "_handle_checkout_completed", failing_handler)
+
+    sent = False
+
+    async def receive():
+        nonlocal sent
+        if sent:
+            return {"type": "http.request", "body": b"", "more_body": False}
+        sent = True
+        return {"type": "http.request", "body": b"{}", "more_body": False}
+
+    request = Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": "/webhooks/stripe",
+            "headers": [(b"stripe-signature", b"valid-test-signature")],
+        },
+        receive,
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        await stripe_webhook(request, db_session)
+    assert exc.value.status_code == 503

@@ -20,6 +20,11 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
     if (pathname.startsWith("/dashboard/admin")) return;
     if (isLoading || !user) return;
 
+    if (pathname === "/dashboard" && user.admin_role === "licensed_teacher") {
+      router.replace("/dashboard/admin/contestacoes");
+      return;
+    }
+
     const isTeacher = user.user_type === "teacher";
 
     // /dashboard sem sub-rota → redireciona para o dashboard correto

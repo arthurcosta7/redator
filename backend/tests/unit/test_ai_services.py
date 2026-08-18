@@ -60,8 +60,21 @@ def make_user(plan: UserPlan):
 
 CORRECTION_PAYLOAD = {
     "total_score": 800,
-    "competencies": [],
-    "highlights": [{"text": "Texto", "type": "positive"}],
+    "competencies": [
+        {
+            "number": number,
+            "name": f"Competencia {number}",
+            "score": 160,
+            "max_score": 200,
+            "feedback": "Avaliacao detalhada.",
+            "strengths": [],
+            "improvements": [],
+        }
+        for number in range(1, 6)
+    ],
+    "highlights": [
+        {"start": 0, "end": 5, "text": "Texto", "type": "positive", "comment": "Bom."}
+    ],
     "insights": {"general_feedback": "Bom desenvolvimento."},
 }
 
@@ -123,6 +136,38 @@ async def test_incomplete_correction_marks_essay_as_error():
 
     assert essay.status == EssayStatus.ERROR
     assert essay.error_message == "Serviço de IA temporariamente indisponível"
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {**CORRECTION_PAYLOAD, "total_score": 1200},
+        {**CORRECTION_PAYLOAD, "total_score": float("nan")},
+        {
+            **CORRECTION_PAYLOAD,
+            "total_score": 840,
+            "competencies": CORRECTION_PAYLOAD["competencies"],
+        },
+        {
+            **CORRECTION_PAYLOAD,
+            "competencies": [
+                *CORRECTION_PAYLOAD["competencies"][:4],
+                {**CORRECTION_PAYLOAD["competencies"][3], "number": 4},
+            ],
+        },
+    ],
+)
+async def test_untrusted_ai_scores_are_rejected(payload):
+    essay = make_essay()
+    client = FakeClient(json.dumps(payload))
+
+    with pytest.raises(ValueError):
+        await CorrectionService(client=client).correct_essay(
+            essay=essay,
+            user=make_user(UserPlan.STANDARD),
+            db=FakeDb(),
+        )
+    assert essay.status == EssayStatus.ERROR
 
 
 async def test_simulado_uses_free_model_and_parses_batch():

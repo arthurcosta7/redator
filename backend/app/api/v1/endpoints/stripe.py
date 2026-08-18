@@ -7,12 +7,11 @@ Rotas:
 - GET  /subscription        — Status da assinatura do usuário
 - POST /webhooks/stripe     — Webhook handler (chamado pelo Stripe, não pelo usuário)
 """
-import asyncio
 from datetime import datetime, timezone
 from typing import Annotated, Literal
 
 import stripe
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -196,9 +195,13 @@ async def stripe_webhook(
         elif event_type == "invoice.payment_failed":
             await _handle_payment_failed(event["data"]["object"], db)
     except Exception as e:
-        # Retorna 200 mesmo em erro para evitar reenvios infinitos do Stripe.
-        # O erro fica registrado nos logs para investigação.
         logger.error("webhook_handler_error", event_type=event_type, error=str(e))
+        # Resposta nao-2xx faz o Stripe repetir com backoff. Confirmar recebimento
+        # sem persistir o evento causaria perda silenciosa de pagamentos/planos.
+        raise HTTPException(
+            status_code=503,
+            detail="Evento temporariamente não processado.",
+        )
 
     return {"received": True}
 

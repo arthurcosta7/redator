@@ -24,7 +24,7 @@ from sqlalchemy import Date, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.dependencies import get_current_admin, get_db, require_admin_role
+from app.core.dependencies import get_db, require_admin_role
 from app.core.logging import get_logger
 from app.db.models.correction import Correction
 from app.db.models.essay import Essay, EssayStatus, EssayType
@@ -61,7 +61,7 @@ ANALYTICS_ROLES = ["superadmin", "admin", "analyst"]
 
 @router.get("/stats", response_model=AdminStats)
 async def get_admin_stats(
-    admin: Annotated[User, Depends(get_current_admin)],
+    admin: Annotated[User, Depends(require_admin_role(*ALL_ADMIN_ROLES))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> AdminStats:
     """
@@ -510,7 +510,7 @@ async def delete_user(
 
 @router.get("/essays", response_model=AdminEssaysResponse)
 async def list_essays(
-    admin: Annotated[User, Depends(get_current_admin)],
+    admin: Annotated[User, Depends(require_admin_role(*ALL_ADMIN_ROLES))],
     db: Annotated[AsyncSession, Depends(get_db)],
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=100),
@@ -653,6 +653,12 @@ async def add_team_member(
             detail=f"Este usuário já é {user.admin_role.value}.",
         )
 
+    if body.admin_role == AdminRole.LICENSED_TEACHER and user.user_type != UserType.TEACHER:
+        raise HTTPException(
+            status_code=422,
+            detail="O revisor licenciado precisa ter uma conta do tipo professor.",
+        )
+
     user.admin_role = body.admin_role
     await db.flush()
 
@@ -699,6 +705,12 @@ async def update_team_member_role(
 
     if not user or not user.admin_role:
         raise HTTPException(status_code=404, detail="Membro da equipe não encontrado.")
+
+    if body.admin_role == AdminRole.LICENSED_TEACHER and user.user_type != UserType.TEACHER:
+        raise HTTPException(
+            status_code=422,
+            detail="O revisor licenciado precisa ter uma conta do tipo professor.",
+        )
 
     old_role = user.admin_role.value
     user.admin_role = body.admin_role

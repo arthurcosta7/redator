@@ -5,6 +5,7 @@ ao gerar migrações.
 from app.db.models.user import User, UserType, UserPlan
 from app.db.models.essay import Essay, EssayType, EssayStatus, EssayInputType
 from app.db.models.correction import Correction
+from app.db.models.correction_appeal import AppealStatus, CorrectionAppeal
 from app.db.models.subscription import Subscription, SubscriptionStatus
 from app.db.models.refresh_token import RefreshToken
 from app.db.models.turma import Turma, TurmaMembro, TurmaMembroStatus
@@ -14,6 +15,7 @@ __all__ = [
     "User", "UserType", "UserPlan",
     "Essay", "EssayType", "EssayStatus", "EssayInputType",
     "Correction",
+    "CorrectionAppeal", "AppealStatus",
     "Subscription", "SubscriptionStatus",
     "RefreshToken",
     "Turma", "TurmaMembro", "TurmaMembroStatus",

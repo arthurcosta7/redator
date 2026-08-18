@@ -6,8 +6,9 @@ Todas as configurações sensíveis DEVEM vir de variáveis de ambiente,
 nunca hard-coded no código.
 """
 from functools import lru_cache
+import ipaddress
 from typing import Literal
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -150,8 +151,27 @@ class Settings(BaseSettings):
             if not self.DATABASE_URL.startswith("postgresql+asyncpg://"):
                 raise ValueError("DATABASE_URL deve usar PostgreSQL com asyncpg em produção!")
 
+            database_url = urlparse(self.DATABASE_URL)
+            database_query = parse_qs(database_url.query)
+            database_tls = (
+                database_query.get("ssl", database_query.get("sslmode", [""]))[0].lower()
+            )
+            database_is_internal = self._is_internal_host(database_url.hostname)
+            if (
+                not database_is_internal
+                and database_tls not in {"require", "verify-ca", "verify-full", "true"}
+            ):
+                raise ValueError(
+                    "DATABASE_URL deve exigir TLS em produção com ssl=require "
+                    "ou sslmode=require!"
+                )
+
             redis_url = urlparse(self.REDIS_URL)
-            if redis_url.scheme not in {"redis", "rediss"} or not redis_url.password:
+            if redis_url.scheme not in {"redis", "rediss"}:
+                raise ValueError("REDIS_URL deve usar redis:// ou rediss://!")
+            if not self._is_internal_host(redis_url.hostname) and redis_url.scheme != "rediss":
+                raise ValueError("REDIS_URL deve usar TLS (rediss://) em produção!")
+            if not redis_url.password:
                 raise ValueError("REDIS_URL deve incluir autenticação em produção!")
 
             if not self.ALLOWED_ORIGINS:
@@ -193,6 +213,19 @@ class Settings(BaseSettings):
                     "em produção!"
                 )
         return self
+
+    @staticmethod
+    def _is_internal_host(hostname: str | None) -> bool:
+        """Reconhece loopback, IP privado e nomes DNS internos de container."""
+        if not hostname:
+            return False
+        if hostname.lower() == "localhost" or "." not in hostname:
+            return True
+        try:
+            address = ipaddress.ip_address(hostname)
+            return address.is_private or address.is_loopback
+        except ValueError:
+            return False
 
     @property
     def is_production(self) -> bool:

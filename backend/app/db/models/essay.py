@@ -5,12 +5,18 @@ Representa uma redação submetida para correção.
 """
 import enum
 import uuid
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Enum, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDMixin
+
+if TYPE_CHECKING:
+    from app.db.models.correction import Correction
+    from app.db.models.correction_appeal import CorrectionAppeal
+    from app.db.models.user import User
 
 
 class EssayType(str, enum.Enum):
@@ -87,6 +93,9 @@ class Essay(UUIDMixin, TimestampMixin, Base):
     user: Mapped["User"] = relationship("User", back_populates="essays")  # type: ignore
     correction: Mapped["Correction | None"] = relationship(  # type: ignore
         "Correction", back_populates="essay", uselist=False
+    )
+    correction_appeal: Mapped["CorrectionAppeal | None"] = relationship(  # type: ignore
+        "CorrectionAppeal", back_populates="essay", uselist=False
     )
 
     def __repr__(self) -> str:

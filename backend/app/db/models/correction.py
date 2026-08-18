@@ -6,12 +6,17 @@ Os dados de competências e grifes são armazenados como JSONB
 para flexibilidade entre os modelos ENEM e Vestibular.
 """
 import uuid
+from typing import TYPE_CHECKING
 
-from sqlalchemy import Float, ForeignKey, String, Text
+from sqlalchemy import Float, ForeignKey, String
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDMixin
+
+if TYPE_CHECKING:
+    from app.db.models.correction_appeal import CorrectionAppeal
+    from app.db.models.essay import Essay
 
 
 class Correction(UUIDMixin, TimestampMixin, Base):
@@ -90,6 +95,9 @@ class Correction(UUIDMixin, TimestampMixin, Base):
 
     # ─── Relacionamentos ──────────────────────────────────────────
     essay: Mapped["Essay"] = relationship("Essay", back_populates="correction")  # type: ignore
+    appeal: Mapped["CorrectionAppeal | None"] = relationship(  # type: ignore
+        "CorrectionAppeal", back_populates="correction", uselist=False
+    )
 
     def __repr__(self) -> str:
         return f"<Correction id={self.id} score={self.total_score}/{self.max_score}>"

@@ -167,6 +167,31 @@ class TestFileValidation:
             validate_image_file(huge_content, "enorme.jpg", "image/jpeg")
         assert exc_info.value.status_code == 413
 
+    @pytest.mark.parametrize(
+        ("payload", "filename", "content_type"),
+        [
+            (b"\x89PNG\r\n\x1a\n" + b"<script>alert(1)</script>", "fake.png", "image/png"),
+            (b"\xff\xd8\xff\xe0" + b"not-a-real-image", "fake.jpg", "image/jpeg"),
+            (b"RIFF\x10\x00\x00\x00WEBP" + b"not-a-real-image", "fake.webp", "image/webp"),
+        ],
+    )
+    def test_rejects_truncated_or_polyglot_image(self, payload, filename, content_type):
+        from fastapi import HTTPException
+        from app.utils.file_validator import validate_image_file
+
+        with pytest.raises(HTTPException) as exc_info:
+            validate_image_file(payload, filename, content_type)
+        assert exc_info.value.status_code == 422
+
+    def test_accepts_a_decodable_png(self):
+        import io
+        from PIL import Image
+        from app.utils.file_validator import validate_image_file
+
+        buffer = io.BytesIO()
+        Image.new("RGB", (32, 32), color="white").save(buffer, format="PNG")
+        validate_image_file(buffer.getvalue(), "redacao.png", "image/png")
+
 
 class TestInjectionValidation:
     """Entradas maliciosas permanecem dados e não viram código executável."""
