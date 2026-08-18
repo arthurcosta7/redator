@@ -6,29 +6,7 @@ import { ArrowRight } from "lucide-react";
 import { EssayExample } from "./essay-example";
 import { ScoreGallery } from "./score-gallery";
 import { ManuscriptToDigital } from "./manuscript-to-digital";
-
-const studentFeatures = [
-  {
-    title: "Foto para texto em segundos",
-    description:
-      "Tire uma foto da redação manuscrita. A leitura automática reconhece a maior parte das letras manuscritas, incluindo cursiva. Se a letra estiver muito apertada ou pouco legível, pode ser útil revisar o trecho extraído antes de enviar.",
-  },
-  {
-    title: "Grife nos trechos",
-    description:
-      "Trechos bons em verde, problemas em vermelho. Você vê exatamente onde a redação está forte e onde precisa melhorar — em vez de adivinhar.",
-  },
-  {
-    title: "Análise por competência",
-    description:
-      "Cada uma das cinco competências do ENEM avaliada separadamente, com nota e feedback específico. Para vestibulares, os critérios da banca escolhida.",
-  },
-  {
-    title: "Evolução e histórico",
-    description:
-      "Acompanhe como sua nota mudou ao longo do tempo. A plataforma identifica padrões: você melhora em linguagem mas trava na C5? Aparece no relatório.",
-  },
-];
+import { FeatureOverview } from "./feature-overview";
 
 const teacherFeatures = [
   {
@@ -68,6 +46,11 @@ export function Features() {
           </h2>
         </motion.header>
 
+        {/* Visão geral adaptada do bloco Features 10 (21st.dev) */}
+        <motion.div {...fadeUp} className="mb-24 lg:mb-32">
+          <FeatureOverview />
+        </motion.div>
+
         {/* ─── Redação exemplo interativa ─── */}
         <motion.div {...fadeUp} className="mb-24 lg:mb-32">
           <div className="flex items-baseline justify-between mb-8 pb-3 border-b-2 border-ink">
@@ -83,48 +66,6 @@ export function Features() {
         <motion.div {...fadeUp} className="mb-24 lg:mb-32">
           <ManuscriptToDigital />
         </motion.div>
-
-        {/* ─── Para alunos — feature list ─── */}
-        <div className="mb-24 lg:mb-32">
-          <div className="flex items-baseline justify-between mb-8 pb-3 border-b-2 border-ink">
-            <h3 className="font-display italic font-semibold text-2xl lg:text-3xl text-ink">
-              Para alunos
-            </h3>
-            <span className="eyebrow">a redação é sua</span>
-          </div>
-
-          <div className="grid lg:grid-cols-12 gap-8 lg:gap-12">
-            <article className="lg:col-span-7 lg:row-span-2 lg:pr-8">
-              <p className="eyebrow mb-3 text-accent">Em destaque</p>
-              <h4 className="font-display font-semibold text-3xl lg:text-4xl text-ink leading-tight mb-5">
-                Você vê exatamente o que mudar — sem esperar o cursinho devolver em duas semanas.
-              </h4>
-              <p className="text-ink-soft leading-[1.6] text-lg max-w-2xl">
-                Toda semana, redação escrita às pressas e devolvida com um &ldquo;pode melhorar&rdquo; rabiscado no canto. Aqui, cada trecho recebe uma grife específica e cada competência um comentário que aponta o problema e a correção. Em trinta segundos.
-              </p>
-            </article>
-
-            <ul className="lg:col-span-5 divide-y divide-ink-line border-y border-ink-line">
-              {studentFeatures.slice(1).map((feature, i) => (
-                <motion.li
-                  key={feature.title}
-                  initial={{ opacity: 0, transform: "translateY(8px)" }}
-                  whileInView={{ opacity: 1, transform: "translateY(0)" }}
-                  viewport={{ once: true, margin: "-60px" }}
-                  transition={{ duration: 0.4, delay: i * 0.05, ease: [0.23, 1, 0.32, 1] as [number, number, number, number] }}
-                  className="py-6"
-                >
-                  <h5 className="font-display font-semibold text-xl text-ink mb-2">
-                    {feature.title}
-                  </h5>
-                  <p className="text-ink-soft leading-[1.55] text-[15px]">
-                    {feature.description}
-                  </p>
-                </motion.li>
-              ))}
-            </ul>
-          </div>
-        </div>
 
         {/* ─── Galeria de níveis ─── */}
         <motion.div {...fadeUp} className="mb-24 lg:mb-32">

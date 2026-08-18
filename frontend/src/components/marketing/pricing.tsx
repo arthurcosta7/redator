@@ -1,8 +1,9 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { Check, Minus, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Plan = {
@@ -22,7 +23,7 @@ const plans: Plan[] = [
     name: "Free",
     price: { monthly: 0, quarterly: 0 },
     quarterlyTotal: 0,
-    description: "Para conhecer e começar a praticar.",
+    description: "Para conhecer a plataforma e criar uma rotina de prática.",
     audience: "Estudante casual",
     features: [
       { text: "1 correção por dia", included: true },
@@ -43,7 +44,7 @@ const plans: Plan[] = [
     name: "Standard",
     price: { monthly: 18.99, quarterly: 14.99 },
     quarterlyTotal: 47.99,
-    description: "Para quem estuda sério para ENEM ou vestibular.",
+    description: "Para quem estuda com constância para ENEM ou vestibular.",
     audience: "ENEM & Vestibular",
     features: [
       { text: "3 correções por dia", included: true },
@@ -64,7 +65,7 @@ const plans: Plan[] = [
     name: "Pro",
     price: { monthly: 29.99, quarterly: 24.99 },
     quarterlyTotal: 74.99,
-    description: "Para quem quer mais volume e velocidade no treino.",
+    description: "Para quem precisa de mais volume e velocidade no treino.",
     audience: "Alta performance",
     features: [
       { text: "10 correções por dia", included: true },
@@ -85,15 +86,15 @@ const plans: Plan[] = [
     name: "Escola",
     price: { monthly: null, quarterly: null },
     quarterlyTotal: null,
-    description: "Para escolas, cursinhos e coordenações que querem escalar correção em massa.",
+    description: "Para escolas, cursinhos e coordenações que querem escalar a correção sem perder a visão de cada aluno.",
     audience: "Institucional",
     features: [
-      { text: "Gestão de turmas e acessos por professor", included: true },
-      { text: "Relatórios agregados por competência e evolução", included: true },
+      { text: "Gestão de turmas e professores", included: true },
+      { text: "Relatórios por competência e evolução", included: true },
       { text: "Banco de temas compartilhado", included: true },
       { text: "Correções em volume por turma", included: true },
-      { text: "Acompanhamento de desempenho por aluno", included: true },
-      { text: "Atendimento e onboarding customizado", included: true },
+      { text: "Acompanhamento individual", included: true },
+      { text: "Onboarding personalizado", included: true },
     ],
     cta: "Falar com vendas",
     highlighted: false,
@@ -101,191 +102,222 @@ const plans: Plan[] = [
   },
 ];
 
-export function Pricing() {
-  const [isQuarterly, setIsQuarterly] = useState(false);
+const individualPlans = plans.filter((plan) => !plan.consultation);
+const schoolPlan = plans.find((plan) => plan.consultation)!;
+
+function formatPrice(value: number) {
+  return value.toFixed(2).replace(".", ",");
+}
+
+function PlanPrice({ plan, isQuarterly }: { plan: Plan; isQuarterly: boolean }) {
+  if (plan.price.monthly === 0) {
+    return (
+      <div className="min-h-[5.25rem]">
+        <p className="font-display text-5xl font-semibold leading-none text-ink">Grátis</p>
+        <p className="mt-3 font-mono text-[11px] uppercase tracking-[0.12em] text-ink-muted">para sempre</p>
+      </div>
+    );
+  }
+
+  const price = isQuarterly ? plan.price.quarterly : plan.price.monthly;
 
   return (
-    <section id="planos" className="section-padding bg-paper border-t border-ink-line">
-      <div className="container-site">
+    <div className="min-h-[5.25rem]">
+      <div className="flex items-end gap-1">
+        <span className="mb-2 font-mono text-xs uppercase tracking-[0.1em] text-ink-muted">R$</span>
+        <span className="relative block h-[3.75rem] min-w-[9.75rem] overflow-hidden font-display text-6xl font-semibold leading-none tracking-[-0.03em] text-ink">
+          <AnimatePresence initial={false} mode="popLayout">
+            <motion.span
+              key={`${plan.name}-${isQuarterly}`}
+              initial={{ opacity: 0, y: isQuarterly ? 18 : -18 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: isQuarterly ? -18 : 18 }}
+              transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
+              className="absolute inset-0 tabular-nums"
+            >
+              {price ? formatPrice(price) : "—"}
+            </motion.span>
+          </AnimatePresence>
+        </span>
+        <span className="mb-2 font-mono text-xs uppercase tracking-[0.1em] text-ink-muted">/mês</span>
+      </div>
+      <p className="mt-3 font-mono text-[11px] uppercase leading-relaxed tracking-[0.08em] text-ink-muted">
+        {isQuarterly
+          ? `R$ ${formatPrice(plan.quarterlyTotal ?? 0)} cobrados a cada 3 meses`
+          : `R$ ${formatPrice(plan.price.quarterly ?? 0)}/mês no trimestral`}
+      </p>
+    </div>
+  );
+}
 
-        {/* Cabeçalho centralizado */}
-        <header className="text-center max-w-2xl mx-auto mb-16 lg:mb-20">
+function PlanCard({
+  plan,
+  index,
+  isQuarterly,
+  reduceMotion,
+}: {
+  plan: Plan;
+  index: number;
+  isQuarterly: boolean;
+  reduceMotion: boolean | null;
+}) {
+  const href = plan.price.monthly === 0
+    ? "/auth/register"
+    : `/auth/login?redirect=${encodeURIComponent(`/checkout/${plan.name.toLowerCase()}?periodo=${isQuarterly ? "trimestral" : "mensal"}`)}`;
+
+  return (
+    <motion.article
+      initial={reduceMotion ? false : { y: 20 }}
+      whileInView={reduceMotion ? undefined : { y: plan.highlighted ? -16 : 0 }}
+      viewport={{ once: true, margin: "-80px" }}
+      transition={{ type: "spring", stiffness: 105, damping: 22, delay: index * 0.08 }}
+      className={cn(
+        "relative flex min-w-0 flex-col border border-ink-line bg-paper p-6 sm:p-8 lg:min-h-[43rem]",
+        plan.highlighted
+          ? "z-10 border-accent bg-[#fffdf9] shadow-card lg:pb-10"
+          : "lg:mt-5 lg:scale-[0.97]"
+      )}
+    >
+      <span aria-hidden className={cn("absolute inset-x-0 top-0 h-1", plan.highlighted ? "bg-accent" : "bg-ink-line")} />
+
+      {plan.highlighted && (
+        <div className="absolute right-0 top-0 flex items-center gap-1.5 bg-accent px-3 py-2 font-mono text-[10px] uppercase tracking-[0.12em] text-paper">
+          <Star className="size-3.5 fill-current" aria-hidden />
+          Mais escolhido
+        </div>
+      )}
+
+      <header className="border-b border-dashed border-ink-line pb-7 pt-3">
+        <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink-muted">{plan.audience}</p>
+        <h3 className="mt-3 font-display text-3xl font-semibold text-ink">{plan.name}</h3>
+        <p className="mt-3 min-h-[3rem] text-[15px] leading-relaxed text-ink-soft">{plan.description}</p>
+      </header>
+
+      <div className="py-7">
+        <PlanPrice plan={plan} isQuarterly={isQuarterly} />
+      </div>
+
+      <Link
+        href={href}
+        className={cn(
+          "mb-8 inline-flex min-h-12 w-full items-center justify-center px-5 text-center font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-paper",
+          plan.highlighted
+            ? "bg-accent text-paper hover:bg-accent-deep"
+            : "bg-ink text-paper hover:bg-ink-soft"
+        )}
+      >
+        {plan.cta}
+      </Link>
+
+      <ul className="mt-auto space-y-3.5" aria-label={`Recursos do plano ${plan.name}`}>
+        {plan.features.map((feature) => (
+          <li key={feature.text} className="flex items-start gap-3 text-sm">
+            {feature.included ? (
+              <Check className="mt-0.5 size-4 shrink-0 text-accent" strokeWidth={2.25} aria-hidden />
+            ) : (
+              <Minus className="mt-0.5 size-4 shrink-0 text-ink-muted/50" aria-hidden />
+            )}
+            <span className={cn("leading-snug", feature.included ? "text-ink-soft" : "text-ink-muted line-through decoration-ink-line")}>
+              {feature.text}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </motion.article>
+  );
+}
+
+export function Pricing() {
+  const [isQuarterly, setIsQuarterly] = useState(false);
+  const reduceMotion = useReducedMotion();
+
+  return (
+    <section id="planos" className="section-padding border-t border-ink-line bg-paper">
+      <div className="container-site">
+        <header className="mx-auto mb-14 max-w-3xl text-center lg:mb-20">
           <p className="eyebrow mb-5">§ VI — Planos</p>
-          <h2 className="font-display font-medium text-4xl sm:text-5xl lg:text-6xl text-ink leading-[1.05] tracking-[-0.01em] mb-5 text-balance">
-            Comece grátis. Sem cartão.
+          <h2 className="text-balance font-display text-4xl font-semibold leading-[1.05] tracking-[-0.02em] text-ink sm:text-5xl lg:text-6xl">
+            Escolha o ritmo da sua evolução.
           </h2>
-          <p className="text-lg text-ink-soft mb-10">
-            Pague só quando precisar de mais.
+          <p className="mx-auto mt-5 max-w-xl text-lg leading-relaxed text-ink-soft">
+            Comece grátis e aumente o volume quando a sua rotina pedir. Sem cartão no plano Free.
           </p>
 
-          {/* Toggle — links com underline animado, não botões em pill */}
-          <div className="inline-flex items-center gap-6 font-mono text-[13px] uppercase tracking-[0.15em]">
+          <div className="mt-9 inline-grid grid-cols-2 border border-ink-line bg-paper-deep p-1" role="group" aria-label="Período de cobrança">
             <button
+              type="button"
               onClick={() => setIsQuarterly(false)}
+              aria-pressed={!isQuarterly}
               className={cn(
-                "link-underline transition-colors",
-                !isQuarterly ? "text-ink" : "text-ink-muted hover:text-ink-soft"
+                "min-h-11 px-5 font-mono text-xs uppercase tracking-[0.12em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
+                !isQuarterly ? "bg-ink text-paper" : "text-ink-muted hover:text-ink"
               )}
             >
               Mensal
             </button>
-            <span className="text-ink-line">·</span>
             <button
+              type="button"
               onClick={() => setIsQuarterly(true)}
+              aria-pressed={isQuarterly}
               className={cn(
-                "link-underline transition-colors flex items-center gap-2",
-                isQuarterly ? "text-ink" : "text-ink-muted hover:text-ink-soft"
+                "min-h-11 px-5 font-mono text-xs uppercase tracking-[0.12em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
+                isQuarterly ? "bg-ink text-paper" : "text-ink-muted hover:text-ink"
               )}
             >
               Trimestral
-              <span className="bg-accent-light text-accent-deep px-2 py-0.5 rounded text-[10px] font-semibold">
-                −10%
-              </span>
             </button>
           </div>
         </header>
 
-        {/* Cards de plano — sem rounded-2xl, com borda accent lateral no destaque */}
-        <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-0 border border-ink-line">
-
-          {plans.map((plan, idx) => (
-            <motion.article
+        <div className="grid gap-4 lg:grid-cols-3 lg:gap-0 lg:px-5 lg:pt-4">
+          {individualPlans.map((plan, index) => (
+            <PlanCard
               key={plan.name}
-              initial={{ opacity: 0, transform: "translateY(16px)" }}
-              whileInView={{ opacity: 1, transform: "translateY(0)" }}
-              viewport={{ once: true, margin: "-60px" }}
-              transition={{ duration: 0.5, delay: idx * 0.08, ease: [0.23, 1, 0.32, 1] as [number, number, number, number] }}
-              whileHover={plan.highlighted ? { backgroundColor: "#FAF7F2" } : undefined}
-              className={cn(
-                "relative p-8 lg:p-10 flex flex-col bg-paper transition-colors duration-300",
-                idx > 0 && "border-t md:border-t-0 md:border-l border-ink-line",
-                plan.highlighted && "bg-paper-deep"
-              )}
-            >
-              {/* Borda accent vertical no plano destacado — com pulse sutil */}
-              {plan.highlighted && (
-                <div className="absolute top-0 left-0 right-0 h-1 bg-accent pulse-accent" />
-              )}
-
-              {/* Header do plano */}
-              <header className="mb-8">
-                <div className="flex items-baseline justify-between gap-3 mb-3">
-                  <h3 className={cn(
-                    "font-display font-medium text-2xl text-ink"
-                  )}>
-                    {plan.name}
-                  </h3>
-                  <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink-muted whitespace-nowrap">
-                    {plan.audience}
-                  </span>
-                </div>
-                <p className="text-ink-soft text-[15px] leading-relaxed">
-                  {plan.description}
-                </p>
-              </header>
-
-              {/* Preço */}
-              <div className="mb-8 pb-8 border-b border-ink-line">
-                {plan.consultation ? (
-                  <div>
-                    <p className="font-display italic font-medium text-4xl text-ink leading-none">
-                      Sob consulta
-                    </p>
-                    <p className="font-mono text-xs text-ink-muted uppercase tracking-[0.12em] mt-2">
-                      Personalizado
-                    </p>
-                  </div>
-                ) : plan.price.monthly === 0 ? (
-                  <div>
-                    <p className="font-display italic font-medium text-5xl text-ink leading-none">
-                      Grátis
-                    </p>
-                    <p className="font-mono text-xs text-ink-muted uppercase tracking-[0.12em] mt-2">
-                      Para sempre
-                    </p>
-                  </div>
-                ) : (
-                  <div>
-                    <div className="flex items-baseline gap-1">
-                      <span className="font-mono text-xs text-ink-muted uppercase tracking-[0.1em]">
-                        R$
-                      </span>
-                      <span className="font-display font-medium text-6xl text-ink leading-[0.95] tracking-[-0.02em]">
-                        {(isQuarterly
-                          ? plan.price.quarterly
-                          : plan.price.monthly
-                        )?.toFixed(2).replace(".", ",")}
-                      </span>
-                      <span className="font-mono text-xs text-ink-muted uppercase tracking-[0.1em] ml-1">
-                        /mês
-                      </span>
-                    </div>
-                    <p className="font-mono text-[11px] text-ink-muted uppercase tracking-[0.1em] mt-3 leading-relaxed">
-                      {isQuarterly ? (
-                        <>R$ {plan.quarterlyTotal?.toFixed(2).replace(".", ",")} cobrado a cada 3 meses</>
-                      ) : (
-                        <>ou R$ {plan.price.quarterly?.toFixed(2).replace(".", ",")} no trimestral −10%</>
-                      )}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* CTA */}
-              <Link
-                href={plan.consultation
-                  ? "mailto:vendas@redator.app?subject=Solicita%C3%A7%C3%A3o%20de%20plano%20institucional"
-                  : plan.price.monthly === 0
-                    ? "/auth/register"
-                    : `/auth/login?redirect=${encodeURIComponent(`/checkout/${plan.name.toLowerCase()}?periodo=${isQuarterly ? "trimestral" : "mensal"}`)}`
-                }
-                className={cn(
-                  "w-full text-center font-semibold py-3.5 mb-8 transition-colors block",
-                  plan.highlighted
-                    ? "bg-accent hover:bg-accent-deep text-paper"
-                    : "bg-ink hover:bg-ink-soft text-paper"
-                )}
-              >
-                {plan.cta}
-              </Link>
-
-              {/* Lista de features */}
-              <ul className="space-y-3.5 flex-1">
-                {plan.features.map((feature) => (
-                  <li key={feature.text} className="flex items-start gap-3 text-[14px]">
-                    <span className={cn(
-                      "font-mono text-xs mt-1 shrink-0 w-4",
-                      feature.included ? "text-accent" : "text-ink-muted/40"
-                    )}>
-                      {feature.included ? "+" : "−"}
-                    </span>
-                    <span className={cn(
-                      "leading-snug",
-                      feature.included ? "text-ink" : "text-ink-muted line-through decoration-1 decoration-ink-muted/30"
-                    )}>
-                      {feature.text}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </motion.article>
+              plan={plan}
+              index={index}
+              isQuarterly={isQuarterly}
+              reduceMotion={reduceMotion}
+            />
           ))}
         </div>
 
-        {/* Rodapé */}
-        <div className="mt-10 flex flex-col sm:flex-row items-center justify-between gap-4
-                        max-w-3xl mx-auto text-sm text-ink-muted">
-          <p className="flex items-center gap-2 font-mono text-[12px] uppercase tracking-[0.1em]">
-            7 dias de garantia &nbsp;·&nbsp; cancelamento sem complicação
-          </p>
-          <Link
-            href="/auth/register?type=teacher"
-            className="text-accent hover:text-accent-deep font-medium link-underline text-[14px]"
-          >
+        <motion.article
+          initial={reduceMotion ? false : { y: 14 }}
+          whileInView={reduceMotion ? undefined : { y: 0 }}
+          viewport={{ once: true, margin: "-60px" }}
+          transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] }}
+          className="mt-8 grid gap-8 border border-ink-line bg-paper-deep p-7 sm:p-9 lg:grid-cols-[1.1fr_1.4fr_auto] lg:items-center lg:gap-12"
+        >
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-accent">{schoolPlan.audience}</p>
+            <h3 className="mt-2 font-display text-3xl font-semibold text-ink">{schoolPlan.name}</h3>
+            <p className="mt-3 max-w-md text-[15px] leading-relaxed text-ink-soft">{schoolPlan.description}</p>
+          </div>
+          <ul className="grid gap-x-8 gap-y-3 sm:grid-cols-2" aria-label="Recursos do plano Escola">
+            {schoolPlan.features.map((feature) => (
+              <li key={feature.text} className="flex items-start gap-2.5 text-sm text-ink-soft">
+                <Check className="mt-0.5 size-4 shrink-0 text-accent" strokeWidth={2.25} aria-hidden />
+                <span>{feature.text}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="lg:text-right">
+            <p className="mb-4 font-display text-2xl font-semibold text-ink">Sob consulta</p>
+            <Link
+              href="mailto:vendas@redator.app?subject=Solicita%C3%A7%C3%A3o%20de%20plano%20institucional"
+              className="inline-flex min-h-12 items-center justify-center bg-ink px-6 font-semibold text-paper transition-colors hover:bg-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+            >
+              {schoolPlan.cta}
+            </Link>
+          </div>
+        </motion.article>
+
+        <footer className="mx-auto mt-10 flex max-w-4xl flex-col items-center justify-between gap-4 text-sm text-ink-muted sm:flex-row">
+          <p className="font-mono text-[11px] uppercase tracking-[0.09em]">7 dias de garantia · cancelamento sem complicação</p>
+          <Link href="/auth/register?type=teacher" className="link-underline font-medium text-accent hover:text-accent-deep">
             É professor? Acesso gratuito →
           </Link>
-        </div>
-
+        </footer>
       </div>
     </section>
   );
