@@ -97,14 +97,22 @@ export function AppealPanel({ correction }: { correction: Correction }) {
 
   if (!isOpening) {
     return (
-      <section className="flex flex-col gap-4 border-t border-ink-line pt-5 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h3 className="font-semibold text-ink">Discorda da nota?</h3>
-          <p className="mt-1 max-w-xl text-sm text-ink-muted">Peça a análise de um professor licenciado. A redação só pode ser contestada uma vez.</p>
+      <section className="border-t border-ink-line pt-5">
+        {error && (
+          <div role="alert" className="mb-4 flex gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            {error}
+          </div>
+        )}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="font-semibold text-ink">Discorda da nota?</h3>
+            <p className="mt-1 max-w-xl text-sm text-ink-muted">Peça a análise de um professor licenciado. A redação só pode ser contestada uma vez.</p>
+          </div>
+          <button onClick={() => setIsOpening(true)} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-ink px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-ink hover:text-paper focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+            <Scale className="h-4 w-4" /> Contestar correção
+          </button>
         </div>
-        <button onClick={() => setIsOpening(true)} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-ink px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-ink hover:text-paper focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
-          <Scale className="h-4 w-4" /> Contestar correção
-        </button>
       </section>
     );
   }

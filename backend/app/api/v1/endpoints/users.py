@@ -190,7 +190,7 @@ async def update_my_profile(
     if body.new_password is not None:
         if not body.current_password:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="Informe a senha atual para alterar a senha.",
             )
         # SEGURANÇA: Verifica a senha atual antes de qualquer alteração

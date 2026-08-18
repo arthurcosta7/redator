@@ -1,0 +1,30 @@
+# Contexto raiz para builds manuais. Os Compose atuais usam backend/ e frontend/
+# como contextos e também possuem regras específicas nesses diretórios.
+.git/
+.github/
+.agents/
+.claude/
+.codex/
+.vscode/
+.idea/
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.local.example
+**/.venv/
+**/venv/
+**/node_modules/
+**/__pycache__/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.next/
+**/coverage/
+**/htmlcov/
+**/playwright-report/
+**/test-results/
+**/tests/
+**/*.log
+**/*.tsbuildinfo
+uploads/
+temp/

@@ -9,11 +9,22 @@ node_modules/
 .next/
 out/
 coverage/
+playwright-report/
+test-results/
+blob-report/
+.vitest/
 *.tsbuildinfo
 npm-debug.log*
+
+# Suítes e configurações de teste não participam do build Next.js.
+tests/
+playwright.config.ts
+vitest.config.mts
 
 # Metadados locais.
 .git/
 .gitignore
+.dockerignore
+.github/
 .vscode/
 .idea/

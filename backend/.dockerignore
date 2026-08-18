@@ -13,14 +13,24 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .coverage
+.coverage.*
+coverage.xml
 htmlcov/
+.hypothesis/
+.tox/
+.nox/
 dist/
 build/
+*.sqlite
+*.sqlite3
 
 # Arquivos que não são necessários em runtime.
 tests/
+.github/
+docs/
 .git/
 .gitignore
+.dockerignore
 *.log
 uploads/
 temp/

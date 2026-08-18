@@ -1,208 +1,46 @@
-# 📝 Redator — Plataforma de Correção de Redações com IA
+# Redator
 
-Plataforma que corrige redações no modelo ENEM e Vestibular Tradicional usando
-Inteligência Artificial, com feedback detalhado e fiel ao corretor humano.
+Plataforma de correção de redações com IA para alunos e professores, com avaliação ENEM/vestibular, OCR, turmas, tarefas, analytics, assinaturas e contestação humana.
 
-## 📁 Estrutura do Projeto
+## Stack
 
-```
-redator/
-├── backend/          # Python FastAPI — API e lógica de negócio
-├── frontend/         # Next.js 14 — Interface do usuário
-├── docker-compose.yml
-└── README.md
-```
+- Frontend: Next.js 15, React 19, TypeScript, Tailwind CSS e Framer Motion.
+- Backend: FastAPI, Python 3.11+, Pydantic, SQLAlchemy assíncrono e Alembic.
+- Dados e processamento: PostgreSQL 16, Redis 7 e worker ARQ.
+- Integrações: OpenAI, Google Cloud Vision, Stripe e Resend.
+- Produção recomendada: frontend na Vercel; API, worker e infraestrutura atrás de Nginx na VPS.
 
-## 🚀 Como rodar localmente
-
-> **Arquitetura de desenvolvimento:** Docker sobe apenas o banco e o cache.
-> Backend (FastAPI) e Frontend (Next.js) rodam nativamente para hot-reload instantâneo.
-
-### Pré-requisitos
-
-| Ferramenta | Versão mínima | Para quê |
-|---|---|---|
-| Docker Desktop | qualquer | PostgreSQL + Redis |
-| Python | 3.11+ | Backend FastAPI |
-| Node.js | 20+ | Frontend Next.js |
-
----
-
-### Passo 1 — Infraestrutura (Docker)
-
-Sobe apenas o **PostgreSQL** (porta `5433`) e o **Redis** (porta `6379`):
+## Início rápido
 
 ```bash
+# infraestrutura local
 docker compose up -d
-```
 
-Verificar se está saudável:
-```bash
-docker compose ps
-```
-
-Parar tudo:
-```bash
-docker compose down
-```
-
----
-
-### Passo 2 — Backend (FastAPI)
-
-> O ambiente virtual já está criado em `backend/.venv`. Se não existir, veja "Primeiro uso" abaixo.
-
-```bash
+# backend (após criar/ativar o virtualenv e backend/.env)
 cd backend
+python -m pip install -e ".[dev]"
+alembic upgrade head
+uvicorn app.main:app --reload --port 8000
 
-# Windows
-.venv\Scripts\activate
-
-# Linux / macOS
-source .venv/bin/activate
-
-# Iniciar com hot-reload
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-**Endpoints disponíveis após iniciar:**
-- API: http://localhost:8000
-- Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
-
-#### Primeiro uso (criar o ambiente virtual)
-
-```bash
+# em outro terminal: worker obrigatório para correções
 cd backend
-python -m venv .venv
+arq app.workers.correction.WorkerSettings
 
-# Windows
-.venv\Scripts\activate
-
-# Linux / macOS
-source .venv/bin/activate
-
-pip install -e ".[dev]"
-```
-
-
-
-### Passo 3 — Frontend (Next.js)
-
-```bash
+# frontend
 cd frontend
-
-# Instalar dependências (só na primeira vez)
-npm install
-
-# Iniciar em modo desenvolvimento
+npm ci
 npm run dev
 ```
 
-Acessar em: **http://localhost:3000**
+O PostgreSQL local fica em `localhost:5433`, o frontend em `localhost:3000` e a API em `localhost:8000`.
 
-Outros comandos úteis:
-```bash
-npm run build        # Build de produção
-npm run start        # Servir build de produção
-npm run lint         # Lint com ESLint
-npm run type-check   # Verificar tipos TypeScript
-```
+## Documentação
 
----
+A documentação completa começa em [`docs/README.md`](docs/README.md). Os guias principais cobrem:
 
-### Resumo rápido (dia a dia)
+- [desenvolvimento local](docs/DEVELOPMENT.md) e [configuração](docs/CONFIGURATION.md);
+- [arquitetura](docs/ARCHITECTURE.md), [API](docs/API.md) e [banco](docs/DATABASE.md);
+- [segurança](docs/SECURITY.md), [testes](docs/TESTING.md) e [escalabilidade](docs/SCALABILITY.md);
+- [deploy](docs/DEPLOYMENT.md), [operações](docs/OPERATIONS.md) e [troubleshooting](docs/TROUBLESHOOTING.md).
 
-Abra **3 terminais** em paralelo:
-
-```bash
-# Terminal 1 — Infraestrutura
-docker compose up -d
-
-# Terminal 2 — Backend
-cd backend && .venv\Scripts\activate && uvicorn app.main:app --reload --port 8000
-
-# Terminal 3 — Frontend
-cd frontend && npm run dev
-```
-
----
-
-### Banco de dados — Conexão direta
-
-```bash
-# Acessar o PostgreSQL via psql (dentro do container)
-docker exec -it redator_postgres psql -U redator_user -d redator_db
-
-# Ou via cliente externo (TablePlus, DBeaver, etc.)
-Host:     localhost
-Porta:    5433          ← atenção: 5433, não 5432
-Banco:    redator_db
-Usuário:  redator_user
-Senha:    redator_dev_password
-```
-
-Comandos úteis dentro do `psql`:
-```sql
-\dt                         -- listar tabelas
-\d users                    -- estrutura da tabela users
-SELECT email, user_type, admin_role FROM users;
-```
-
----
-
-### Configurar conta Superadmin
-
-Após criar sua conta normalmente pelo frontend, rode no `psql`:
-
-```sql
-UPDATE users
-SET admin_role = 'SUPERADMIN'
-WHERE email = 'seu-email@exemplo.com';
-```
-
-Acesse o painel em: **http://localhost:3000/dashboard/admin**
-
----
-
-### Solução de problemas comuns
-
-| Problema | Causa provável | Solução |
-|---|---|---|
-| Backend não inicia | `.env` ausente ou `SECRET_KEY` faltando | Copiar `backend/.env.example` → `backend/.env` e preencher |
-| Erro de conexão com DB | PostgreSQL não está rodando | `docker compose up -d` |
-| Porta 5433 ocupada | PostgreSQL local na mesma porta | Alterar `DATABASE_URL` para outra porta no `.env` |
-| `ModuleNotFoundError` no backend | Dependências não instaladas | `pip install -e ".[dev]"` dentro do venv |
-| Erro CORS no browser | Backend não está rodando | Verificar se uvicorn está ativo na porta 8000 |
-| `npm: command not found` | Node.js não instalado | Instalar Node.js 20+ em nodejs.org |
-
-## 🔐 Segurança
-
-Este projeto foi desenvolvido com **Security by Design**:
-- Autenticação JWT com httpOnly cookies
-- Rate limiting por usuário e por plano
-- Validação rigorosa de todos os inputs (Pydantic + Zod)
-- Headers de segurança (CSP, HSTS, X-Frame-Options, etc.)
-- Proteção contra SQLi via ORM (SQLAlchemy)
-- Proteção contra XSS via sanitização
-- Logs sem dados sensíveis
-
-## 📚 Planos
-
-| Recurso | Free | Standard | Pro |
-|---------|------|----------|-----|
-| Correções/dia | 1 | 3 | Ilimitadas |
-| Foto → Texto (OCR) | ✅ | ✅ | ✅ |
-| Análise por competências | Básica | Avançada | Avançada |
-| Grifes no texto | ❌ | ✅ | ✅ |
-| Simulados completos | ❌ | ✅ | ✅ |
-| Suporte prioritário | ❌ | ❌ | ✅ |
-
-## 🛠️ Tecnologias
-
-**Backend**: Python 3.11, FastAPI, SQLAlchemy 2.0, PostgreSQL, Redis, Alembic  
-**Frontend**: Next.js 14, TypeScript, Tailwind CSS, Zod  
-**IA**: OpenAI Responses API
-**OCR**: Google Cloud Vision  
-**Pagamentos**: Stripe  
-**Email**: Resend
+Em desenvolvimento, os schemas HTTP exatos estão em `http://localhost:8000/docs`. Nunca versione arquivos `.env` reais ou dados pessoais.
