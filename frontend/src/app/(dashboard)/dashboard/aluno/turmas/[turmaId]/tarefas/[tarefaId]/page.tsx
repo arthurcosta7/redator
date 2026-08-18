@@ -15,7 +15,7 @@ import {
   Sparkles,
   Lock,
 } from "lucide-react";
-import { api } from "@/lib/api/client";
+import { api, getApiError } from "@/lib/api/client";
 import type { TarefaStudentView } from "@/types/turma";
 
 function wordCount(text: string): number {
@@ -67,8 +67,8 @@ export default function AlunoTarefaPage() {
         assignment_id: tarefaId,
       });
       setSuccess({ essayId: res.data.id });
-    } catch (err: any) {
-      const msg = err?.response?.data?.detail;
+    } catch (err: unknown) {
+      const msg = getApiError(err).detail;
       setError(typeof msg === "string" ? msg : "Erro ao enviar. Tente novamente.");
     } finally {
       setSubmitting(false);

@@ -9,7 +9,9 @@ FROM node:20-alpine AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --only=production
+# O stage de build precisa também das devDependencies (TypeScript/PostCSS).
+# A imagem final continua mínima porque só recebe o output standalone.
+RUN npm ci
 
 # ── Stage 2: Build ───────────────────────────────────────────
 FROM node:20-alpine AS builder

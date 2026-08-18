@@ -8,7 +8,8 @@ código de forma limpa e testável. Aqui ficam as dependências principais:
 - Cliente Redis
 - Verificação de plano
 """
-from typing import AsyncGenerator, Annotated
+from typing import TYPE_CHECKING, Annotated, AsyncGenerator
+from uuid import UUID
 
 import jwt
 import redis.asyncio as redis
@@ -19,6 +20,9 @@ from app.core.config import settings
 from app.core.logging import get_logger
 from app.core.security import decode_token
 from app.db.session import AsyncSessionLocal
+
+if TYPE_CHECKING:
+    from app.db.models.user import User
 
 logger = get_logger(__name__)
 
@@ -85,7 +89,7 @@ async def get_current_user_id(
     access_token: Annotated[str | None, Cookie(alias="access_token")] = None,
     # Também aceita Bearer token no header (para clientes que não suportam cookies)
     request: Request = None,
-) -> str:
+) -> UUID:
     """
     Extrai e valida o access token, retornando o ID do usuário.
 
@@ -121,7 +125,10 @@ async def get_current_user_id(
         if not user_id or token_type != "access":
             raise credentials_exception
 
-        return user_id
+        try:
+            return UUID(user_id)
+        except (TypeError, ValueError, AttributeError):
+            raise credentials_exception
 
     except jwt.ExpiredSignatureError:
         # Token expirado — cliente deve usar refresh token
@@ -134,7 +141,7 @@ async def get_current_user_id(
 
 
 async def get_current_user(
-    user_id: Annotated[str, Depends(get_current_user_id)],
+    user_id: Annotated[UUID, Depends(get_current_user_id)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> "User":  # type: ignore
     """
@@ -179,7 +186,7 @@ async def get_current_token_data(
     Útil quando precisa dos dados do token (plano, tipo de usuário)
     sem overhead de consulta ao banco.
     """
-    user_id = await get_current_user_id(access_token, request)
+    await get_current_user_id(access_token, request)
 
     token = access_token
     if not token and request:
@@ -248,7 +255,7 @@ def require_user_type(*allowed_types: str):
 # ─────────────────────────────────────────────────────────────────────────────
 
 async def get_current_admin(
-    user_id: Annotated[str, Depends(get_current_user_id)],
+    user_id: Annotated[UUID, Depends(get_current_user_id)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> "User":  # type: ignore
     """
@@ -296,7 +303,7 @@ def require_admin_role(*allowed_roles: str):
     SEGURANÇA: Sempre busca do banco, não do token.
     """
     async def role_checker(
-        user_id: Annotated[str, Depends(get_current_user_id)],
+        user_id: Annotated[UUID, Depends(get_current_user_id)],
         db: Annotated[AsyncSession, Depends(get_db)],
     ) -> "User":  # type: ignore
         from app.db.models.user import User

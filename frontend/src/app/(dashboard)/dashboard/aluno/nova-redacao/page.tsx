@@ -12,7 +12,7 @@ import {
   CheckCircle2,
   X,
 } from "lucide-react";
-import { api } from "@/lib/api/client";
+import { api, getApiError } from "@/lib/api/client";
 import { useUser } from "@/contexts/UserContext";
 import type { EssayType } from "@/types/essay";
 
@@ -206,8 +206,8 @@ export default function NovaRedacaoPage() {
       }
 
       router.push(`/dashboard/aluno/correcao/${essayId}`);
-    } catch (err: any) {
-      const msg = err?.response?.data?.detail;
+    } catch (err: unknown) {
+      const msg = getApiError(err).detail;
       setError(
         typeof msg === "string"
           ? msg

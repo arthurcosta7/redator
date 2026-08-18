@@ -1,0 +1,26 @@
+# Segredos e configuração local nunca devem entrar na imagem.
+.env
+.env.*
+!.env.example
+
+# Ambientes, caches e artefatos locais.
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+
+# Arquivos que não são necessários em runtime.
+tests/
+.git/
+.gitignore
+*.log
+uploads/
+temp/

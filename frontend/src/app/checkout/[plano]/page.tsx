@@ -4,7 +4,7 @@ import { Suspense, useState, useEffect } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, CreditCard, Loader2, Check, Shield } from "lucide-react";
-import { api } from "@/lib/api/client";
+import { api, getApiError } from "@/lib/api/client";
 import { useUser } from "@/contexts/UserContext";
 
 const PLAN_INFO = {
@@ -77,8 +77,8 @@ function CheckoutContent() {
         period: periodo,
       });
       window.location.href = res.data.checkout_url;
-    } catch (err: any) {
-      const detail = err?.response?.data?.detail;
+    } catch (err: unknown) {
+      const detail = getApiError(err).detail;
       setError(
         typeof detail === "string" ? detail : "Erro ao iniciar pagamento. Tente novamente."
       );

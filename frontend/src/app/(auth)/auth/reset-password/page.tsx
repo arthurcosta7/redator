@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Eye, EyeOff, Loader2, PenLine, CheckCircle2, AlertCircle } from "lucide-react";
-import { api } from "@/lib/api/client";
+import { api, getApiError } from "@/lib/api/client";
 
 const schema = z
   .object({
@@ -95,8 +95,8 @@ function ResetPasswordForm() {
         new_password: data.password,
       });
       setSuccess(true);
-    } catch (err: any) {
-      const msg = err?.response?.data?.detail;
+    } catch (err: unknown) {
+      const msg = getApiError(err).detail;
       if (typeof msg === "string" && msg.toLowerCase().includes("expirado")) {
         setError("root", {
           message: "Este link expirou. Solicite um novo link de redefinição.",

@@ -5,19 +5,30 @@ Define fixtures reutilizáveis em todos os testes.
 Fixtures são funções que criam dados ou dependências para os testes.
 """
 import asyncio
+import logging
 from typing import AsyncGenerator
 
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.core.config import settings
 from app.db.base import Base
 from app.main import app
 
+logging.getLogger("aiosqlite").setLevel(logging.WARNING)
+logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+
 # Banco de dados em memória para testes (SQLite assíncrono)
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+
+
+@compiles(JSONB, "sqlite")
+def compile_jsonb_for_sqlite(type_, compiler, **kw):
+    """Permite criar os modelos PostgreSQL no SQLite usado pelos testes."""
+    return "JSON"
 
 
 @pytest.fixture(scope="session")

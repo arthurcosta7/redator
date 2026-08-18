@@ -23,7 +23,7 @@ import {
   CalendarClock,
   Sparkles,
 } from "lucide-react";
-import { api } from "@/lib/api/client";
+import { api, getApiError } from "@/lib/api/client";
 import type { TurmaDetail, TurmaMembro, TurmaEssay, TurmaEssaysResponse, TarefaListItem } from "@/types/turma";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -76,8 +76,8 @@ function AddOfflineModal({
         display_name: name.trim(),
       });
       onAdd(res.data);
-    } catch (err: any) {
-      const msg = err?.response?.data?.detail;
+    } catch (err: unknown) {
+      const msg = getApiError(err).detail;
       setError(typeof msg === "string" ? msg : "Erro ao adicionar aluno.");
     } finally {
       setLoading(false);
@@ -165,8 +165,8 @@ function InviteModal({
         email: email.trim().toLowerCase(),
       });
       onInvite(res.data);
-    } catch (err: any) {
-      const msg = err?.response?.data?.detail;
+    } catch (err: unknown) {
+      const msg = getApiError(err).detail;
       setError(typeof msg === "string" ? msg : "Erro ao enviar convite.");
     } finally {
       setLoading(false);

@@ -16,7 +16,7 @@ import {
   ArrowLeftRight,
   ChevronDown,
 } from "lucide-react";
-import { api } from "@/lib/api/client";
+import { api, getApiError } from "@/lib/api/client";
 import { useUser } from "@/contexts/UserContext";
 import { PLAN_LABELS } from "@/types/user";
 import { ADMIN_ROLE_LABELS, ADMIN_ROLE_COLORS, canChangePlan, canDeleteUsers } from "@/types/admin";
@@ -259,8 +259,9 @@ export default function AdminUsersPage() {
         setSuccessMsg(typeLabel);
       }
       await fetchUsers();
-    } catch (err: any) {
-      setError(err?.response?.data?.detail ?? "Erro ao executar ação.");
+    } catch (err: unknown) {
+      const detail = getApiError(err).detail;
+      setError(typeof detail === "string" ? detail : "Erro ao executar ação.");
     } finally {
       setActionLoading(null);
     }

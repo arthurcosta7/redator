@@ -12,6 +12,7 @@ Headers implementados:
 - Referrer-Policy: controla o header Referer
 - Permissions-Policy: desativa APIs do browser não utilizadas
 """
+import re
 import time
 import uuid
 from typing import Callable
@@ -20,12 +21,12 @@ from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import Response as StarletteResponse
 
 from app.core.config import settings
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
+_REQUEST_ID_PATTERN = re.compile(r"^[A-Za-z0-9._:-]{1,64}$")
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -49,6 +50,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             response.headers["Strict-Transport-Security"] = (
                 "max-age=31536000; includeSubDomains; preload"
             )
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'none'; frame-ancestors 'none'; base-uri 'none'"
+            )
 
         # Bloqueia clickjacking
         response.headers["X-Frame-Options"] = "DENY"
@@ -64,6 +68,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "camera=(), microphone=(), geolocation=(), payment=(), "
             "usb=(), magnetometer=(), gyroscope=(), accelerometer=()"
         )
+
+        # Respostas da API são privadas e podem conter dados do usuário.
+        if request.url.path.startswith("/api/"):
+            response.headers["Cache-Control"] = "no-store"
 
         # Remove headers que revelam tecnologia usada
         if "server" in response.headers:
@@ -84,7 +92,12 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         # Pega o request-id do cliente ou gera um novo
-        request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())[:8]
+        supplied_request_id = request.headers.get("X-Request-ID", "")
+        request_id = (
+            supplied_request_id
+            if _REQUEST_ID_PATTERN.fullmatch(supplied_request_id)
+            else str(uuid.uuid4())
+        )
         request.state.request_id = request_id
 
         start_time = time.perf_counter()
@@ -93,7 +106,8 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
 
         # Adiciona o ID e tempo de resposta nos headers de resposta
         response.headers["X-Request-ID"] = request_id
-        response.headers["X-Process-Time"] = f"{process_time:.3f}s"
+        if not settings.is_production:
+            response.headers["X-Process-Time"] = f"{process_time:.3f}s"
 
         # Log de acesso (sem dados sensíveis)
         logger.info(
@@ -139,5 +153,8 @@ def setup_middlewares(app: FastAPI) -> None:
             "X-Requested-With",         # Alguns clientes HTTP enviam este header
         ],
         # Headers expostos ao frontend
-        expose_headers=["X-Request-ID", "X-Process-Time"],
+        expose_headers=(
+            ["X-Request-ID"] if settings.is_production
+            else ["X-Request-ID", "X-Process-Time"]
+        ),
     )

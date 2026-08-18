@@ -7,7 +7,7 @@ import { useSearchParams } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Eye, EyeOff, Loader2, PenLine, ArrowLeft } from "lucide-react";
-import { api } from "@/lib/api/client";
+import { api, getApiError } from "@/lib/api/client";
 
 // Schema de validação com Zod (espelha as regras do backend)
 const studentSchema = z.object({
@@ -105,15 +105,15 @@ function RegisterStudentForm() {
         grade: data.grade || null,
       });
       setSuccess(true);
-    } catch (err: any) {
-      const message = err?.response?.data?.detail;
+    } catch (err: unknown) {
+      const { detail: message, errors: fieldErrors } = getApiError(err);
       if (typeof message === "string") {
         setError("root", { message });
-      } else if (Array.isArray(message)) {
+      } else if (fieldErrors.length > 0) {
         // Erros de validação do backend — define no campo correspondente
         // Nota: studentSchema.shape não existe em ZodEffects (gerado por .refine())
         // por isso usamos type assertion direto
-        message.forEach((e: any) => {
+        fieldErrors.forEach((e) => {
           setError(e.field as keyof StudentFormData, { message: e.message });
         });
       } else {

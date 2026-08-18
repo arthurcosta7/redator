@@ -11,7 +11,7 @@ import {
   ScrollText,
   ChevronRight,
 } from "lucide-react";
-import { api } from "@/lib/api/client";
+import { api, getApiError } from "@/lib/api/client";
 import type { Turma } from "@/types/turma";
 
 // ─── Modal criar turma ────────────────────────────────────────────────────────
@@ -39,8 +39,8 @@ function CreateTurmaModal({
         description: description.trim() || null,
       });
       onCreate(res.data);
-    } catch (err: any) {
-      const msg = err?.response?.data?.detail;
+    } catch (err: unknown) {
+      const msg = getApiError(err).detail;
       setError(typeof msg === "string" ? msg : "Erro ao criar turma.");
     } finally {
       setLoading(false);

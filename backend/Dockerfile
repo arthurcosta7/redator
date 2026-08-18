@@ -22,7 +22,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY pyproject.toml .
 
 # Instala dependências em um diretório separado
-RUN pip install --no-cache-dir --upgrade pip && \
+RUN pip install --no-cache-dir --upgrade "pip>=26.2.1" && \
     pip install --no-cache-dir --prefix=/install -e .
 
 

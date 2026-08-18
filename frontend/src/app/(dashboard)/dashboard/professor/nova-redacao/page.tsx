@@ -6,7 +6,7 @@ import { useDropzone } from "react-dropzone";
 import {
   FileText, Camera, Upload, Loader2, AlertCircle, CheckCircle2, X,
 } from "lucide-react";
-import { api } from "@/lib/api/client";
+import { api, getApiError } from "@/lib/api/client";
 import type { EssayType } from "@/types/essay";
 
 function wordCount(text: string): number {
@@ -119,8 +119,8 @@ export default function ProfessorNovaRedacaoPage() {
         essayId = res.data.id;
       }
       router.push(`/dashboard/professor/correcao/${essayId}`);
-    } catch (err: any) {
-      const msg = err?.response?.data?.detail;
+    } catch (err: unknown) {
+      const msg = getApiError(err).detail;
       setError(typeof msg === "string" ? msg : "Erro ao enviar redação. Tente novamente.");
     } finally {
       setIsSubmitting(false);

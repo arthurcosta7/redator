@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user, get_db
 from app.core.logging import get_logger
-from app.core.security import hash_password, verify_password
+from app.core.security import hash_password, validate_bcrypt_password_size, verify_password
 from app.db.models.user import User, UserType
 
 logger = get_logger(__name__)
@@ -108,6 +108,7 @@ class UpdateProfileRequest(BaseModel):
     def validate_new_password(cls, v: str | None) -> str | None:
         if v is None:
             return v
+        validate_bcrypt_password_size(v)
         if not any(c.isupper() for c in v):
             raise ValueError("A senha precisa de pelo menos uma letra maiúscula")
         if not any(c.islower() for c in v):

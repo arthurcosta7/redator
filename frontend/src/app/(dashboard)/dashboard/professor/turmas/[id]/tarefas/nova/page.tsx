@@ -12,7 +12,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import { api } from "@/lib/api/client";
+import { api, getApiError } from "@/lib/api/client";
 import type { TarefaResponse, MotivatingText } from "@/types/turma";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -58,8 +58,8 @@ export default function NovaTarefaPage() {
       );
       setTheme(res.data.theme);
       setMotivatingTexts(res.data.motivating_texts);
-    } catch (err: any) {
-      const msg = err?.response?.data?.detail;
+    } catch (err: unknown) {
+      const msg = getApiError(err).detail;
       setError(typeof msg === "string" ? msg : "Erro ao gerar tema. Tente novamente.");
     } finally {
       setGenerating(false);
@@ -81,8 +81,8 @@ export default function NovaTarefaPage() {
         motivating_texts: motivatingTexts.length > 0 ? motivatingTexts : undefined,
       });
       router.push(`/dashboard/professor/turmas/${turmaId}`);
-    } catch (err: any) {
-      const msg = err?.response?.data?.detail;
+    } catch (err: unknown) {
+      const msg = getApiError(err).detail;
       setError(typeof msg === "string" ? msg : "Erro ao criar tarefa.");
     } finally {
       setSaving(false);
@@ -244,7 +244,7 @@ export default function NovaTarefaPage() {
 
           {motivatingTexts.length === 0 ? (
             <p className="text-sm text-slate-400 text-center py-3">
-              Nenhum texto adicionado. Use "Gerar com IA" ou adicione manualmente.
+              Nenhum texto adicionado. Use &quot;Gerar com IA&quot; ou adicione manualmente.
             </p>
           ) : (
             <div className="space-y-4">

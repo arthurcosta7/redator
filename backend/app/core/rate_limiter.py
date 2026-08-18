@@ -12,7 +12,6 @@ Estratégia: Sliding Window Counter com Redis
 - Resiliente a "border attacks" (atacar exatamente na virada do minuto)
 """
 import time
-from typing import Optional
 
 import redis.asyncio as redis
 
@@ -40,7 +39,8 @@ class RateLimiter:
 
     # Ações de autenticação — falham fechadas se Redis cair (segurança > disponibilidade)
     _FAIL_CLOSED_ACTIONS = frozenset({
-        "login", "password_reset", "resend_verification",
+        "login", "registration", "password_reset", "password_reset_confirmation",
+        "resend_verification",
     })
 
     async def check(
@@ -99,7 +99,10 @@ class RateLimiter:
             logger.error("rate_limiter_redis_error", action=action, error=str(e))
             # Endpoints de auth falham fechados: segurança > disponibilidade.
             # Outros endpoints falham abertos: evitar impacto a usuários legítimos.
-            if action in self._FAIL_CLOSED_ACTIONS:
+            # Login usa janelas diferentes (login_15min/login_1hour). Tratar o
+            # prefixo evita que uma indisponibilidade do Redis desative justamente
+            # a proteção contra força bruta.
+            if action in self._FAIL_CLOSED_ACTIONS or action.startswith("login_"):
                 logger.warning("rate_limiter_fail_closed", action=action)
                 return False
             return True

@@ -6,7 +6,7 @@ Testa que inputs maliciosos são rejeitados corretamente.
 import pytest
 from pydantic import ValidationError
 
-from app.schemas.auth import RegisterStudentRequest
+from app.schemas.auth import RegisterStudentRequest, ResetPasswordRequest
 
 
 class TestPasswordValidation:
@@ -52,6 +52,21 @@ class TestPasswordValidation:
             password="SenhaForte123",
         )
         assert req.password == "SenhaForte123"
+
+    def test_rejects_unicode_password_over_bcrypt_byte_limit(self):
+        with pytest.raises(ValidationError, match="72 bytes"):
+            RegisterStudentRequest(
+                full_name="João Silva",
+                email="test@test.com",
+                password="Aa1" + "á" * 35,
+            )
+
+    def test_rejects_oversized_reset_token(self):
+        with pytest.raises(ValidationError):
+            ResetPasswordRequest(
+                token="x" * 257,
+                new_password="SenhaForte123",
+            )
 
 
 class TestEmailValidation:
@@ -151,3 +166,29 @@ class TestFileValidation:
         with pytest.raises(HTTPException) as exc_info:
             validate_image_file(huge_content, "enorme.jpg", "image/jpeg")
         assert exc_info.value.status_code == 413
+
+
+class TestInjectionValidation:
+    """Entradas maliciosas permanecem dados e não viram código executável."""
+
+    def test_sql_payload_is_parameterized_by_sqlalchemy(self):
+        from sqlalchemy import select
+
+        from app.db.models.user import User
+
+        payload = "x' OR 1=1; DROP TABLE users; --"
+        statement = select(User).where(User.email == payload)
+        compiled = statement.compile()
+
+        assert payload not in str(compiled)
+        assert payload in compiled.params.values()
+
+    def test_xss_and_template_payloads_are_sanitized(self):
+        from app.utils.text_sanitizer import sanitize_essay_text
+
+        payload = '<script>alert("xss")</script> Texto {{7*7}} seguro'
+        cleaned = sanitize_essay_text(payload)
+
+        assert "<script" not in cleaned
+        assert "{{7*7}}" not in cleaned
+        assert "Texto" in cleaned

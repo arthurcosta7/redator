@@ -15,10 +15,12 @@ const nextConfig: NextConfig = {
       {
         source: "/(.*)",
         headers: [
-          {
-            key: "Strict-Transport-Security",
-            value: "max-age=31536000; includeSubDomains; preload",
-          },
+          ...(!isDev
+            ? [{
+                key: "Strict-Transport-Security",
+                value: "max-age=31536000; includeSubDomains; preload",
+              }]
+            : []),
           {
             key: "X-Content-Type-Options",
             value: "nosniff",
@@ -45,8 +47,12 @@ const nextConfig: NextConfig = {
               "img-src 'self' data: blob: https:",
               `connect-src 'self' ${apiOrigin} https://api.stripe.com`,
               "frame-src https://js.stripe.com https://hooks.stripe.com",
+              "frame-ancestors 'none'",
+              "object-src 'none'",
               "base-uri 'self'",
               "form-action 'self'",
+              "manifest-src 'self'",
+              ...(!isDev ? ["upgrade-insecure-requests"] : []),
             ].join("; "),
           },
         ],

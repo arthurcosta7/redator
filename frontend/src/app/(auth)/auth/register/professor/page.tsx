@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Eye, EyeOff, Loader2, PenLine, ArrowLeft } from "lucide-react";
-import { api } from "@/lib/api/client";
+import { api, getApiError } from "@/lib/api/client";
 
 const teacherSchema = z.object({
   full_name: z
@@ -55,8 +55,8 @@ export default function RegisterTeacherPage() {
         discipline: data.discipline || null,
       });
       setSuccess(true);
-    } catch (err: any) {
-      const message = err?.response?.data?.detail;
+    } catch (err: unknown) {
+      const message = getApiError(err).detail;
       setError("root", {
         message: typeof message === "string"
           ? message

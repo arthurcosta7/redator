@@ -7,6 +7,7 @@ nunca hard-coded no código.
 """
 from functools import lru_cache
 from typing import Literal
+from urllib.parse import urlparse
 
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -30,7 +31,7 @@ class Settings(BaseSettings):
     # ─── Segurança JWT ────────────────────────────────────────────
     # OBRIGATÓRIO: Gere com `python -c "import secrets; print(secrets.token_hex(64))"`
     SECRET_KEY: str
-    JWT_ALGORITHM: str = "HS256"
+    JWT_ALGORITHM: Literal["HS256"] = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 15       # Token de acesso: vida curta
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7          # Refresh token: vida maior
 
@@ -135,9 +136,60 @@ class Settings(BaseSettings):
         if self.ENVIRONMENT == "production":
             if self.DEBUG:
                 raise ValueError("DEBUG não pode ser True em produção!")
-            if "localhost" in self.ALLOWED_ORIGINS[0]:
+            secret_lower = self.SECRET_KEY.lower()
+            if (
+                len(set(self.SECRET_KEY)) < 12
+                or "sua_chave" in secret_lower
+                or "change_me" in secret_lower
+                or "changeme" in secret_lower
+            ):
                 raise ValueError(
-                    "ALLOWED_ORIGINS não pode apontar para localhost em produção!"
+                    "SECRET_KEY tem baixa entropia ou usa um valor de exemplo em produção!"
+                )
+            if not self.DATABASE_URL.startswith("postgresql+asyncpg://"):
+                raise ValueError("DATABASE_URL deve usar PostgreSQL com asyncpg em produção!")
+
+            redis_url = urlparse(self.REDIS_URL)
+            if redis_url.scheme not in {"redis", "rediss"} or not redis_url.password:
+                raise ValueError("REDIS_URL deve incluir autenticação em produção!")
+
+            if not self.ALLOWED_ORIGINS:
+                raise ValueError("ALLOWED_ORIGINS deve conter ao menos uma origem em produção!")
+
+            for origin in self.ALLOWED_ORIGINS:
+                parsed = urlparse(origin)
+                if (
+                    origin == "*"
+                    or "*" in origin
+                    or parsed.scheme != "https"
+                    or not parsed.hostname
+                    or parsed.username is not None
+                    or parsed.password is not None
+                    or parsed.hostname in {"localhost", "127.0.0.1", "::1"}
+                    or parsed.path != ""
+                    or parsed.params
+                    or parsed.query
+                    or parsed.fragment
+                ):
+                    raise ValueError(
+                        "Cada ALLOWED_ORIGINS deve ser uma origem HTTPS explícita, sem caminho, "
+                        "localhost, wildcard, query ou fragmento em produção."
+                    )
+
+            frontend = urlparse(self.FRONTEND_URL)
+            if (
+                frontend.scheme != "https"
+                or not frontend.hostname
+                or frontend.username is not None
+                or frontend.password is not None
+                or frontend.path != ""
+                or frontend.params
+                or frontend.query
+                or frontend.fragment
+            ):
+                raise ValueError(
+                    "FRONTEND_URL deve ser uma origem HTTPS sem caminho, query ou fragmento "
+                    "em produção!"
                 )
         return self
 

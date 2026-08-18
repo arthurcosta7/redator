@@ -6,8 +6,6 @@ Testa:
 - Geração e validação de tokens JWT
 - Tokens seguros para reset de senha
 """
-import time
-
 import pytest
 
 from app.core.security import (
@@ -67,6 +65,12 @@ class TestPasswordHashing:
         assert verify_password("", hashed) is True
         assert verify_password("qualquercoisa", hashed) is False
 
+    def test_rejects_password_over_bcrypt_byte_limit(self):
+        """O limite do bcrypt é em bytes, não em caracteres Unicode."""
+        password = "Aa1" + "á" * 35  # 38 caracteres, mas 73 bytes em UTF-8
+        with pytest.raises(ValueError, match="72 bytes"):
+            hash_password(password)
+
 
 class TestJWTTokens:
     """Testes de tokens JWT."""
@@ -105,10 +109,13 @@ class TestJWTTokens:
         from app.core.config import settings
 
         # Cria token já expirado
+        now = datetime.now(timezone.utc)
         payload = {
             "sub": "user-123",
             "type": "access",
-            "exp": datetime.now(timezone.utc) - timedelta(minutes=1),
+            "exp": now - timedelta(minutes=1),
+            "iat": now - timedelta(minutes=2),
+            "jti": "expired-test-token",
         }
         expired_token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
 
@@ -125,6 +132,25 @@ class TestJWTTokens:
 
         with pytest.raises(jwt.InvalidTokenError):
             decode_token(tampered)
+
+    def test_missing_required_claim_rejected(self):
+        """JWTs sem claims de segurança obrigatórias nunca são aceitos."""
+        import jwt
+        from datetime import datetime, timezone, timedelta
+        from app.core.config import settings
+
+        incomplete = jwt.encode(
+            {
+                "sub": "user-123",
+                "type": "access",
+                "exp": datetime.now(timezone.utc) + timedelta(minutes=5),
+            },
+            settings.SECRET_KEY,
+            algorithm=settings.JWT_ALGORITHM,
+        )
+
+        with pytest.raises(jwt.MissingRequiredClaimError):
+            decode_token(incomplete)
 
     def test_tokens_have_unique_jti(self):
         """Cada token deve ter um ID único (JTI)."""

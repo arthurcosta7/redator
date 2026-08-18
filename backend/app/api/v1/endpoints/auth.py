@@ -13,16 +13,17 @@ Rotas:
 """
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
+from uuid import UUID
 
 import jwt
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.dependencies import get_db, get_redis
 from app.core.logging import get_logger, mask_email
-from app.core.rate_limiter import check_login_attempts
+from app.core.rate_limiter import RateLimiter, check_login_attempts
 from app.core.security import (
     DUMMY_HASH,
     create_access_token,
@@ -94,22 +95,23 @@ async def create_user(
     password: str,
     user_type: UserType,
     **extra_fields,
-) -> User:
+) -> User | None:
     """
     Cria um novo usuário no banco.
 
     Verifica duplicidade de email antes de criar.
     Envia email de verificação após criar.
     """
+    # O hash é calculado mesmo para email duplicado para reduzir diferenças de
+    # tempo que poderiam ser usadas para enumerar contas existentes.
+    hashed_password = hash_password(password)
+
     # Verifica se email já existe
     existing = await db.execute(select(User).where(User.email == email.lower()))
     if existing.scalar_one_or_none():
-        # SEGURANÇA: Mesma mensagem para email existente e não existente
-        # Evita enumeration attack (descobrir quais emails estão cadastrados)
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Não foi possível criar a conta. Tente outro email.",
-        )
+        # O endpoint continua retornando a mesma resposta 201 usada para um novo
+        # cadastro, sem confirmar se o endereço já existe.
+        return None
 
     # Gera token de verificação de email
     verification_token = generate_secure_token(32)
@@ -119,7 +121,7 @@ async def create_user(
     user = User(
         full_name=full_name,
         email=email.lower(),                    # Sempre lowercase para consistência
-        hashed_password=hash_password(password),
+        hashed_password=hashed_password,
         user_type=user_type,
         plan=UserPlan.FREE,
         email_verification_token_hash=token_hash,
@@ -155,9 +157,19 @@ async def create_user(
 @router.post("/register/student", response_model=MessageResponse, status_code=201)
 async def register_student(
     data: RegisterStudentRequest,
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
+    redis_client=Depends(get_redis),
 ) -> MessageResponse:
     """Cria uma conta de aluno."""
+    ip = request.client.host if request.client else "unknown"
+    limiter = RateLimiter(redis_client)
+    if not await limiter.check("registration", ip, max_requests=5, window_seconds=3600):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Muitas tentativas de cadastro. Aguarde 1 hora.",
+            headers={"Retry-After": "3600"},
+        )
     await create_user(
         db=db,
         full_name=data.full_name,
@@ -174,9 +186,19 @@ async def register_student(
 @router.post("/register/teacher", response_model=MessageResponse, status_code=201)
 async def register_teacher(
     data: RegisterTeacherRequest,
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
+    redis_client=Depends(get_redis),
 ) -> MessageResponse:
     """Cria uma conta de professor."""
+    ip = request.client.host if request.client else "unknown"
+    limiter = RateLimiter(redis_client)
+    if not await limiter.check("registration", ip, max_requests=5, window_seconds=3600):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Muitas tentativas de cadastro. Aguarde 1 hora.",
+            headers={"Retry-After": "3600"},
+        )
     await create_user(
         db=db,
         full_name=data.full_name,
@@ -337,8 +359,8 @@ async def refresh_token(
         payload = decode_token(refresh_token_value)
         if payload.get("type") != "refresh":
             raise jwt.InvalidTokenError()
-        user_id = payload["sub"]
-    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+        user_id = UUID(payload["sub"])
+    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, TypeError, ValueError):
         clear_auth_cookies(response)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -466,7 +488,7 @@ async def logout(
 
 @router.get("/verify-email/{token}", response_model=MessageResponse)
 async def verify_email(
-    token: str,
+    token: Annotated[str, Path(min_length=32, max_length=256)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> MessageResponse:
     """Verifica o email do usuário usando o token do link enviado."""
@@ -512,7 +534,6 @@ async def resend_verification_email(
     """
     ip = request.client.host if request and request.client else "unknown"
 
-    from app.core.rate_limiter import RateLimiter
     limiter = RateLimiter(redis_client)
     allowed = await limiter.check("resend_verification", ip, max_requests=3, window_seconds=3600)
     if not allowed:
@@ -566,7 +587,6 @@ async def forgot_password(
     ip = request.client.host if request and request.client else "unknown"
 
     # Rate limit no reset de senha também
-    from app.core.rate_limiter import RateLimiter
     limiter = RateLimiter(redis_client)
     allowed = await limiter.check("password_reset", ip, max_requests=3, window_seconds=3600)
     if not allowed:
@@ -606,9 +626,22 @@ async def forgot_password(
 @router.post("/reset-password", response_model=MessageResponse)
 async def reset_password(
     data: ResetPasswordRequest,
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
+    redis_client=Depends(get_redis),
 ) -> MessageResponse:
     """Define uma nova senha usando o token de reset."""
+    ip = request.client.host if request.client else "unknown"
+    limiter = RateLimiter(redis_client)
+    if not await limiter.check(
+        "password_reset_confirmation", ip, max_requests=10, window_seconds=3600
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Muitas tentativas. Aguarde 1 hora.",
+            headers={"Retry-After": "3600"},
+        )
+
     token_hash = generate_token_hash(data.token)
 
     result = await db.execute(

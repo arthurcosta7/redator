@@ -10,6 +10,8 @@ import re
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
+from app.core.security import validate_bcrypt_password_size
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Registro de usuário
@@ -47,6 +49,7 @@ class RegisterStudentRequest(BaseModel):
         - Pelo menos uma letra minúscula
         - Pelo menos um número
         """
+        validate_bcrypt_password_size(v)
         if not re.search(r"[A-Z]", v):
             raise ValueError("A senha deve ter pelo menos uma letra maiúscula")
         if not re.search(r"[a-z]", v):
@@ -93,6 +96,11 @@ class LoginRequest(BaseModel):
     # Indica se o usuário quer "lembrar de mim" (refresh token com vida mais longa)
     remember_me: bool = Field(default=False)
 
+    @field_validator("password")
+    @classmethod
+    def validate_password_size(cls, v: str) -> str:
+        return validate_bcrypt_password_size(v)
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Reset de senha
@@ -106,12 +114,13 @@ class ForgotPasswordRequest(BaseModel):
 class ResetPasswordRequest(BaseModel):
     """Nova senha após reset."""
 
-    token: str = Field(min_length=1, description="Token recebido no email")
+    token: str = Field(min_length=32, max_length=256, description="Token recebido no email")
     new_password: str = Field(min_length=8, max_length=72)
 
     @field_validator("new_password")
     @classmethod
     def validate_password(cls, v: str) -> str:
+        validate_bcrypt_password_size(v)
         if not re.search(r"[A-Z]", v):
             raise ValueError("A senha deve ter pelo menos uma letra maiúscula")
         if not re.search(r"[a-z]", v):

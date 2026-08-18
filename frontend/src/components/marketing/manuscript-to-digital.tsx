@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { motion } from "framer-motion";
+import { ScrollParallax } from "./scroll-parallax";
 
 /* ─── Da folha para a tela — manuscrito + digital com grife ────────────────── */
 
@@ -30,25 +31,24 @@ export function ManuscriptToDigital() {
 
         {/* Folha manuscrita */}
         <motion.div
-          initial={{ opacity: 0, transform: "translateY(12px) rotate(-2deg)" }}
-          whileInView={{ opacity: 1, transform: "translateY(0) rotate(-1.5deg)" }}
+          initial={{ opacity: 0, transform: "translateY(12px)" }}
+          whileInView={{ opacity: 1, transform: "translateY(0)" }}
           viewport={{ once: true, margin: "-60px" }}
           transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] as [number, number, number, number] }}
           className="lg:col-span-5"
         >
-          <div
-            className="caderno relative p-6 lg:p-8 rounded shadow-md border border-ink/10"
-            style={{ transform: "rotate(-1.5deg)" }}
-          >
-            {/* Margem vermelha */}
-            <div className="absolute top-0 bottom-0 left-12 w-px bg-red-300/70" />
-            <p className="font-hand text-[18px] lg:text-[20px] leading-[32px] text-ink/85 pl-16 pr-2">
-              {MANUSCRIPT_TEXT}
-            </p>
-            <div className="absolute bottom-3 right-4 font-mono text-[10px] text-ink-muted uppercase tracking-[0.15em]">
-              manuscrito · folha A4
+          <ScrollParallax from={24} to={-18} rotateFrom={-2.2} rotateTo={-0.8}>
+            <div className="caderno relative p-6 lg:p-8 rounded shadow-md border border-ink/10">
+              {/* Margem vermelha */}
+              <div className="absolute top-0 bottom-0 left-12 w-px bg-red-300/70" />
+              <p className="font-hand text-[18px] lg:text-[20px] leading-[32px] text-ink/85 pl-16 pr-2">
+                {MANUSCRIPT_TEXT}
+              </p>
+              <div className="absolute bottom-3 right-4 font-mono text-[10px] text-ink-muted uppercase tracking-[0.15em]">
+                manuscrito · folha A4
+              </div>
             </div>
-          </div>
+          </ScrollParallax>
         </motion.div>
 
         {/* Seta animada */}
@@ -96,31 +96,33 @@ export function ManuscriptToDigital() {
           transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] as [number, number, number, number], delay: 0.3 }}
           className="lg:col-span-5"
         >
-          <div className="bg-paper border border-ink-line rounded-lg p-5 lg:p-6 relative">
-            <div className="absolute top-0 right-0 px-2 py-1 font-mono text-[10px] text-ink-muted uppercase tracking-[0.15em] bg-paper-deep rounded-bl">
-              digital · corrigido
-            </div>
-            <p className="text-[14px] lg:text-[15px] leading-[1.8] text-ink-soft font-display">
-              {DIGITAL_SEGMENTS.map((seg, i) => {
-                if (seg.type === "neutral" || seg.type === undefined) {
-                  return <span key={i}>{(seg as { text: string }).text}</span>;
-                }
-                return (
-                  <span key={i} className={seg.type === "ok" ? "grife-good" : "grife-bad"}>
-                    {seg.text}
-                  </span>
-                );
-              })}
-            </p>
-            <div className="mt-4 pt-3 border-t border-ink-line flex items-center justify-between">
-              <p className="font-mono text-[10px] text-ink-muted uppercase tracking-[0.12em]">
-                OCR · 28 segundos
+          <ScrollParallax from={-16} to={20} rotateFrom={0.5} rotateTo={-0.35}>
+            <div className="bg-paper border border-ink-line rounded-lg p-5 lg:p-6 relative shadow-card">
+              <div className="absolute top-0 right-0 px-2 py-1 font-mono text-[10px] text-ink-muted uppercase tracking-[0.15em] bg-paper-deep rounded-bl">
+                digital · corrigido
+              </div>
+              <p className="text-[14px] lg:text-[15px] leading-[1.8] text-ink-soft font-display">
+                {DIGITAL_SEGMENTS.map((seg, i) => {
+                  if (seg.type === "neutral" || seg.type === undefined) {
+                    return <span key={i}>{(seg as { text: string }).text}</span>;
+                  }
+                  return (
+                    <span key={i} className={seg.type === "ok" ? "grife-good" : "grife-bad"}>
+                      {seg.text}
+                    </span>
+                  );
+                })}
               </p>
-              <p className="font-mono text-[10px] text-accent font-semibold uppercase tracking-[0.12em]">
-                nota: 680
-              </p>
+              <div className="mt-4 pt-3 border-t border-ink-line flex items-center justify-between">
+                <p className="font-mono text-[10px] text-ink-muted uppercase tracking-[0.12em]">
+                  OCR · 28 segundos
+                </p>
+                <p className="font-mono text-[10px] text-accent font-semibold uppercase tracking-[0.12em]">
+                  nota: 680
+                </p>
+              </div>
             </div>
-          </div>
+          </ScrollParallax>
         </motion.div>
       </div>
     </div>

@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, RefreshCw, AlertCircle, Clock } from "lucide-react";
-import { api } from "@/lib/api/client";
+import { api, getApiError } from "@/lib/api/client";
 import type { Essay } from "@/types/essay";
 import { CorrectionView } from "@/components/dashboard/correction-view";
 
@@ -49,9 +49,9 @@ export default function ProfessorCorrectionPage() {
     try {
       const res = await api.get<Essay>(`/essays/${id}`);
       setEssay(res.data);
-    } catch (err: any) {
-      const msg = err?.response?.data?.detail;
-      setError(err?.response?.status === 404 ? "Redação não encontrada." : typeof msg === "string" ? msg : "Erro ao carregar.");
+    } catch (err: unknown) {
+      const { detail: msg, status } = getApiError(err);
+      setError(status === 404 ? "Redação não encontrada." : typeof msg === "string" ? msg : "Erro ao carregar.");
     } finally {
       setLoading(false);
     }

@@ -22,11 +22,19 @@ from app.core.config import settings
 # Custo do bcrypt: 12 rounds é o mínimo recomendado (2024).
 # Cada incremento dobra o tempo de hash — ajuste conforme hardware.
 _BCRYPT_ROUNDS = 12
+BCRYPT_MAX_PASSWORD_BYTES = 72
 
 # Hash pré-computado para uso em verificações constant-time quando o usuário não existe.
 # Sem isso, a ausência de hash válido causaria retorno imediato (~0ms) vs ~100ms com
 # hash real — diferença mensurável que revela se um email está cadastrado.
 DUMMY_HASH: str = bcrypt.hashpw(b"__dummy_timing__", bcrypt.gensalt(rounds=_BCRYPT_ROUNDS)).decode()
+
+
+def validate_bcrypt_password_size(password: str) -> str:
+    """Rejeita senhas que excedem o limite real de 72 bytes do bcrypt."""
+    if len(password.encode("utf-8")) > BCRYPT_MAX_PASSWORD_BYTES:
+        raise ValueError("A senha deve ter no máximo 72 bytes em UTF-8")
+    return password
 
 
 def hash_password(plain_password: str) -> str:
@@ -41,6 +49,7 @@ def hash_password(plain_password: str) -> str:
     Usamos a biblioteca 'bcrypt' diretamente (sem passlib) por compatibilidade
     com bcrypt >= 4.x, que não é mais suportado pelo passlib 1.7.x.
     """
+    validate_bcrypt_password_size(plain_password)
     password_bytes = plain_password.encode("utf-8")
     salt = bcrypt.gensalt(rounds=_BCRYPT_ROUNDS)
     return bcrypt.hashpw(password_bytes, salt).decode("utf-8")
@@ -139,6 +148,7 @@ def decode_token(token: str) -> dict[str, Any]:
         options={
             "verify_exp": True,     # Sempre verifica expiração
             "verify_iat": True,     # Verifica se foi emitido no passado
+            "require": ["sub", "type", "exp", "iat", "jti"],
         }
     )
 

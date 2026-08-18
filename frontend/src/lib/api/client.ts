@@ -21,6 +21,38 @@ export const api: AxiosInstance = axios.create({
   },
 });
 
+export interface ApiFieldError {
+  field: string;
+  message: string;
+}
+
+export function getApiError(error: unknown): {
+  detail?: unknown;
+  status?: number;
+  errors: ApiFieldError[];
+} {
+  if (!axios.isAxiosError<{ detail?: unknown; errors?: unknown }>(error)) {
+    return { errors: [] };
+  }
+
+  const data = error.response?.data;
+  const errors = Array.isArray(data?.errors)
+    ? data.errors.filter(
+        (item): item is ApiFieldError =>
+          typeof item === "object" &&
+          item !== null &&
+          typeof (item as Record<string, unknown>).field === "string" &&
+          typeof (item as Record<string, unknown>).message === "string"
+      )
+    : [];
+
+  return {
+    detail: data?.detail,
+    status: error.response?.status,
+    errors,
+  };
+}
+
 // ─── Interceptor de resposta — renova token automaticamente ─────────
 let isRefreshing = false;
 let failedQueue: Array<{

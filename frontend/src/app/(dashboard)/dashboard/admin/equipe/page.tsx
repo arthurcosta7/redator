@@ -12,7 +12,7 @@ import {
   X,
   Save,
 } from "lucide-react";
-import { api } from "@/lib/api/client";
+import { api, getApiError } from "@/lib/api/client";
 import { useUser } from "@/contexts/UserContext";
 import { ADMIN_ROLE_LABELS, ADMIN_ROLE_COLORS } from "@/types/admin";
 import type { AdminTeamMember } from "@/types/admin";
@@ -40,8 +40,9 @@ function AddMemberModal({
       await api.post("/admin/team", { email, admin_role: role });
       onSuccess();
       onClose();
-    } catch (err: any) {
-      setError(err?.response?.data?.detail ?? "Erro ao adicionar membro.");
+    } catch (err: unknown) {
+      const detail = getApiError(err).detail;
+      setError(typeof detail === "string" ? detail : "Erro ao adicionar membro.");
     } finally {
       setLoading(false);
     }
@@ -153,8 +154,9 @@ function EditRoleModal({
       await api.patch(`/admin/team/${member.id}/role`, { admin_role: role });
       onSuccess();
       onClose();
-    } catch (err: any) {
-      setError(err?.response?.data?.detail ?? "Erro ao alterar role.");
+    } catch (err: unknown) {
+      const detail = getApiError(err).detail;
+      setError(typeof detail === "string" ? detail : "Erro ao alterar role.");
     } finally {
       setLoading(false);
     }
@@ -251,8 +253,9 @@ export default function AdminTeamPage() {
       await api.delete(`/admin/team/${member.id}`);
       setSuccessMsg(`${member.full_name} removido(a) da equipe.`);
       await fetchTeam();
-    } catch (err: any) {
-      setError(err?.response?.data?.detail ?? "Erro ao remover membro.");
+    } catch (err: unknown) {
+      const detail = getApiError(err).detail;
+      setError(typeof detail === "string" ? detail : "Erro ao remover membro.");
     } finally {
       setRemovingId(null);
     }

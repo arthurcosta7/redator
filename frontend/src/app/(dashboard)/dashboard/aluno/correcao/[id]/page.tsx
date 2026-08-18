@@ -10,7 +10,7 @@ import {
   AlertCircle,
   Clock,
 } from "lucide-react";
-import { api } from "@/lib/api/client";
+import { api, getApiError } from "@/lib/api/client";
 import type { Essay } from "@/types/essay";
 import { CorrectionView } from "@/components/dashboard/correction-view";
 
@@ -80,9 +80,9 @@ export default function CorrectionPage() {
     try {
       const res = await api.get<Essay>(`/essays/${id}`);
       setEssay(res.data);
-    } catch (err: any) {
-      const msg = err?.response?.data?.detail;
-      if (err?.response?.status === 404) {
+    } catch (err: unknown) {
+      const { detail: msg, status } = getApiError(err);
+      if (status === 404) {
         setError("Redação não encontrada.");
       } else {
         setError(typeof msg === "string" ? msg : "Erro ao carregar a correção.");

@@ -1,0 +1,19 @@
+# Variáveis locais não devem ser incorporadas ao bundle ou às camadas da imagem.
+.env
+.env.*
+!.env.example
+!.env.local.example
+
+# Dependências e artefatos são recriados durante o build.
+node_modules/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+npm-debug.log*
+
+# Metadados locais.
+.git/
+.gitignore
+.vscode/
+.idea/

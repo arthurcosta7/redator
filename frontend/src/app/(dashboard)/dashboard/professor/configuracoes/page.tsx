@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Loader2, User, Lock, School, CheckCircle } from "lucide-react";
-import { api } from "@/lib/api/client";
+import { api, getApiError } from "@/lib/api/client";
 import { useUser } from "@/contexts/UserContext";
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
@@ -56,8 +56,8 @@ function ProfileSection() {
     resolver: zodResolver(profileSchema),
     defaultValues: {
       full_name: user?.full_name ?? "",
-      school_name: (user as any)?.school_name ?? "",
-      discipline: (user as any)?.discipline ?? "",
+      school_name: user?.school_name ?? "",
+      discipline: user?.discipline ?? "",
     },
   });
 
@@ -72,8 +72,8 @@ function ProfileSection() {
       await refetch();
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
-    } catch (err: any) {
-      const msg = err?.response?.data?.detail;
+    } catch (err: unknown) {
+      const msg = getApiError(err).detail;
       setError("root", { message: typeof msg === "string" ? msg : "Erro ao salvar." });
     }
   };
@@ -159,8 +159,8 @@ function PasswordSection() {
       reset();
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
-    } catch (err: any) {
-      const msg = err?.response?.data?.detail;
+    } catch (err: unknown) {
+      const msg = getApiError(err).detail;
       setError("root", { message: typeof msg === "string" ? msg : "Erro ao alterar senha." });
     }
   };

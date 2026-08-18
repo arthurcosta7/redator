@@ -4,6 +4,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { LiveCorrectionDemo } from "./live-correction-demo";
+import { ScrollParallax } from "./scroll-parallax";
 
 const enterEase = [0.23, 1, 0.32, 1] as [number, number, number, number];
 
@@ -94,11 +95,13 @@ export function Hero() {
             transition={{ duration: 0.7, ease: enterEase, delay: 0.25 }}
             className="lg:col-span-5 lg:pt-2"
           >
-            <p className="eyebrow mb-3 text-accent">↓ Como aparece na prática</p>
-            <LiveCorrectionDemo />
-            <p className="mt-3 font-mono text-[11px] text-ink-muted uppercase tracking-[0.12em]">
-              ↑ demo ao vivo · loop de ~12s · passe o mouse nas grifes
-            </p>
+            <ScrollParallax from={18} to={-30}>
+              <p className="eyebrow mb-3 text-accent">↓ Como aparece na prática</p>
+              <LiveCorrectionDemo />
+              <p className="mt-3 font-mono text-[11px] text-ink-muted uppercase tracking-[0.12em]">
+                ↑ demo ao vivo · loop de ~12s · passe o mouse nas grifes
+              </p>
+            </ScrollParallax>
           </motion.div>
         </div>
       </div>

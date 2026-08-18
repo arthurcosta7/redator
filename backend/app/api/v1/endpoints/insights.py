@@ -76,8 +76,11 @@ async def get_insights_summary(
             data = json.loads(cached)
             data["from_cache"] = True
             return InsightsSummaryResponse(**data)
-    except Exception:
-        pass  # Redis indisponível — continua sem cache
+    except Exception as exc:
+        logger.debug(
+            "insights_cache_read_failed",
+            error_type=type(exc).__name__,
+        )
 
     # Busca correções dos últimos 30 dias
     since = datetime.now(timezone.utc) - timedelta(days=30)
@@ -192,8 +195,11 @@ async def get_insights_summary(
         cache_data = response.model_dump()
         cache_data.pop("from_cache", None)
         await redis_client.setex(cache_key, _CACHE_TTL, json.dumps(cache_data, default=str))
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug(
+            "insights_cache_write_failed",
+            error_type=type(exc).__name__,
+        )
 
     logger.info("insights_gerados", user_id=str(current_user.id), total=len(corrections))
     return response

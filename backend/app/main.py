@@ -204,7 +204,4 @@ async def health_check() -> dict:
     SEGURANÇA: Não retorna informações sensíveis sobre a infraestrutura.
     Apenas indica se a aplicação está respondendo.
     """
-    return {
-        "status": "ok",
-        "version": settings.APP_VERSION,
-    }
+    return {"status": "ok"}

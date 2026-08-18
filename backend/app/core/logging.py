@@ -35,16 +35,34 @@ def remove_sensitive_data(
     dados sensíveis, mas esta função é o "safety net".
     """
     # Campos que NUNCA devem aparecer em logs
-    FORBIDDEN_FIELDS = {
+    forbidden_fields = {
         "password", "senha", "hashed_password",
         "token", "access_token", "refresh_token",
         "secret", "api_key", "stripe_key",
-        "card_number", "cvv", "cpf",
+        "card_number", "cvv", "cpf", "authorization",
+        "cookie", "set-cookie", "client_secret",
     }
 
-    for field in FORBIDDEN_FIELDS:
-        if field in event_dict:
-            event_dict[field] = "***REDACTED***"
+    sensitive_suffixes = ("_password", "_token", "_secret", "_api_key")
+
+    def redact(value: Any) -> Any:
+        if isinstance(value, dict):
+            return {
+                key: (
+                    "***REDACTED***"
+                    if str(key).lower() in forbidden_fields
+                    or str(key).lower().endswith(sensitive_suffixes)
+                    else redact(item)
+                )
+                for key, item in value.items()
+            }
+        if isinstance(value, list):
+            return [redact(item) for item in value]
+        if isinstance(value, tuple):
+            return tuple(redact(item) for item in value)
+        return value
+
+    event_dict = redact(event_dict)
 
     return event_dict
 
