@@ -1,5 +1,6 @@
 "use client";
 
+/** Bancada de revisão humana: reserva, compara e decide contestações. */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
@@ -69,6 +70,8 @@ export default function AppealsReviewPage() {
     setError(null);
     setSuccess(null);
     try {
+      // Abrir um caso pendente também o reivindica no servidor, evitando que dois
+      // revisores trabalhem simultaneamente na mesma contestação.
       const endpoint = item.status === "pending" ? `/appeals/${item.id}/claim` : `/appeals/${item.id}`;
       const request = item.status === "pending" ? api.post<ReviewerAppealDetail>(endpoint) : api.get<ReviewerAppealDetail>(endpoint);
       const { data } = await request;
@@ -87,6 +90,8 @@ export default function AppealsReviewPage() {
     }
   };
 
+  // Em modelos por competência, o total deriva sempre dos campos individuais;
+  // o valor manual existe apenas para formatos sem competências detalhadas.
   const correctedTotal = useMemo(
     () => selected?.original_competencies.length
       ? Object.values(scores).reduce((total, score) => total + (Number(score) || 0), 0)
@@ -103,6 +108,8 @@ export default function AppealsReviewPage() {
       await api.post(`/appeals/${selected.id}/resolve`, {
         decision,
         explanation,
+        // Enviar null ao manter a correção evita persistir notas acidentais de
+        // campos que o revisor chegou a editar antes de mudar a decisão.
         corrected_total_score: decision === "corrected" ? correctedTotal : null,
         competency_scores: decision === "corrected"
           ? Object.entries(scores).map(([number, score]) => ({ number: Number(number), score: Number(score) }))

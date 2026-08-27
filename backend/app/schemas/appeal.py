@@ -55,6 +55,8 @@ class ResolveAppealRequest(StrictRequest):
 
     @model_validator(mode="after")
     def validate_decision_fields(self) -> "ResolveAppealRequest":
+        # Mantém o payload coerente com a decisão: uma nota nova só existe
+        # quando o revisor conclui que a correção original estava incorreta.
         if self.decision == "corrected" and self.corrected_total_score is None:
             raise ValueError("Informe a nota correta para alterar a correcao")
         if self.decision == "upheld" and (
@@ -62,6 +64,7 @@ class ResolveAppealRequest(StrictRequest):
         ):
             raise ValueError("Uma correcao mantida nao pode receber uma nova nota")
         if self.competency_scores:
+            # Duplicatas tornariam ambígua a nota efetiva de uma competência.
             numbers = [item.number for item in self.competency_scores]
             if len(numbers) != len(set(numbers)):
                 raise ValueError("Cada competencia deve aparecer uma unica vez")

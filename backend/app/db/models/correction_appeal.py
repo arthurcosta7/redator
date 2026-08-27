@@ -65,6 +65,8 @@ class CorrectionAppeal(UUIDMixin, TimestampMixin, Base):
         Boolean, nullable=False, default=False
     )
 
+    # Estes snapshots preservam exatamente o que a IA apresentou no momento
+    # da contestação, mesmo que a Correction seja atualizada após a revisão.
     original_total_score: Mapped[float] = mapped_column(Float, nullable=False)
     original_competencies: Mapped[list] = mapped_column(JSONB, nullable=False)
     original_highlights: Mapped[list] = mapped_column(JSONB, nullable=False)

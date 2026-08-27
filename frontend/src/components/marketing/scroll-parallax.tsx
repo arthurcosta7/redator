@@ -1,5 +1,6 @@
 "use client";
 
+/** Movimento vertical opcional, limitado ao período em que o bloco cruza a tela. */
 import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -29,6 +30,8 @@ export function ScrollParallax({
     offset: ["start end", "end start"],
   });
 
+  // Uma única string de transform mantém translate e rotate na mesma trilha;
+  // propriedades separadas poderiam se sobrescrever durante a interpolação.
   const startTransform = reduceMotion
     ? "translate3d(0, 0, 0) rotate(0deg)"
     : `translate3d(0, ${from}px, 0) rotate(${rotateFrom}deg)`;

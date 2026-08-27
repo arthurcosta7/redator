@@ -1,5 +1,6 @@
 "use client";
 
+/** Resume a oferta escolhida e delega a cobrança à sessão hospedada do Stripe. */
 import { Suspense, useState, useEffect } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -76,6 +77,8 @@ function CheckoutContent() {
         plan: plano,
         period: periodo,
       });
+      // Dados de cartão não passam pelo frontend do Redator; o usuário conclui
+      // o pagamento na URL de checkout criada e validada pelo backend.
       window.location.href = res.data.checkout_url;
     } catch (err: unknown) {
       const detail = getApiError(err).detail;

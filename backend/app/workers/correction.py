@@ -27,6 +27,8 @@ async def process_correction(
     essay_uuid = UUID(essay_id)
 
     async with AsyncSessionLocal() as db:
+        # O lock mantém a leitura e a mudança inicial de estado na mesma seção
+        # crítica. A consulta de Correction evita reprocessar casos concluídos.
         essay = await db.scalar(select(Essay).where(Essay.id == essay_uuid).with_for_update())
         if essay is None:
             logger.warning("correcao_redacao_inexistente", essay_id=essay_id)
@@ -59,6 +61,8 @@ async def process_correction(
             await db.commit()
             return {"status": "completed"}
         except Exception as exc:
+            # O rollback remove qualquer escrita parcial do provedor antes de
+            # reagendar o job; cada tentativa recomeça a partir do banco.
             await db.rollback()
             job_try = int(ctx.get("job_try", 1))
             if job_try < settings.CORRECTION_JOB_MAX_TRIES:
@@ -75,6 +79,8 @@ async def process_correction(
                 essay.status = EssayStatus.ERROR
                 essay.error_message = "Erro ao processar correção. Tente novamente."
                 await db.commit()
+                # Entregas de tarefas pertencem à cota do professor. Somente a
+                # correção avulsa reservou um slot diário do aluno para devolver.
                 if not is_assignment:
                     await release_daily_correction_slot(str(essay.user_id), ctx["redis"])
             logger.error(

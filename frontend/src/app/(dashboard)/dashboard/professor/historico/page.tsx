@@ -1,5 +1,6 @@
 "use client";
 
+/** Histórico paginado das correções avulsas feitas na conta do professor. */
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Loader2, ScrollText, Filter, ChevronLeft, ChevronRight } from "lucide-react";
@@ -42,6 +43,8 @@ export default function ProfessorHistoricoPage() {
   const [filterStatus, setFilterStatus] = useState<EssayStatus | "all">("all");
 
   useEffect(() => {
+    // Paginação e filtros ficam no servidor para não carregar todo o histórico
+    // no navegador nem produzir contagens diferentes das exibidas pela API.
     const load = async () => {
       setLoading(true);
       try {

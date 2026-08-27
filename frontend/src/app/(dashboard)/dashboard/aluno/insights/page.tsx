@@ -1,5 +1,6 @@
 "use client";
 
+/** Painel agregado dos últimos 30 dias, disponível apenas em planos pagos. */
 import { useEffect, useState } from "react";
 import { TrendingUp, TrendingDown, Minus, BarChart3, Target, Lightbulb, RefreshCw, Lock } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
@@ -87,6 +88,8 @@ export default function InsightsPage() {
   };
 
   useEffect(() => {
+    // Evita consultar um endpoint indisponível no plano gratuito; o backend
+    // ainda aplica a autorização real caso a chamada seja forjada.
     if (isPaid) load();
     else setLoading(false);
   }, [isPaid]);

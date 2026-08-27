@@ -1,5 +1,6 @@
 "use client";
 
+/** Cadastro de aluno com validação equivalente às regras públicas do backend. */
 import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -74,6 +75,7 @@ function PasswordStrength({ password }: { password: string }) {
 function RegisterStudentForm() {
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect");
+  // O destino é apenas repassado ao login, que decide se deve navegar até ele.
   const loginHref = redirect ? `/auth/login?redirect=${encodeURIComponent(redirect)}` : "/auth/login";
   const [success, setSuccess] = useState(false);
 
@@ -93,6 +95,8 @@ function RegisterStudentForm() {
   const onSubmit = async (data: StudentFormData) => {
     try {
       await api.post("/auth/register/student", {
+        // confirm_password e terms são controles locais e não pertencem ao
+        // contrato persistido da API.
         full_name: data.full_name.trim(),
         email: data.email.toLowerCase(),
         password: data.password,

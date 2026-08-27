@@ -16,6 +16,7 @@ export function Navbar() {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   const handleNavClick = (event: MouseEvent<HTMLAnchorElement>, href: string) => {
+    // Preserva abrir em nova aba/janela e demais comportamentos nativos do link.
     if (
       event.defaultPrevented ||
       event.button !== 0 ||
@@ -44,6 +45,7 @@ export function Navbar() {
       behavior: prefersReducedMotion ? "auto" : "smooth",
       block: "start",
     });
+    // Atualiza a URL sem provocar um segundo salto instantâneo do navegador.
     window.history.pushState(null, "", href);
   };
 

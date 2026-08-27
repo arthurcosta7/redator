@@ -1,5 +1,6 @@
 "use client";
 
+/** Login responsivo com validação local e redirecionamento pós-autenticação. */
 import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -108,6 +109,8 @@ function LoginForm() {
     try {
       const res = await api.post<{ user_type: string }>("/auth/login", data);
 
+      // O destino opcional só é usado quando começa com "/"; sem ele, o tipo de
+      // usuário define o dashboard inicial.
       if (redirect && redirect.startsWith("/")) {
         router.push(redirect);
       } else if (res.data.user_type === "teacher") {
@@ -275,6 +278,7 @@ function LoginForm() {
 }
 
 export default function LoginPage() {
+  // useSearchParams exige uma fronteira Suspense durante a renderização do Next.
   return (
     <Suspense
       fallback={

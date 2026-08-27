@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * Tabela comercial da landing page.
+ * Alunos usam assinaturas por período; professores compram capacidade de turma.
+ * Os dois catálogos são separados de propósito para não misturar benefícios.
+ */
 import { useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
@@ -32,6 +37,8 @@ type TeacherOffer = {
   highlighted: boolean;
 };
 
+// Fonte de apresentação dos planos. Valores cobrados continuam sendo validados
+// pelo backend/Stripe; nunca use estes objetos como autorização de cobrança.
 const studentPlans: Plan[] = [
   {
     name: "Free",
@@ -177,6 +184,8 @@ function PlanPrice({ plan, isQuarterly }: { plan: Plan; isQuarterly: boolean }) 
         <span className="relative block h-[3.75rem] min-w-[9.75rem] overflow-hidden font-display text-6xl font-semibold leading-none tracking-[-0.03em] text-ink">
           <AnimatePresence initial={false} mode="popLayout">
             <motion.span
+              // Trocar a key recria apenas o número e permite animar a mudança
+              // de período sem remontar o card nem perder foco nos controles.
               key={`${plan.name}-${isQuarterly}`}
               initial={{ opacity: 0, y: isQuarterly ? 18 : -18 }}
               animate={{ opacity: 1, y: 0 }}

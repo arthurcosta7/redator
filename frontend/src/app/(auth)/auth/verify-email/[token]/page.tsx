@@ -1,5 +1,6 @@
 "use client";
 
+/** Consome uma vez o token presente na URL e traduz o resultado para a interface. */
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -20,6 +21,7 @@ export default function VerifyEmailPage() {
       return;
     }
 
+    // O backend é a autoridade sobre validade, expiração e uso prévio do token.
     api
       .get<{ message: string }>(`/auth/verify-email/${token}`)
       .then((res) => {

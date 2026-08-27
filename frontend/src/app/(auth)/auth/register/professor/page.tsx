@@ -1,5 +1,6 @@
 "use client";
 
+/** Cadastro de professor; dados institucionais são opcionais e não licenciam a conta. */
 import { useState } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
@@ -62,6 +63,8 @@ export default function RegisterTeacherPage() {
   const onSubmit = async (data: TeacherFormData) => {
     try {
       await api.post("/auth/register/teacher", {
+        // Licenciamento e permissões são concedidos no backend, nunca por um
+        // campo enviado nesta tela pública.
         full_name: data.full_name.trim(),
         email: data.email.toLowerCase(),
         password: data.password,

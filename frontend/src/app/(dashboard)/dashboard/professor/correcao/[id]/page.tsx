@@ -1,5 +1,6 @@
 "use client";
 
+/** Acompanha uma correção solicitada pelo professor até seu estado terminal. */
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, RefreshCw, AlertCircle, Clock } from "lucide-react";
@@ -60,6 +61,8 @@ export default function ProfessorCorrectionPage() {
   useEffect(() => { loadEssay(); }, [loadEssay]);
 
   useEffect(() => {
+    // Polling limitado a um minuto (15 × 4 s) para não manter requisições
+    // indefinidas quando o worker estiver indisponível.
     if (!essay || (essay.status !== "processing" && essay.status !== "pending") || pollCount >= 15) return;
     const timer = setTimeout(() => { setPollCount((c) => c + 1); loadEssay(); }, 4000);
     return () => clearTimeout(timer);

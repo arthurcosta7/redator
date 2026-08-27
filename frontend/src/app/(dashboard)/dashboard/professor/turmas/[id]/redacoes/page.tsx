@@ -1,5 +1,6 @@
 "use client";
 
+/** Lista paginada das redações pertencentes a uma turma do professor. */
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -40,6 +41,8 @@ export default function TurmaRedacoesPage() {
         if (filterStatus !== "all") params.set("status_filter", filterStatus);
         const res = await api.get<TurmaEssaysResponse>(`/professor/turmas/${id}/redacoes?${params}`);
         setData(res.data);
+        // O nome da turma é estável entre páginas/filtros; buscá-lo uma vez evita
+        // duplicar uma segunda requisição a cada interação da tabela.
         if (!turmaName) {
           const turmaRes = await api.get<{ name: string }>(`/professor/turmas/${id}`);
           setTurmaName(turmaRes.data.name);

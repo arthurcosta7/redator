@@ -1,5 +1,6 @@
 "use client";
 
+/** Fluxo do aluno para abrir e acompanhar a única contestação da correção. */
 import { useEffect, useState } from "react";
 import { AlertCircle, CheckCircle2, Clock3, Loader2, Scale } from "lucide-react";
 import { api, getApiError } from "@/lib/api/client";
@@ -23,6 +24,8 @@ export function AppealPanel({ correction }: { correction: Correction }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Impede que uma resposta tardia atualize o estado após troca de página ou
+    // de correção. O request pode terminar, mas seu resultado é descartado.
     let active = true;
     api.get<AppealListResponse>("/appeals/mine")
       .then(({ data }) => {
@@ -45,6 +48,7 @@ export function AppealPanel({ correction }: { correction: Correction }) {
       const { data } = await api.post<CorrectionAppeal>("/appeals", {
         correction_id: correction.id,
         reason,
+        // O consentimento é explícito e independente do envio da contestação.
         allow_anonymized_improvement: consent,
       });
       setAppeal(data);
