@@ -317,7 +317,10 @@ async def resolve_appeal(
 
     correction = appeal.correction
     if body.decision == "corrected":
-        assert body.corrected_total_score is not None
+        # O schema ja exige a nota, mas a regra permanece explicita na fronteira
+        # de negocio e nao desaparece se o Python for iniciado com otimizacao.
+        if body.corrected_total_score is None:
+            raise HTTPException(status_code=422, detail="Informe a nota corrigida.")
         if body.corrected_total_score > correction.max_score:
             raise HTTPException(status_code=422, detail="A nota excede o maximo da correcao.")
 

@@ -19,6 +19,9 @@ class PublicTraffic(HttpUser):
 
 
 class AuthenticatedReads(HttpUser):
+    # Sem token, o perfil nao participa do sorteio de usuarios. Isso mantem o
+    # smoke publico com a concorrencia solicitada e evita StopUser ruidoso.
+    abstract = not bool(os.getenv("LOAD_TEST_ACCESS_TOKEN"))
     wait_time = between(0.5, 2.0)
     weight = 7
 
@@ -42,7 +45,10 @@ class AuthenticatedReads(HttpUser):
 
 
 class ExplicitWriteTest(HttpUser):
-    abstract = os.getenv("LOAD_TEST_ALLOW_WRITES") != "1"
+    abstract = (
+        os.getenv("LOAD_TEST_ALLOW_WRITES") != "1"
+        or not bool(os.getenv("LOAD_TEST_ACCESS_TOKEN"))
+    )
     wait_time = between(10, 20)
     weight = 1
 

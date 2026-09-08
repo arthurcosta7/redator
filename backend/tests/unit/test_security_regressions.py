@@ -172,15 +172,32 @@ def test_nested_sensitive_log_fields_are_redacted():
     assert cleaned["payload"]["metadata"][0]["refresh_token"] == "***REDACTED***"
 
 
+def production_settings(**overrides):
+    values = {
+        "SECRET_KEY": "0123456789abcdef" * 4,
+        "DATABASE_URL": "postgresql+asyncpg://user:pass@postgres/redator",
+        "REDIS_URL": "redis://:strong-password@redis:6379/0",
+        "ENVIRONMENT": "production",
+        "DEBUG": False,
+        "FRONTEND_URL": "https://redator.example",
+        "ALLOWED_ORIGINS": ["https://redator.example"],
+        "OPENAI_API_KEY": "sk-production-test",
+        "STRIPE_SECRET_KEY": "sk_test_production",
+        "STRIPE_WEBHOOK_SECRET": "whsec_production",
+        "STRIPE_PRICE_STANDARD_MONTHLY": "price_standard_monthly",
+        "STRIPE_PRICE_STANDARD_QUARTERLY": "price_standard_quarterly",
+        "STRIPE_PRICE_PRO_MONTHLY": "price_pro_monthly",
+        "STRIPE_PRICE_PRO_QUARTERLY": "price_pro_quarterly",
+        "STRIPE_PRICE_TEACHER_PACKAGE": "price_teacher_package",
+        "RESEND_API_KEY": "re_production_test",
+    }
+    values.update(overrides)
+    return Settings(**values)
+
+
 def test_production_rejects_any_insecure_cors_origin():
     with pytest.raises(ValidationError, match="ALLOWED_ORIGINS"):
-        Settings(
-            SECRET_KEY="0123456789abcdef" * 4,
-            DATABASE_URL="postgresql+asyncpg://user:pass@db/redator?ssl=require",
-            REDIS_URL="rediss://:strong-password@redis:6379/0",
-            ENVIRONMENT="production",
-            DEBUG=False,
-            FRONTEND_URL="https://redator.example",
+        production_settings(
             ALLOWED_ORIGINS=[
                 "https://redator.example",
                 "http://localhost:3000",
@@ -189,34 +206,57 @@ def test_production_rejects_any_insecure_cors_origin():
 
 
 def test_production_requires_tls_for_database_and_redis():
-    secure_base = {
-        "SECRET_KEY": "0123456789abcdef" * 4,
-        "ENVIRONMENT": "production",
-        "DEBUG": False,
-        "FRONTEND_URL": "https://redator.example",
-        "ALLOWED_ORIGINS": ["https://redator.example"],
-    }
-
     with pytest.raises(ValidationError, match="DATABASE_URL.*TLS"):
-        Settings(
-            **secure_base,
+        production_settings(
             DATABASE_URL="postgresql+asyncpg://user:pass@db.example/redator",
             REDIS_URL="rediss://:strong-password@redis.example:6379/0",
         )
 
     with pytest.raises(ValidationError, match="REDIS_URL.*TLS"):
-        Settings(
-            **secure_base,
+        production_settings(
             DATABASE_URL="postgresql+asyncpg://user:pass@db.example/redator?ssl=require",
             REDIS_URL="redis://:strong-password@redis.example:6379/0",
         )
 
-    internal = Settings(
-        **secure_base,
-        DATABASE_URL="postgresql+asyncpg://user:pass@postgres/redator",
-        REDIS_URL="redis://:strong-password@redis:6379/0",
-    )
+    internal = production_settings()
     assert internal.ENVIRONMENT == "production"
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "OPENAI_API_KEY",
+        "STRIPE_SECRET_KEY",
+        "STRIPE_WEBHOOK_SECRET",
+        "STRIPE_PRICE_STANDARD_MONTHLY",
+        "STRIPE_PRICE_STANDARD_QUARTERLY",
+        "STRIPE_PRICE_PRO_MONTHLY",
+        "STRIPE_PRICE_PRO_QUARTERLY",
+        "STRIPE_PRICE_TEACHER_PACKAGE",
+        "RESEND_API_KEY",
+    ],
+)
+def test_production_requires_external_integrations(field):
+    with pytest.raises(ValidationError, match=field):
+        production_settings(**{field: ""})
+
+
+def test_production_rejects_placeholder_credentials():
+    with pytest.raises(ValidationError, match="SECRET_KEY"):
+        production_settings(SECRET_KEY="<PREENCHER_SECRET_KEY_DE_PRODUCAO_COM_64_CARACTERES>")
+
+    with pytest.raises(ValidationError, match="DATABASE_URL.*senha real"):
+        production_settings(
+            DATABASE_URL="postgresql+asyncpg://user:PREENCHER@postgres/redator",
+        )
+
+    with pytest.raises(ValidationError, match="REDIS_URL.*autenticação"):
+        production_settings(REDIS_URL="redis://:PREENCHER@redis:6379/0")
+
+
+def test_teacher_price_id_uses_stripe_price_format():
+    with pytest.raises(ValidationError, match="STRIPE_PRICE_TEACHER_PACKAGE"):
+        production_settings(STRIPE_PRICE_TEACHER_PACKAGE="prod_teacher_package")
 
 
 @pytest.mark.asyncio

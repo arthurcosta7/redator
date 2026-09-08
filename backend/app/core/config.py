@@ -167,6 +167,7 @@ class Settings(BaseSettings):
             ("STRIPE_PRICE_STANDARD_QUARTERLY", self.STRIPE_PRICE_STANDARD_QUARTERLY),
             ("STRIPE_PRICE_PRO_MONTHLY", self.STRIPE_PRICE_PRO_MONTHLY),
             ("STRIPE_PRICE_PRO_QUARTERLY", self.STRIPE_PRICE_PRO_QUARTERLY),
+            ("STRIPE_PRICE_TEACHER_PACKAGE", self.STRIPE_PRICE_TEACHER_PACKAGE),
         ]
         for field_name, value in price_fields:
             if value and not value.startswith("price_"):
@@ -188,6 +189,7 @@ class Settings(BaseSettings):
                 or "sua_chave" in secret_lower
                 or "change_me" in secret_lower
                 or "changeme" in secret_lower
+                or "preencher" in secret_lower
             ):
                 raise ValueError(
                     "SECRET_KEY tem baixa entropia ou usa um valor de exemplo em produção!"
@@ -195,7 +197,31 @@ class Settings(BaseSettings):
             if not self.DATABASE_URL.startswith("postgresql+asyncpg://"):
                 raise ValueError("DATABASE_URL deve usar PostgreSQL com asyncpg em produção!")
 
+            required_integrations = {
+                "OPENAI_API_KEY": self.OPENAI_API_KEY,
+                "STRIPE_SECRET_KEY": self.STRIPE_SECRET_KEY,
+                "STRIPE_WEBHOOK_SECRET": self.STRIPE_WEBHOOK_SECRET,
+                "STRIPE_PRICE_STANDARD_MONTHLY": self.STRIPE_PRICE_STANDARD_MONTHLY,
+                "STRIPE_PRICE_STANDARD_QUARTERLY": self.STRIPE_PRICE_STANDARD_QUARTERLY,
+                "STRIPE_PRICE_PRO_MONTHLY": self.STRIPE_PRICE_PRO_MONTHLY,
+                "STRIPE_PRICE_PRO_QUARTERLY": self.STRIPE_PRICE_PRO_QUARTERLY,
+                "STRIPE_PRICE_TEACHER_PACKAGE": self.STRIPE_PRICE_TEACHER_PACKAGE,
+                "RESEND_API_KEY": self.RESEND_API_KEY,
+            }
+            missing_integrations = [
+                name
+                for name, value in required_integrations.items()
+                if not value or "PREENCHER" in value.upper() or value.endswith("...")
+            ]
+            if missing_integrations:
+                raise ValueError(
+                    "Integrações obrigatórias ausentes em produção: "
+                    + ", ".join(missing_integrations)
+                )
+
             database_url = urlparse(self.DATABASE_URL)
+            if not database_url.password or "PREENCHER" in database_url.password.upper():
+                raise ValueError("DATABASE_URL deve incluir uma senha real em produção!")
             database_query = parse_qs(database_url.query)
             database_tls = (
                 database_query.get("ssl", database_query.get("sslmode", [""]))[0].lower()
@@ -215,7 +241,7 @@ class Settings(BaseSettings):
                 raise ValueError("REDIS_URL deve usar redis:// ou rediss://!")
             if not self._is_internal_host(redis_url.hostname) and redis_url.scheme != "rediss":
                 raise ValueError("REDIS_URL deve usar TLS (rediss://) em produção!")
-            if not redis_url.password:
+            if not redis_url.password or "PREENCHER" in redis_url.password.upper():
                 raise ValueError("REDIS_URL deve incluir autenticação em produção!")
 
             if not self.ALLOWED_ORIGINS:

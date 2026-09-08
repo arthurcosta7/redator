@@ -34,14 +34,24 @@ Alertas mínimos: indisponibilidade, erro 5xx, latência p95, 429 anormal, pool 
 
 ## Backup e recuperação
 
-- Automatize backup criptografado do PostgreSQL para destino fora da VPS.
+- `bash scripts/backup-postgres.sh` cria um dump custom com permissão restrita e
+  arquivo lateral `.sha256` em `backups/`.
+- Antes de restaurar, confira origem e checksum. A restauração exige
+  `RESTORE_CONFIRM=redator`, interrompe API/worker, cria outro backup de
+  segurança e só conclui quando `/ready` responde.
+- Automatize cópia criptografada do PostgreSQL para destino fora da VPS; o dump
+  local não é criptografado e contém dados pessoais.
 - Proteja o volume/AOF Redis, mas trate PostgreSQL como fonte de verdade de negócio.
 - Teste restauração periodicamente e registre RPO/RTO alcançados.
 - Faça backup antes de migrations e mantenha versão de imagem anterior.
 
 ## Deploy e rollback
 
-Antes do deploy, registre commit/imagem, backup e migration atual. Se a aplicação falhar e o schema for compatível, volte à imagem anterior e reinicie API e worker juntos. Se houver incompatibilidade de schema, siga um plano específico revisado; não improvise downgrade com dados reais.
+`deploy.sh` registra commit, imagens e backup em `.deploy/last-release.env`. Se a
+aplicação falhar e o schema for compatível, execute
+`ROLLBACK_CONFIRM=redator bash scripts/rollback.sh`; API e worker voltam juntos.
+Se houver incompatibilidade de schema, restaure o dump explicitamente. Não
+improvise downgrade Alembic com dados reais.
 
 ## Manutenção
 

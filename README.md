@@ -12,23 +12,77 @@ Plataforma de correção de redações com IA para alunos e professores, com ava
 
 ## Início rápido
 
+Execute cada bloco em um terminal separado, sempre a partir da raiz do projeto.
+O backend, o worker e o frontend permanecem em execução e, por isso, não podem
+ser iniciados sequencialmente no mesmo terminal.
+
+### Windows (PowerShell)
+
+Terminal 1 — PostgreSQL e Redis:
+
+```powershell
+docker compose up -d --wait
+docker compose ps
+```
+
+Terminal 2 — backend e migrations:
+
+```powershell
+Set-Location backend
+py -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+.\.venv\Scripts\python.exe -m alembic upgrade head
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8000
+```
+
+Terminal 3 — worker obrigatório para correções:
+
+```powershell
+Set-Location backend
+.\.venv\Scripts\arq.exe app.workers.correction.WorkerSettings
+```
+
+Terminal 4 — frontend:
+
+```powershell
+Set-Location frontend
+npm ci
+if (-not (Test-Path .env.local)) { Copy-Item .env.local.example .env.local }
+npm run dev
+```
+
+### Linux/macOS (Bash)
+
+Use também quatro terminais, todos abertos na raiz do projeto:
+
 ```bash
-# infraestrutura local
-docker compose up -d
+# terminal 1
+docker compose up -d --wait
+docker compose ps
+```
 
-# backend (após criar/ativar o virtualenv e backend/.env)
+```bash
+# terminal 2
 cd backend
-python -m pip install -e ".[dev]"
-alembic upgrade head
-uvicorn app.main:app --reload --port 8000
+python3 -m venv .venv
+.venv/bin/python -m pip install -e ".[dev]"
+test -f .env || cp .env.example .env
+.venv/bin/python -m alembic upgrade head
+.venv/bin/python -m uvicorn app.main:app --reload --port 8000
+```
 
-# em outro terminal: worker obrigatório para correções
+```bash
+# terminal 3
 cd backend
-arq app.workers.correction.WorkerSettings
+.venv/bin/arq app.workers.correction.WorkerSettings
+```
 
-# frontend
+```bash
+# terminal 4
 cd frontend
 npm ci
+test -f .env.local || cp .env.local.example .env.local
 npm run dev
 ```
 

@@ -5,6 +5,7 @@
 .env.*
 !.env.example
 !.env.local.example
+!.env.production.example
 
 # Credenciais Google Cloud
 *.json
@@ -79,6 +80,10 @@ locust_stats*.csv
 locust_failures*.csv
 locust_exceptions*.csv
 *.junit.xml
+
+# Backups e estado operacional local (podem conter dados sensiveis)
+backups/
+.deploy/
 # ─────────────────────────────────────────
 # IA
 # ─────────────────────────────────────────

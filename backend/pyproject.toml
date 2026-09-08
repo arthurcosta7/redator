@@ -70,6 +70,8 @@ dev = [
     "factory-boy>=3.3.0",       # Factories para criar dados de teste
     "faker>=25.0.0",            # Dados falsos realistas
     "locust>=2.37.0",           # Testes de carga e pico
+    "pip-audit>=2.10.1",        # CVEs conhecidas nas dependencias Python
+    "bandit>=1.9.4",            # Analise estatica de padroes inseguros
 
     # ─── Qualidade de código ───────────────────────────────────────
     "ruff>=0.4.0",              # Linter + formatter

@@ -1,6 +1,6 @@
 # Configuração
 
-Copie `backend/.env.example` para `backend/.env` e `frontend/.env.local.example` para `frontend/.env.local`. Arquivos reais de ambiente nunca devem entrar no Git.
+Em desenvolvimento, copie `backend/.env.example` para `backend/.env` e `frontend/.env.local.example` para `frontend/.env.local`. Em deploy Docker, copie `.env.production.example` para `.env` na raiz: esse único arquivo alimenta o Compose, a API e o worker. Arquivos reais de ambiente nunca devem entrar no Git.
 
 ## Backend
 
@@ -19,7 +19,7 @@ Copie `backend/.env.example` para `backend/.env` e `frontend/.env.local.example`
 | Planos | `PLAN_FREE_DAILY_CORRECTIONS`, `PLAN_STANDARD_DAILY_CORRECTIONS`, `PLAN_PRO_DAILY_CORRECTIONS` |
 | Upload | `MAX_FILE_SIZE_MB`, `ALLOWED_IMAGE_TYPES` |
 
-Listas como `ALLOWED_ORIGINS` e `ALLOWED_IMAGE_TYPES` devem usar JSON válido. Em produção, a validação de configuração exige segredos fortes, origens HTTPS explícitas e conexões TLS para serviços externos.
+Listas como `ALLOWED_ORIGINS` e `ALLOWED_IMAGE_TYPES` devem usar JSON válido. Em produção, a validação exige segredos fortes, origens HTTPS explícitas, autenticação de banco/Redis e configuração completa de OpenAI, Stripe e Resend. PostgreSQL e Redis dentro da rede privada do Compose podem usar conexão local sem TLS; serviços externos exigem TLS.
 
 ## Frontend
 
@@ -36,7 +36,8 @@ Tudo com prefixo `NEXT_PUBLIC_` é incorporado ao bundle. Nunca coloque segredo,
 - Gere `SECRET_KEY` com pelo menos 64 caracteres aleatórios.
 - Use chaves distintas em desenvolvimento, staging e produção.
 - Armazene segredos no provedor de deploy, não em imagens Docker.
+- Na VPS, mantenha o `.env` raiz com permissão `600` e acesso apenas ao usuário de deploy.
 - Após suspeita de vazamento, revogue a chave no provedor, substitua o valor e reinicie API e worker.
 - Rotacionar `SECRET_KEY` invalida tokens JWT existentes; planeje a janela.
 
-Os valores e comentários canônicos estão em [`backend/.env.example`](../backend/.env.example) e [`frontend/.env.local.example`](../frontend/.env.local.example).
+Os valores de desenvolvimento estão em [`backend/.env.example`](../backend/.env.example) e [`frontend/.env.local.example`](../frontend/.env.local.example). A fonte de produção é [`.env.production.example`](../.env.production.example); variáveis públicas do frontend devem ser cadastradas diretamente no projeto da Vercel.

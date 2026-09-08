@@ -18,12 +18,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copia arquivos de dependência primeiro (otimiza cache do Docker)
+# Copia metadados e o pacote necessário para construir um wheel completo.
 COPY pyproject.toml .
+COPY app ./app
 
 # Instala dependências em um diretório separado
 RUN pip install --no-cache-dir --upgrade "pip>=26.2.1" && \
-    pip install --no-cache-dir --prefix=/install -e .
+    pip install --no-cache-dir --prefix=/install .
 
 
 # ── Stage 2: Runtime (imagem final, menor e mais segura) ─────
@@ -49,6 +50,10 @@ COPY --from=builder /install /usr/local
 
 # Copia o código da aplicação
 COPY --chown=appuser:appuser . .
+
+# Falha o build caso o pacote não tenha sido instalado no runtime. Instalações
+# editáveis apontariam para o estágio builder, que não existe na imagem final.
+RUN cd /tmp && python -c "import app; assert '/build' not in str(app.__path__)"
 
 # Muda para usuário não-root
 USER appuser

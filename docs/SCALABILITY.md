@@ -54,3 +54,16 @@ Ambiente Windows local, um processo Uvicorn, PostgreSQL e Redis em Docker, sem N
   janela respeitaram exatamente o limite 25.
 
 Esses números comprovam regressão e funcionamento local; não representam capacidade da VPS.
+
+## Revalidação do container de produção em 08/09/2026
+
+Após filesystem somente-leitura, remoção de capabilities e atualização da imagem,
+um smoke público com 50 usuários por 30 segundos executou 2.969 requisições, sem
+falhas, a 101,14 req/s. O p95 global foi 13 ms e o máximo 312 ms. O cenário
+incluiu `/health` e `/ready`, portanto exercitou também PostgreSQL e Redis.
+
+O roteiro Locust agora só instancia perfis autenticados quando
+`LOAD_TEST_ACCESS_TOKEN` está definido, e só habilita escrita quando também há
+`LOAD_TEST_ALLOW_WRITES=1`. Essa medição local valida regressão; a decisão final
+de capacidade ainda depende do mesmo teste na VPS de staging com métricas de
+CPU, memória, banco, Redis e fila.

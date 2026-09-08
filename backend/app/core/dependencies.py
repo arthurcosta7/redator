@@ -133,7 +133,8 @@ async def get_current_user_id(
         user_id: str = payload.get("sub", "")
         token_type: str = payload.get("type", "")
 
-        if not user_id or token_type != "access":
+        # "access" e um tipo de JWT, nao uma senha embutida.
+        if not user_id or token_type != "access":  # nosec B105
             raise credentials_exception
 
         try:

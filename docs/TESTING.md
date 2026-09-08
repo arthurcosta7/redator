@@ -13,14 +13,14 @@ Documentos relacionados:
 
 | Camada | Ferramentas | Quantidade | Objetivo |
 |---|---|---:|---|
-| Backend unitário/contrato | pytest, pytest-asyncio, HTTPX | 109 aprovados | Regras, segurança, IA, fila, adaptadores e contrato HTTP |
+| Backend unitário/contrato | pytest, pytest-asyncio, HTTPX | 120 aprovados | Regras, segurança, IA, fila, adaptadores e contrato HTTP |
 | Integração Redis | pytest + Redis real | 1 opcional | Atomicidade real de cotas e rate limiting |
 | Frontend unitário | Vitest, Testing Library, jsdom | 28 aprovados | Componentes, estados, middleware e cliente HTTP |
 | E2E | Playwright | 16 aprovados | 8 jornadas em desktop Chromium e Pixel 7 |
 | Acessibilidade | Axe + Playwright | 2 execuções | Violações críticas/sérias na landing desktop/mobile |
 | Carga | Locust | Sob demanda | Smoke, carga, pico, soak e SLO |
 
-Baseline verificada em 18 de agosto de 2026. As quantidades mudam conforme novos casos são adicionados; os comandos e critérios são a fonte de verdade.
+Baseline verificada em 8 de setembro de 2026. As quantidades mudam conforme novos casos são adicionados; os comandos e critérios são a fonte de verdade.
 
 ## Matriz de risco
 
@@ -55,6 +55,8 @@ Pré-requisitos e primeira instalação estão em [Execução e manutenção](TE
 ### Backend
 
 - Todos os testes obrigatórios devem passar.
+- `bandit -q -r app` e `pip-audit` não podem encontrar vulnerabilidade sem
+  análise e decisão documentadas.
 - A integração Redis pode ser ignorada apenas quando `SCALABILITY_REDIS_URL` não estiver definido.
 - Cobertura global mínima: 56%.
 - O piso é um *coverage ratchet*: pode aumentar, nunca diminuir para acomodar uma mudança.
@@ -63,7 +65,7 @@ Cobertura de referência:
 
 | Área | Cobertura observada |
 |---|---:|
-| Backend global | 56,04% |
+| Backend global | 56,19% |
 | Worker de correções | 100% |
 | Email | 100% |
 | Stripe | 97% |
@@ -85,6 +87,9 @@ Além da cobertura, `tsc --noEmit`, o build Next.js e todos os projetos Playwrig
 
 - `pytest` passa e não reduz o piso de cobertura.
 - `npm run type-check`, `npm run test:coverage`, `npm run test:e2e` e `npm run build` passam.
+- `npm audit` não apresenta vulnerabilidades conhecidas e a imagem Docker do
+  backend é construída no CI.
+- O job de migrations aplica `alembic upgrade head` em PostgreSQL 16 vazio.
 - Migrações foram testadas em staging com backup e rollback definidos.
 - `/health` e `/ready` respondem corretamente.
 - API e worker estão ativos; uma correção sintética completa ponta a ponta em staging.

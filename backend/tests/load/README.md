@@ -16,7 +16,7 @@ Use um usuário exclusivo de staging e nunca um token de produção.
 ## Execuções
 
 ```powershell
-# Smoke: confirma o roteiro
+# Smoke publico: confirma o roteiro sem token e sem escrita
 .\.venv\Scripts\locust.exe -f tests/load/locustfile.py --headless -u 10 -r 5 -t 30s --host http://localhost:8000
 
 # Carga: 100 usuários por 10 minutos
@@ -40,3 +40,7 @@ O cenário de POST só é habilitado com `LOAD_TEST_ALLOW_WRITES=1`. Isso cria r
 pode consumir OpenAI. Execute-o apenas em staging, com orçamento e cota definidos. A vazão
 esperada de IA é deliberadamente limitada por `CORRECTION_WORKER_MAX_JOBS`; aumentá-la sem
 medir custo, rate limits do provedor e conexões de banco é inseguro.
+
+Sem `LOAD_TEST_ACCESS_TOKEN`, somente `PublicTraffic` é instanciado. Com token, o
+Locust distribui usuários entre leituras públicas e autenticadas. Escritas exigem
+simultaneamente o token e `LOAD_TEST_ALLOW_WRITES=1`.

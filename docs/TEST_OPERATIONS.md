@@ -43,13 +43,17 @@ Comandos úteis:
 python -m pytest --no-cov
 
 # Executar um arquivo específico
-python -m pytest tests/test_security.py
+python -m pytest tests/unit/test_security.py
 
 # Filtrar casos pelo nome
 python -m pytest -k "appeal or permission"
 
 # Gerar relatório HTML de cobertura
 python -m pytest --cov-report=term-missing --cov-report=html
+
+# Análise estática e vulnerabilidades conhecidas
+bandit -q -r app
+pip-audit
 ```
 
 O relatório HTML é criado em `backend/htmlcov/`.
@@ -88,6 +92,9 @@ npm run type-check
 
 # Build de produção
 npm run build
+
+# Dependências de produção e desenvolvimento
+npm audit
 ```
 
 Os artefatos de cobertura ficam em `frontend/coverage/`.
@@ -160,7 +167,8 @@ Para permissões, use uma tabela de papéis e ações. Para validação, cubra v
 
 | Job | Verificações | Dependências |
 | --- | --- | --- |
-| `backend-tests` | Pytest, cobertura e análise dos relatórios. | Python e dependências de desenvolvimento. |
+| `backend` | Pytest, cobertura, Ruff, Bandit, pip-audit e build Docker. | Python, Docker e dependências de desenvolvimento. |
+| `migrations` | Cadeia Alembic completa em PostgreSQL 16 vazio. | PostgreSQL isolado. |
 | `frontend-unit` | Testes unitários, cobertura, tipos e build. | Node e instalação via lockfile. |
 | `frontend-e2e` | Jornadas desktop/mobile e Axe. | Navegadores Playwright e aplicação iniciada. |
 | `redis-integration` | Casos reais de concorrência e expiração. | Serviço Redis isolado. |

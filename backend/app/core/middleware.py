@@ -116,7 +116,8 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         should_log = (
             response.status_code >= 400
             or process_time >= 1
-            or random.random() < settings.ACCESS_LOG_SUCCESS_SAMPLE_RATE
+            # Amostragem de observabilidade nao toma decisao de seguranca.
+            or random.random() < settings.ACCESS_LOG_SUCCESS_SAMPLE_RATE  # nosec B311
         )
         if should_log and (not is_probe or response.status_code >= 400):
             logger.info(
