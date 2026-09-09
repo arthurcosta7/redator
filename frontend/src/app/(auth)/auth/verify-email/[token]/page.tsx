@@ -1,7 +1,7 @@
 "use client";
 
 /** Consome uma vez o token presente na URL e traduz o resultado para a interface. */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { CheckCircle2, XCircle, Loader2, PenLine } from "lucide-react";
@@ -13,6 +13,7 @@ export default function VerifyEmailPage() {
   const { token } = useParams<{ token: string }>();
   const [state, setState] = useState<State>("loading");
   const [message, setMessage] = useState("");
+  const verificationStarted = useRef(false);
 
   useEffect(() => {
     if (!token) {
@@ -21,9 +22,14 @@ export default function VerifyEmailPage() {
       return;
     }
 
+    // O StrictMode executa effects duas vezes em desenvolvimento. Como o token
+    // é de uso único, uma segunda chamada faria a tela exibir um falso erro.
+    if (verificationStarted.current) return;
+    verificationStarted.current = true;
+
     // O backend é a autoridade sobre validade, expiração e uso prévio do token.
     api
-      .get<{ message: string }>(`/auth/verify-email/${token}`)
+      .post<{ message: string }>(`/auth/verify-email/${token}`)
       .then((res) => {
         setState("success");
         setMessage(res.data.message);

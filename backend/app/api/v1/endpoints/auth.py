@@ -9,7 +9,7 @@ Rotas:
 - POST /auth/refresh             — Renova access token
 - POST /auth/forgot-password     — Solicita reset de senha
 - POST /auth/reset-password      — Define nova senha
-- GET  /auth/verify-email/{token} — Verifica email
+- POST /auth/verify-email/{token} — Verifica email
 """
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
@@ -486,7 +486,7 @@ async def logout(
 # Verificação de Email
 # ─────────────────────────────────────────────────────────────────────────────
 
-@router.get("/verify-email/{token}", response_model=MessageResponse)
+@router.post("/verify-email/{token}", response_model=MessageResponse)
 async def verify_email(
     token: Annotated[str, Path(min_length=32, max_length=256)],
     db: Annotated[AsyncSession, Depends(get_db)],

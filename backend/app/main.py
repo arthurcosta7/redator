@@ -33,7 +33,7 @@ logger = get_logger(__name__)
 
 async def _cleanup_unverified_users() -> None:
     """
-    Apaga contas não verificadas com mais de 3 horas.
+    Apaga contas não verificadas após o prazo de 24 horas do link.
 
     Roda a cada hora em background. Usuários que se cadastraram mas não
     verificaram o email dentro do prazo precisam criar uma nova conta.
@@ -41,7 +41,7 @@ async def _cleanup_unverified_users() -> None:
     while True:
         await asyncio.sleep(3600)  # Espera 1h antes da primeira execução
         try:
-            cutoff = datetime.now(timezone.utc) - timedelta(hours=3)
+            cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
             async with AsyncSessionLocal() as db:
                 result = await db.execute(
                     delete(User).where(

@@ -30,7 +30,7 @@ Paginação usa `page` e `per_page` onde disponível. O Swagger de desenvolvimen
 | POST | `/login` |
 | POST | `/refresh` |
 | POST | `/logout` |
-| GET | `/verify-email/{token}` |
+| POST | `/verify-email/{token}` |
 | POST | `/resend-verification` |
 | POST | `/forgot-password` |
 | POST | `/reset-password` |

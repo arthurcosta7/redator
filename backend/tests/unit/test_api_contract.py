@@ -11,6 +11,7 @@ EXPECTED_ROUTES = {
     ("POST", "/api/v1/auth/login"),
     ("POST", "/api/v1/auth/refresh"),
     ("POST", "/api/v1/auth/logout"),
+    ("POST", "/api/v1/auth/verify-email/{token}"),
     ("POST", "/api/v1/essays"),
     ("POST", "/api/v1/essays/photo"),
     ("GET", "/api/v1/essays/daily-limit"),
@@ -47,6 +48,7 @@ def test_mutating_routes_do_not_accidentally_accept_get():
     for path in (
         "/api/v1/auth/login",
         "/api/v1/auth/reset-password",
+        "/api/v1/auth/verify-email/{token}",
         "/api/v1/checkout/session",
         "/api/v1/webhooks/stripe",
         "/api/v1/appeals/{appeal_id}/resolve",

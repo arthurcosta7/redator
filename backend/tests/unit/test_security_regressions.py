@@ -1,5 +1,5 @@
 """Regressões para falhas encontradas durante a auditoria de segurança."""
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
@@ -9,7 +9,12 @@ from httpx import ASGITransport, AsyncClient
 from pydantic import ValidationError
 from starlette.requests import Request
 
-from app.api.v1.endpoints.auth import create_user, register_student, set_auth_cookies
+from app.api.v1.endpoints.auth import (
+    create_user,
+    register_student,
+    set_auth_cookies,
+    verify_email,
+)
 from app.api.v1.endpoints.essays import get_essay
 from app.api.v1.endpoints.stripe import stripe_webhook
 from app.api.v1.endpoints.users import _serialize_user
@@ -18,7 +23,12 @@ from app.core.dependencies import get_current_admin, get_current_user_id
 from app.core.logging import remove_sensitive_data
 from app.core.middleware import RequestIDMiddleware, SecurityHeadersMiddleware
 from app.core.rate_limiter import RateLimiter
-from app.core.security import create_refresh_token, hash_password
+from app.core.security import (
+    create_refresh_token,
+    generate_secure_token,
+    generate_token_hash,
+    hash_password,
+)
 from app.db.models.essay import Essay, EssayInputType, EssayStatus, EssayType
 from app.db.models.user import User, UserPlan, UserType
 from app.schemas.appeal import CreateAppealRequest, ResolveAppealRequest
@@ -109,6 +119,26 @@ async def test_duplicate_registration_does_not_reveal_existing_email(db_session)
     )
 
     assert result is None
+
+
+@pytest.mark.asyncio
+async def test_email_verification_activates_user_and_invalidates_token(db_session):
+    token = generate_secure_token(32)
+    user = _user("verify@example.com")
+    user.is_email_verified = False
+    user.email_verification_token_hash = generate_token_hash(token)
+    user.email_verification_expires_at = datetime.now(UTC) + timedelta(hours=1)
+    db_session.add(user)
+    await db_session.flush()
+
+    response = await verify_email(token, db_session)
+    await db_session.commit()
+    await db_session.refresh(user)
+
+    assert response.message.startswith("Email verificado")
+    assert user.is_email_verified is True
+    assert user.email_verification_token_hash is None
+    assert user.email_verification_expires_at is None
 
 
 @pytest.mark.asyncio

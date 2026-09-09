@@ -45,6 +45,18 @@ describe("cliente da API", () => {
     mock.restore();
   });
 
+  it("não tenta refresh em uma rota pública de autenticação", async () => {
+    const mock = new MockAdapter(api);
+    mock.onPost("/auth/verify-email/token").reply(401);
+    mock.onPost("/auth/refresh").reply(200);
+
+    await expect(api.post("/auth/verify-email/token")).rejects.toMatchObject({
+      response: { status: 401 },
+    });
+    expect(mock.history.post.filter((request) => request.url === "/auth/refresh")).toHaveLength(0);
+    mock.restore();
+  });
+
   it("renova uma vez e repete uma requisição expirada", async () => {
     const mock = new MockAdapter(api);
     let attempts = 0;

@@ -78,7 +78,7 @@ api.interceptors.response.use(
 
     // Endpoints de auth resolvem seus próprios erros — não interceptar
     const url = originalRequest?.url ?? "";
-    const isAuthEndpoint = url.includes("/auth/login") || url.includes("/auth/register");
+    const isAuthEndpoint = url.startsWith("/auth/");
 
     // Se receber 401 e não estiver num retry, tenta renovar o token
     if (error.response?.status === 401 && !originalRequest?._retry && !isAuthEndpoint) {
