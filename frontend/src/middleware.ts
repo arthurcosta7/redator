@@ -29,7 +29,38 @@ const AUTH_ONLY_PREFIXES = [
   "/auth/reset-password",
 ];
 
+function createContentSecurityPolicy(nonce: string) {
+  const isDev = process.env.NODE_ENV === "development";
+  const apiOrigin = isDev
+    ? "http://localhost:8000"
+    : process.env.NEXT_PUBLIC_API_URL || "";
+
+  return [
+    "default-src 'self'",
+    // O nonce autoriza apenas os scripts gerados pelo Next nesta requisição.
+    `script-src 'self' 'nonce-${nonce}'${isDev ? " 'unsafe-eval'" : ""}`,
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com",
+    "img-src 'self' data: blob: https:",
+    `connect-src 'self' ${apiOrigin} https://api.stripe.com`,
+    "frame-src https://js.stripe.com https://hooks.stripe.com",
+    "frame-ancestors 'none'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "manifest-src 'self'",
+    ...(!isDev ? ["upgrade-insecure-requests"] : []),
+  ].join("; ");
+}
+
+function withCsp(response: NextResponse, policy: string) {
+  response.headers.set("Content-Security-Policy", policy);
+  return response;
+}
+
 export function middleware(request: NextRequest) {
+  const nonce = btoa(crypto.randomUUID());
+  const contentSecurityPolicy = createContentSecurityPolicy(nonce);
   const { pathname } = request.nextUrl;
   const accessToken = request.cookies.get("access_token")?.value;
   const isAuthenticated = Boolean(accessToken);
@@ -49,16 +80,26 @@ export function middleware(request: NextRequest) {
     const loginUrl = new URL("/auth/login", request.url);
     // Salva a página de destino para redirecionar após login
     loginUrl.searchParams.set("redirect", pathname);
-    return NextResponse.redirect(loginUrl);
+    return withCsp(NextResponse.redirect(loginUrl), contentSecurityPolicy);
   }
 
   // Usuário autenticado tentando acessar login/register
   // (evita que volte para login estando logado)
   if (isAuthRoute && isAuthenticated) {
-    return NextResponse.redirect(new URL("/dashboard/aluno", request.url));
+    return withCsp(
+      NextResponse.redirect(new URL("/dashboard/aluno", request.url)),
+      contentSecurityPolicy
+    );
   }
 
-  return NextResponse.next();
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("Content-Security-Policy", contentSecurityPolicy);
+
+  return withCsp(
+    NextResponse.next({ request: { headers: requestHeaders } }),
+    contentSecurityPolicy
+  );
 }
 
 // Configura em quais caminhos o middleware é executado

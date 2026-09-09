@@ -5,12 +5,6 @@ const isDev = process.env.NODE_ENV === "development";
 const nextConfig: NextConfig = {
   // ─── Headers de segurança ────────────────────────────────────────────
   async headers() {
-    // Em desenvolvimento: libera localhost:8000 no connect-src
-    // Em produção: só permite a URL real da API
-    const apiOrigin = isDev
-      ? "http://localhost:8000"
-      : process.env.NEXT_PUBLIC_API_URL || "";
-
     return [
       {
         source: "/(.*)",
@@ -36,24 +30,6 @@ const nextConfig: NextConfig = {
           {
             key: "Permissions-Policy",
             value: "camera=(), microphone=(), geolocation=(), payment=(self)",
-          },
-          {
-            key: "Content-Security-Policy",
-            value: [
-              "default-src 'self'",
-              `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
-              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-              "font-src 'self' https://fonts.gstatic.com",
-              "img-src 'self' data: blob: https:",
-              `connect-src 'self' ${apiOrigin} https://api.stripe.com`,
-              "frame-src https://js.stripe.com https://hooks.stripe.com",
-              "frame-ancestors 'none'",
-              "object-src 'none'",
-              "base-uri 'self'",
-              "form-action 'self'",
-              "manifest-src 'self'",
-              ...(!isDev ? ["upgrade-insecure-requests"] : []),
-            ].join("; "),
           },
         ],
       },

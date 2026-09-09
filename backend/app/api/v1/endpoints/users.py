@@ -21,6 +21,7 @@ from app.core.dependencies import get_current_user, get_db
 from app.core.logging import get_logger
 from app.core.security import hash_password, validate_bcrypt_password_size, verify_password
 from app.db.models.user import User, UserType
+from app.utils.text_sanitizer import sanitize_short_text
 
 logger = get_logger(__name__)
 
@@ -91,7 +92,7 @@ class UpdateProfileRequest(BaseModel):
     def validate_full_name(cls, v: str | None) -> str | None:
         if v is None:
             return v
-        v = v.strip()
+        v = sanitize_short_text(v, 100)
         if len(v.split()) < 2:
             raise ValueError("Digite nome e sobrenome")
         return v
@@ -101,7 +102,8 @@ class UpdateProfileRequest(BaseModel):
     def strip_optional_strings(cls, v):
         if v is None or v == "":
             return None
-        return str(v).strip()
+        cleaned = sanitize_short_text(str(v), 200)
+        return cleaned or None
 
     @field_validator("new_password")
     @classmethod
@@ -115,6 +117,8 @@ class UpdateProfileRequest(BaseModel):
             raise ValueError("A senha precisa de pelo menos uma letra minúscula")
         if not any(c.isdigit() for c in v):
             raise ValueError("A senha precisa de pelo menos um número")
+        if not any(not c.isalnum() and not c.isspace() for c in v):
+            raise ValueError("A senha precisa de pelo menos um caractere especial")
         return v
 
 

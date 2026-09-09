@@ -31,4 +31,11 @@ describe("middleware de rotas", () => {
     const response = middleware(request("/"));
     expect(response.headers.get("x-middleware-next")).toBe("1");
   });
+
+  it("usa nonce na CSP e não libera scripts inline globalmente", () => {
+    const policy = middleware(request("/")).headers.get("content-security-policy");
+    expect(policy).toMatch(/script-src 'self' 'nonce-[^']+'/);
+    expect(policy).not.toContain("script-src 'self' 'unsafe-inline'");
+    expect(policy).toContain("object-src 'none'");
+  });
 });

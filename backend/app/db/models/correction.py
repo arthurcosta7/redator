@@ -2,16 +2,17 @@
 correction.py — Modelo de Correção
 
 Armazena o resultado da análise da IA para uma redação.
-Os dados de competências e grifes são armazenados como JSONB
-para flexibilidade entre os modelos ENEM e Vestibular.
+Os dados de competências e grifes são serializados como JSON e cifrados
+para proteger feedbacks e trechos da redação em repouso.
 """
 import uuid
 from typing import TYPE_CHECKING
 
 from sqlalchemy import Float, ForeignKey, String
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.core.field_encryption import EncryptedJSON
 from app.db.base import Base, TimestampMixin, UUIDMixin
 
 if TYPE_CHECKING:
@@ -80,10 +81,10 @@ class Correction(UUIDMixin, TimestampMixin, Base):
     total_score: Mapped[float] = mapped_column(Float, nullable=False)
     max_score: Mapped[float] = mapped_column(Float, nullable=False)  # 1000 ENEM, varia Vest.
 
-    # ─── Análise detalhada (JSONB = pesquisável no PostgreSQL) ────
-    competencies: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
-    highlights: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
-    insights: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    # O feedback pode reproduzir trechos pessoais da redação e é cifrado em repouso.
+    competencies: Mapped[list] = mapped_column(EncryptedJSON(), nullable=False, default=list)
+    highlights: Mapped[list] = mapped_column(EncryptedJSON(), nullable=False, default=list)
+    insights: Mapped[dict] = mapped_column(EncryptedJSON(), nullable=False, default=dict)
 
     # ─── Metadados ────────────────────────────────────────────────
     # Modelo de IA usado (para rastreabilidade)

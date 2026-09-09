@@ -28,7 +28,8 @@ const studentSchema = z.object({
     .min(8, "Mínimo 8 caracteres")
     .regex(/[A-Z]/, "Precisa de pelo menos uma letra maiúscula")
     .regex(/[a-z]/, "Precisa de pelo menos uma letra minúscula")
-    .regex(/\d/, "Precisa de pelo menos um número"),
+    .regex(/\d/, "Precisa de pelo menos um número")
+    .regex(/[^\p{L}\p{N}\s]/u, "Precisa de pelo menos um caractere especial"),
   confirm_password: z.string(),
   grade: z.string().optional(),
   terms: z.boolean().refine(Boolean, "Aceite os termos para continuar"),
@@ -45,13 +46,14 @@ function PasswordStrength({ password }: { password: string }) {
     { label: "Maiúscula", pass: /[A-Z]/.test(password) },
     { label: "Minúscula", pass: /[a-z]/.test(password) },
     { label: "Número", pass: /\d/.test(password) },
+    { label: "Caractere especial", pass: /[^\p{L}\p{N}\s]/u.test(password) },
   ];
   const strength = checks.filter((check) => check.pass).length;
 
   if (!password) return null;
 
   return (
-    <div className="mt-3" aria-label={`${strength} de 4 requisitos de senha atendidos`}>
+    <div className="mt-3" aria-label={`${strength} de 5 requisitos de senha atendidos`}>
       <div className="flex gap-1.5" aria-hidden>
         {checks.map((check) => (
           <span key={check.label} className={`h-1 flex-1 ${check.pass ? "bg-accent" : "bg-ink/10"}`} />

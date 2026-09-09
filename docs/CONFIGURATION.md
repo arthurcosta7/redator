@@ -7,7 +7,7 @@ Em desenvolvimento, copie `backend/.env.example` para `backend/.env` e `frontend
 | Grupo | Variáveis |
 |---|---|
 | Aplicação | `APP_NAME`, `DEBUG`, `ENVIRONMENT`, `ACCESS_LOG_SUCCESS_SAMPLE_RATE` |
-| Autenticação | `SECRET_KEY`, `JWT_ACCESS_TOKEN_EXPIRE_MINUTES`, `JWT_REFRESH_TOKEN_EXPIRE_DAYS` |
+| Autenticação e criptografia | `SECRET_KEY`, `DATA_ENCRYPTION_KEY`, `JWT_ACCESS_TOKEN_EXPIRE_MINUTES`, `JWT_REFRESH_TOKEN_EXPIRE_DAYS` |
 | Rede | `ALLOWED_ORIGINS`, `FRONTEND_URL` |
 | PostgreSQL | `DATABASE_URL`, `DATABASE_POOL_SIZE`, `DATABASE_MAX_OVERFLOW`, `DATABASE_POOL_TIMEOUT_SECONDS`, `DATABASE_POOL_RECYCLE_SECONDS` |
 | Redis | `REDIS_URL`, `REDIS_MAX_CONNECTIONS`, `REDIS_SOCKET_TIMEOUT_SECONDS`, `REDIS_CONNECT_TIMEOUT_SECONDS` |
@@ -34,10 +34,12 @@ Tudo com prefixo `NEXT_PUBLIC_` é incorporado ao bundle. Nunca coloque segredo,
 ## Segredos e rotação
 
 - Gere `SECRET_KEY` com pelo menos 64 caracteres aleatórios.
+- Gere `DATA_ENCRYPTION_KEY` como 32 bytes em Base64 URL-safe e nunca reutilize `SECRET_KEY`.
 - Use chaves distintas em desenvolvimento, staging e produção.
 - Armazene segredos no provedor de deploy, não em imagens Docker.
 - Na VPS, mantenha o `.env` raiz com permissão `600` e acesso apenas ao usuário de deploy.
 - Após suspeita de vazamento, revogue a chave no provedor, substitua o valor e reinicie API e worker.
 - Rotacionar `SECRET_KEY` invalida tokens JWT existentes; planeje a janela.
+- Não remova nem troque `DATA_ENCRYPTION_KEY` diretamente: sem ela, redações e correções já cifradas ficam ilegíveis. Faça rotação por migração controlada e mantenha backup seguro da chave.
 
 Os valores de desenvolvimento estão em [`backend/.env.example`](../backend/.env.example) e [`frontend/.env.local.example`](../frontend/.env.local.example). A fonte de produção é [`.env.production.example`](../.env.production.example); variáveis públicas do frontend devem ser cadastradas diretamente no projeto da Vercel.

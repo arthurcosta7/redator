@@ -11,7 +11,7 @@ import re
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.core.security import validate_bcrypt_password_size
-
+from app.utils.text_sanitizer import sanitize_short_text
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Registro de usuário
@@ -48,6 +48,7 @@ class RegisterStudentRequest(BaseModel):
         - Pelo menos uma letra maiúscula
         - Pelo menos uma letra minúscula
         - Pelo menos um número
+        - Pelo menos um caractere especial
         """
         validate_bcrypt_password_size(v)
         if not re.search(r"[A-Z]", v):
@@ -56,13 +57,15 @@ class RegisterStudentRequest(BaseModel):
             raise ValueError("A senha deve ter pelo menos uma letra minúscula")
         if not re.search(r"\d", v):
             raise ValueError("A senha deve ter pelo menos um número")
+        if not any(not c.isalnum() and not c.isspace() for c in v):
+            raise ValueError("A senha deve ter pelo menos um caractere especial")
         return v
 
     @field_validator("full_name")
     @classmethod
     def validate_full_name(cls, v: str) -> str:
         """Remove espaços extras e valida que tem pelo menos nome e sobrenome."""
-        cleaned = " ".join(v.strip().split())
+        cleaned = sanitize_short_text(v, 100)
         if len(cleaned.split()) < 2:
             raise ValueError("Digite o nome completo (nome e sobrenome)")
         return cleaned
@@ -81,6 +84,14 @@ class RegisterTeacherRequest(RegisterStudentRequest):
         max_length=100,
         description="Disciplina que leciona",
     )
+
+    @field_validator("school_name", "discipline", mode="before")
+    @classmethod
+    def sanitize_optional_profile_text(cls, v: object) -> str | None:
+        if v is None or v == "":
+            return None
+        cleaned = sanitize_short_text(str(v), 200)
+        return cleaned or None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -127,6 +138,8 @@ class ResetPasswordRequest(BaseModel):
             raise ValueError("A senha deve ter pelo menos uma letra minúscula")
         if not re.search(r"\d", v):
             raise ValueError("A senha deve ter pelo menos um número")
+        if not any(not c.isalnum() and not c.isspace() for c in v):
+            raise ValueError("A senha deve ter pelo menos um caractere especial")
         return v
 
 

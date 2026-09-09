@@ -108,36 +108,43 @@ async def create_user(
 
     # Verifica se email já existe
     existing = await db.execute(select(User).where(User.email == email.lower()))
-    if existing.scalar_one_or_none():
-        # O endpoint continua retornando a mesma resposta 201 usada para um novo
-        # cadastro, sem confirmar se o endereço já existe.
+    user = existing.scalar_one_or_none()
+    if user and (user.is_email_verified or not verify_password(password, user.hashed_password)):
+        # Mantém a mesma resposta pública sem permitir que terceiros invalidem
+        # o token de uma conta apenas por conhecerem seu endereço de email.
         return None
 
-    # Gera token de verificação de email
     verification_token = generate_secure_token(32)
     token_hash = generate_token_hash(verification_token)
     token_expires = datetime.now(timezone.utc) + timedelta(hours=24)
 
-    user = User(
-        full_name=full_name,
-        email=email.lower(),                    # Sempre lowercase para consistência
-        hashed_password=hashed_password,
-        user_type=user_type,
-        plan=UserPlan.FREE,
-        email_verification_token_hash=token_hash,
-        email_verification_expires_at=token_expires,
-        **extra_fields,
-    )
+    if user:
+        # O próprio titular repetiu o cadastro antes de verificar a conta.
+        # Reemite o token em vez de fingir que um novo email foi enviado.
+        user.email_verification_token_hash = token_hash
+        user.email_verification_expires_at = token_expires
+        logger.info("verificacao_reemitida", user_id=str(user.id))
+    else:
+        user = User(
+            full_name=full_name,
+            email=email.lower(),                # Sempre lowercase para consistência
+            hashed_password=hashed_password,
+            user_type=user_type,
+            plan=UserPlan.FREE,
+            email_verification_token_hash=token_hash,
+            email_verification_expires_at=token_expires,
+            **extra_fields,
+        )
 
-    db.add(user)
-    await db.flush()  # Gera o ID sem commit ainda
+        db.add(user)
+        await db.flush()  # Gera o ID sem commit ainda
 
-    logger.info(
-        "usuario_criado",
-        user_id=str(user.id),
-        user_type=user_type,
-        email=mask_email(email),    # Mascara no log
-    )
+        logger.info(
+            "usuario_criado",
+            user_id=str(user.id),
+            user_type=user_type,
+            email=mask_email(email),    # Mascara no log
+        )
 
     # Envia email de verificação (assíncrono, não bloqueia o registro)
     try:
@@ -265,7 +272,9 @@ async def login(
             if user.failed_login_attempts >= 10:
                 user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=30)
                 logger.warning("conta_bloqueada", user_id=str(user.id))
-            await db.flush()
+            # A dependência de sessão faz rollback quando propagamos HTTPException.
+            # Persistimos o contador antes da resposta para o bloqueio por conta funcionar.
+            await db.commit()
 
         logger.warning("falha_login", ip=ip[:15])
         raise HTTPException(

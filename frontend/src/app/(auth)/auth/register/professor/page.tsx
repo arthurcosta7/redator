@@ -27,7 +27,8 @@ const teacherSchema = z.object({
     .min(8, "Mínimo 8 caracteres")
     .regex(/[A-Z]/, "Precisa de pelo menos uma letra maiúscula")
     .regex(/[a-z]/, "Precisa de pelo menos uma letra minúscula")
-    .regex(/\d/, "Precisa de pelo menos um número"),
+    .regex(/\d/, "Precisa de pelo menos um número")
+    .regex(/[^\p{L}\p{N}\s]/u, "Precisa de pelo menos um caractere especial"),
   confirm_password: z.string(),
   school_name: z.string().max(200).optional(),
   discipline: z.string().max(100).optional(),

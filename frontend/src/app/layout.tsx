@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Fraunces, JetBrains_Mono, Kalam } from "next/font/google";
+import { headers } from "next/headers";
 import "./globals.css";
 
 // Fontes carregadas de forma otimizada (Next.js elimina FOUT)
@@ -59,11 +60,15 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // O acesso aos headers força renderização por requisição, necessária para que
+  // os scripts internos do Next recebam o mesmo nonce gerado pelo middleware.
+  await headers();
+
   return (
     <html lang="pt-BR" className={`${inter.variable} ${fraunces.variable} ${jetbrains.variable} ${kalam.variable}`}>
       <body className="font-sans antialiased bg-paper text-ink">

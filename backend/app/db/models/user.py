@@ -12,6 +12,7 @@ from sqlalchemy import Boolean, DateTime, Enum, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.core.field_encryption import EncryptedText
 from app.db.base import Base, TimestampMixin, UUIDMixin
 
 
@@ -97,11 +98,12 @@ class User(UUIDMixin, TimestampMixin, Base):
     is_email_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # ─── Dados para professores ───────────────────────────────────
-    school_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    discipline: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # Perfil acadêmico não participa de buscas e fica cifrado em repouso.
+    school_name: Mapped[str | None] = mapped_column(EncryptedText(), nullable=True)
+    discipline: Mapped[str | None] = mapped_column(EncryptedText(), nullable=True)
 
     # ─── Dados para alunos ────────────────────────────────────────
-    grade: Mapped[str | None] = mapped_column(String(50), nullable=True)  # "3º ano EM"
+    grade: Mapped[str | None] = mapped_column(EncryptedText(), nullable=True)  # "3º ano EM"
 
     # ─── Segurança de conta ───────────────────────────────────────
     failed_login_attempts: Mapped[int] = mapped_column(default=0, nullable=False)

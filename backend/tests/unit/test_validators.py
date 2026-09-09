@@ -44,14 +44,22 @@ class TestPasswordValidation:
                 password="Ab1",  # Muito curta
             )
 
+    def test_rejects_password_without_special_character(self):
+        with pytest.raises(ValidationError, match="caractere especial"):
+            RegisterStudentRequest(
+                full_name="João Silva",
+                email="test@test.com",
+                password="SenhaForte123",
+            )
+
     def test_accepts_strong_password(self):
         """Senha forte deve ser aceita."""
         req = RegisterStudentRequest(
             full_name="João Silva",
             email="test@test.com",
-            password="SenhaForte123",
+            password="SenhaForte123!",
         )
-        assert req.password == "SenhaForte123"
+        assert req.password == "SenhaForte123!"
 
     def test_rejects_unicode_password_over_bcrypt_byte_limit(self):
         with pytest.raises(ValidationError, match="72 bytes"):
@@ -65,7 +73,7 @@ class TestPasswordValidation:
         with pytest.raises(ValidationError):
             ResetPasswordRequest(
                 token="x" * 257,
-                new_password="SenhaForte123",
+                new_password="SenhaForte123!",
             )
 
 
@@ -77,7 +85,7 @@ class TestEmailValidation:
             RegisterStudentRequest(
                 full_name="João Silva",
                 email="nao-e-um-email",
-                password="SenhaForte123",
+                password="SenhaForte123!",
             )
 
     def test_rejects_email_without_domain(self):
@@ -85,7 +93,7 @@ class TestEmailValidation:
             RegisterStudentRequest(
                 full_name="João Silva",
                 email="usuario@",
-                password="SenhaForte123",
+                password="SenhaForte123!",
             )
 
 
@@ -98,7 +106,7 @@ class TestNameValidation:
             RegisterStudentRequest(
                 full_name="João",  # Só nome, sem sobrenome
                 email="test@test.com",
-                password="SenhaForte123",
+                password="SenhaForte123!",
             )
 
     def test_strips_extra_spaces(self):
@@ -106,7 +114,7 @@ class TestNameValidation:
         req = RegisterStudentRequest(
             full_name="  João   da   Silva  ",
             email="test@test.com",
-            password="SenhaForte123",
+            password="SenhaForte123!",
         )
         assert req.full_name == "João da Silva"
 
@@ -115,7 +123,7 @@ class TestNameValidation:
             RegisterStudentRequest(
                 full_name="",
                 email="test@test.com",
-                password="SenhaForte123",
+                password="SenhaForte123!",
             )
 
 

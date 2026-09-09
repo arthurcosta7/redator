@@ -83,7 +83,7 @@ def valid_student_data() -> dict:
     return {
         "full_name": "João da Silva",
         "email": "joao.silva@email.com",
-        "password": "SenhaSegura123",
+        "password": "SenhaSegura123!",
         "grade": "3º ano EM",
     }
 
@@ -94,7 +94,7 @@ def valid_teacher_data() -> dict:
     return {
         "full_name": "Maria Professora",
         "email": "maria.prof@escola.com",
-        "password": "SenhaSegura123",
+        "password": "SenhaSegura123!",
         "school_name": "Escola Estadual",
         "discipline": "Língua Portuguesa",
     }

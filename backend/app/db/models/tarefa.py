@@ -24,6 +24,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.core.field_encryption import EncryptedText
 from app.db.base import Base, UUIDMixin
 
 
@@ -144,7 +145,7 @@ class TarefaSubmissao(UUIDMixin, Base):
     )
 
     # Comentário do professor após a correção automática (opcional)
-    teacher_comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    teacher_comment: Mapped[str | None] = mapped_column(EncryptedText(), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

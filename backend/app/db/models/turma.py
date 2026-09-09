@@ -16,6 +16,7 @@ from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.core.field_encryption import EncryptedText
 from app.db.base import Base, UUIDMixin
 
 
@@ -106,8 +107,8 @@ class TurmaMembro(UUIDMixin, Base):
         index=True,
     )
 
-    # Nome de exibição — obrigatório para alunos sem conta
-    display_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # Nome de exibição — obrigatório para alunos sem conta e cifrado em repouso.
+    display_name: Mapped[str | None] = mapped_column(EncryptedText(), nullable=True)
 
     status: Mapped[TurmaMembroStatus] = mapped_column(
         Enum(

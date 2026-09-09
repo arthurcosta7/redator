@@ -5,8 +5,9 @@ Usa pydantic-settings para ler variáveis de ambiente de forma segura.
 Todas as configurações sensíveis DEVEM vir de variáveis de ambiente,
 nunca hard-coded no código.
 """
-from functools import lru_cache
+import base64
 import ipaddress
+from functools import lru_cache
 from typing import Literal
 from urllib.parse import parse_qs, urlparse
 
@@ -33,6 +34,9 @@ class Settings(BaseSettings):
     # ─── Segurança JWT ────────────────────────────────────────────
     # OBRIGATÓRIO: Gere com `python -c "import secrets; print(secrets.token_hex(64))"`
     SECRET_KEY: str
+    # Chave distinta do JWT para criptografia AES-256-GCM de dados no banco.
+    # Gere com: python -c "import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())"
+    DATA_ENCRYPTION_KEY: str = ""
     JWT_ALGORITHM: Literal["HS256"] = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 15       # Token de acesso: vida curta
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7          # Refresh token: vida maior
@@ -122,6 +126,19 @@ class Settings(BaseSettings):
             )
         return v
 
+    @field_validator("DATA_ENCRYPTION_KEY")
+    @classmethod
+    def validate_data_encryption_key(cls, v: str) -> str:
+        if not v:
+            return v
+        try:
+            decoded = base64.b64decode(v.encode("ascii"), altchars=b"-_", validate=True)
+        except (ValueError, UnicodeEncodeError) as exc:
+            raise ValueError("DATA_ENCRYPTION_KEY deve ser Base64 URL-safe válida") from exc
+        if len(decoded) != 32:
+            raise ValueError("DATA_ENCRYPTION_KEY deve representar exatamente 32 bytes")
+        return v
+
     @field_validator("DATABASE_URL")
     @classmethod
     def validate_database_url(cls, v: str) -> str:
@@ -196,6 +213,8 @@ class Settings(BaseSettings):
                 )
             if not self.DATABASE_URL.startswith("postgresql+asyncpg://"):
                 raise ValueError("DATABASE_URL deve usar PostgreSQL com asyncpg em produção!")
+            if not self.DATA_ENCRYPTION_KEY:
+                raise ValueError("DATA_ENCRYPTION_KEY é obrigatória em produção!")
 
             required_integrations = {
                 "OPENAI_API_KEY": self.OPENAI_API_KEY,

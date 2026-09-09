@@ -31,8 +31,15 @@ from app.db.models.essay import Essay, EssayInputType, EssayStatus, EssayType
 from app.db.models.tarefa import Tarefa, TarefaSubmissao
 from app.db.models.turma import TurmaMembro, TurmaMembroStatus
 from app.db.models.user import User
-from app.schemas.essay import EssayDetailResponse, EssayListItem, EssayListResponse, EssayResponse, SubmitEssayRequest
+from app.schemas.essay import (
+    EssayDetailResponse,
+    EssayListItem,
+    EssayListResponse,
+    EssayResponse,
+    SubmitEssayRequest,
+)
 from app.utils.file_validator import validate_image_file
+from app.utils.text_sanitizer import sanitize_essay_text, sanitize_short_text
 
 router = APIRouter(prefix="/essays", tags=["Redações"])
 logger = get_logger(__name__)
@@ -247,7 +254,7 @@ async def submit_essay_photo(
     try:
         from app.services.ocr.ocr_service import OCRService
         ocr_service = OCRService()
-        extracted_text = await ocr_service.extract_text(file_content)
+        extracted_text = sanitize_essay_text(await ocr_service.extract_text(file_content))
     except Exception as e:
         await release_daily_correction_slot(current_user_id, redis_client)
         logger.error("erro_ocr", error=str(e))
@@ -284,11 +291,13 @@ async def submit_essay_photo(
         )
 
     # Cria a redação
+    safe_title = sanitize_short_text(title, 200) if title else "Redação sem título"
+    safe_theme = sanitize_short_text(theme, 500)
     essay = Essay(
         user_id=current_user.id,
-        title=title or "Redação sem título",
+        title=safe_title,
         content=extracted_text,
-        theme=theme,
+        theme=safe_theme,
         essay_type=essay_type,
         input_type=EssayInputType.PHOTO,
         status=EssayStatus.PENDING,
@@ -320,7 +329,7 @@ async def submit_essay_photo(
 
     return EssayResponse(
         id=str(essay_db_id),
-        title=title or "Redação sem título",
+        title=safe_title,
         essay_type=essay_type.value,
         status=EssayStatus.PENDING.value,
         word_count=word_count,

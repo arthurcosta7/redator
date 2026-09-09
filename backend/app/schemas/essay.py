@@ -7,7 +7,7 @@ NUNCA confie no frontend — valide tudo no servidor.
 from pydantic import BaseModel, Field, field_validator
 
 from app.db.models.essay import EssayType
-
+from app.utils.text_sanitizer import sanitize_essay_text, sanitize_short_text
 
 # Limites de palavras por modelo de redação
 ENEM_MIN_WORDS = 100
@@ -61,10 +61,8 @@ class SubmitEssayRequest(BaseModel):
         if v is None:
             return v
 
-        # Remove excesso de espaços/quebras de linha
-        cleaned = "\n".join(
-            line.strip() for line in v.strip().splitlines() if line.strip()
-        )
+        # A sanitização acontece no servidor; o frontend nunca é uma fronteira de confiança.
+        cleaned = sanitize_essay_text(v)
 
         # Verifica se há conteúdo real (não só espaços)
         if len(cleaned.replace(" ", "").replace("\n", "")) < 10:
@@ -78,16 +76,14 @@ class SubmitEssayRequest(BaseModel):
         """Remove caracteres potencialmente perigosos do título."""
         if v is None:
             return None
-        import bleach
-        cleaned = bleach.clean(v.strip(), tags=[], strip=True)
+        cleaned = sanitize_short_text(v, 200)
         return cleaned or None
 
     @field_validator("theme")
     @classmethod
     def sanitize_theme(cls, v: str) -> str:
         """Remove tags HTML do tema."""
-        import bleach
-        cleaned = bleach.clean(v.strip(), tags=[], strip=True)
+        cleaned = sanitize_short_text(v, 500)
         if not cleaned:
             raise ValueError("O tema da redação é obrigatório")
         return cleaned
@@ -143,5 +139,6 @@ class EssayDetailResponse(EssayResponse):
 
 
 # Import circular resolvido aqui
-from app.schemas.correction import CorrectionResponse  # noqa: E402
+from app.schemas.correction import CorrectionResponse
+
 EssayDetailResponse.model_rebuild()

@@ -25,7 +25,8 @@ const passwordSchema = z
       .min(8, "Mínimo 8 caracteres")
       .regex(/[A-Z]/, "Precisa de uma letra maiúscula")
       .regex(/[a-z]/, "Precisa de uma letra minúscula")
-      .regex(/\d/, "Precisa de um número"),
+      .regex(/\d/, "Precisa de um número")
+      .regex(/[^\p{L}\p{N}\s]/u, "Precisa de um caractere especial"),
     confirm_password: z.string(),
   })
   .refine((d) => d.new_password === d.confirm_password, {

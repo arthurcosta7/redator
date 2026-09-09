@@ -8,10 +8,22 @@ from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.utils.text_sanitizer import sanitize_essay_text, sanitize_short_text
+
 
 class MotivatingText(BaseModel):
     title: str = Field(max_length=200)
     content: str = Field(max_length=2000)
+
+    @field_validator("title")
+    @classmethod
+    def sanitize_title(cls, v: str) -> str:
+        return sanitize_short_text(v, 200)
+
+    @field_validator("content")
+    @classmethod
+    def sanitize_content(cls, v: str) -> str:
+        return sanitize_essay_text(v)
 
 
 class TarefaCreate(BaseModel):
@@ -32,8 +44,12 @@ class TarefaCreate(BaseModel):
     @field_validator("title", "theme")
     @classmethod
     def sanitize_text(cls, v: str) -> str:
-        import bleach
-        return bleach.clean(v.strip(), tags=[], strip=True)
+        return sanitize_short_text(v, 500)
+
+    @field_validator("instructions")
+    @classmethod
+    def sanitize_instructions(cls, v: str | None) -> str | None:
+        return sanitize_essay_text(v) if v else None
 
 
 class TarefaUpdate(BaseModel):
@@ -42,6 +58,16 @@ class TarefaUpdate(BaseModel):
     theme: Optional[str] = Field(default=None, min_length=5, max_length=500)
     motivating_texts: Optional[list[MotivatingText]] = None
     due_date: Optional[datetime] = None
+
+    @field_validator("title", "theme")
+    @classmethod
+    def sanitize_short_fields(cls, v: str | None) -> str | None:
+        return sanitize_short_text(v, 500) if v else None
+
+    @field_validator("instructions")
+    @classmethod
+    def sanitize_instructions(cls, v: str | None) -> str | None:
+        return sanitize_essay_text(v) if v else None
 
 
 class TarefaResponse(BaseModel):
@@ -133,6 +159,11 @@ class GenerateThemeResponse(BaseModel):
 
 class TeacherCommentRequest(BaseModel):
     comment: str = Field(max_length=1000)
+
+    @field_validator("comment")
+    @classmethod
+    def sanitize_comment(cls, v: str) -> str:
+        return sanitize_essay_text(v)
 
 
 class TeacherSlotInfo(BaseModel):

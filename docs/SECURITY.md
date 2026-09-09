@@ -4,10 +4,12 @@ Segurança é requisito central do Redator por envolver dados pessoais, textos a
 
 ## Controles implementados
 
-- Senhas com bcrypt e política de 8–72 bytes, maiúscula, minúscula e dígito.
+- Senhas com bcrypt e política de 8–72 bytes, maiúscula, minúscula, dígito e caractere especial.
 - JWT de acesso curto e refresh token revogável; cookies HttpOnly, `SameSite=Strict` e `Secure` em produção.
 - Tokens de verificação/recuperação armazenados em hash e respostas anti-enumeração.
 - Validação Pydantic, sanitização de campos e queries parametrizadas pelo ORM.
+- CSP com nonce por requisição, sem `unsafe-inline` em `script-src`, e sanitização também no texto principal/OCR.
+- Redações, feedbacks de correção e contestações cifrados no banco com AES-256-GCM autenticado.
 - Autorização por proprietário/relacionamento e papéis administrativos consultados no banco.
 - Rate limit e cotas atômicas no Redis; ações caras falham fechadas quando o controle está indisponível.
 - CORS explícito, headers defensivos, HTTPS obrigatório em produção e mensagens 500 sem detalhes.
@@ -23,7 +25,7 @@ Segurança é requisito central do Redator por envolver dados pessoais, textos a
 | Controle de acesso/IDOR | Trocar IDs entre dois usuários deve resultar em 404/403 |
 | Injeção | Payloads SQL/HTML/prompt não alteram query, UI ou regras da IA |
 | Autenticação | Expiração, revogação, cookies, brute force e recuperação genérica |
-| Criptografia | TLS externo, segredos fora do Git, senhas/tokens em hash |
+| Criptografia | TLS externo, segredos fora do Git, senhas/tokens em hash e campos educacionais sensíveis cifrados |
 | Configuração | Swagger desativado, CORS restrito e debug falso em produção |
 | Dependências | Auditoria periódica de Python, npm e imagens Docker |
 | Integridade | Webhook assinado, lockfile e imagens com versões controladas |

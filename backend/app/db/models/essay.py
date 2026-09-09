@@ -7,10 +7,11 @@ import enum
 import uuid
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Enum, ForeignKey, Integer, String, Text
+from sqlalchemy import Enum, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.core.field_encryption import EncryptedText
 from app.db.base import Base, TimestampMixin, UUIDMixin
 
 if TYPE_CHECKING:
@@ -59,11 +60,11 @@ class Essay(UUIDMixin, TimestampMixin, Base):
     )
 
     # ─── Dados da redação ─────────────────────────────────────────
-    title: Mapped[str] = mapped_column(String(200), nullable=False)
-    content: Mapped[str] = mapped_column(Text, nullable=False)
+    title: Mapped[str] = mapped_column(EncryptedText(), nullable=False)
+    content: Mapped[str] = mapped_column(EncryptedText(), nullable=False)
 
     # Tema proposto (ex: "Desafios da educação no Brasil")
-    theme: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    theme: Mapped[str | None] = mapped_column(EncryptedText(), nullable=True)
 
     essay_type: Mapped[EssayType] = mapped_column(
         Enum(EssayType, name="essay_type_enum"),

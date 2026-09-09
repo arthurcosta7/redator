@@ -4,10 +4,11 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, Enum, Float, ForeignKey, String, Text
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy import Boolean, DateTime, Enum, Float, ForeignKey, String
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.core.field_encryption import EncryptedJSON, EncryptedText
 from app.db.base import Base, TimestampMixin, UUIDMixin
 
 if TYPE_CHECKING:
@@ -60,7 +61,7 @@ class CorrectionAppeal(UUIDMixin, TimestampMixin, Base):
         default=AppealStatus.PENDING,
         index=True,
     )
-    student_reason: Mapped[str] = mapped_column(Text, nullable=False)
+    student_reason: Mapped[str] = mapped_column(EncryptedText(), nullable=False)
     allow_anonymized_improvement: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False
     )
@@ -68,14 +69,14 @@ class CorrectionAppeal(UUIDMixin, TimestampMixin, Base):
     # Estes snapshots preservam exatamente o que a IA apresentou no momento
     # da contestação, mesmo que a Correction seja atualizada após a revisão.
     original_total_score: Mapped[float] = mapped_column(Float, nullable=False)
-    original_competencies: Mapped[list] = mapped_column(JSONB, nullable=False)
-    original_highlights: Mapped[list] = mapped_column(JSONB, nullable=False)
-    original_insights: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    original_competencies: Mapped[list] = mapped_column(EncryptedJSON(), nullable=False)
+    original_highlights: Mapped[list] = mapped_column(EncryptedJSON(), nullable=False)
+    original_insights: Mapped[dict] = mapped_column(EncryptedJSON(), nullable=False)
     original_ai_model: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     corrected_total_score: Mapped[float | None] = mapped_column(Float, nullable=True)
-    corrected_competencies: Mapped[list | None] = mapped_column(JSONB, nullable=True)
-    reviewer_explanation: Mapped[str | None] = mapped_column(Text, nullable=True)
+    corrected_competencies: Mapped[list | None] = mapped_column(EncryptedJSON(), nullable=True)
+    reviewer_explanation: Mapped[str | None] = mapped_column(EncryptedText(), nullable=True)
     reviewed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

@@ -96,7 +96,7 @@ test("login de professor usa resposta da API para escolher o dashboard", async (
     { name: "access_token", value: "e2e-token", domain: "127.0.0.1", path: "/" },
   ]);
   await page.getByLabel("Email").fill("professor@teste.com");
-  await page.getByLabel("Senha", { exact: true }).fill("SenhaSegura123");
+  await page.getByLabel("Senha", { exact: true }).fill("SenhaSegura123!");
   await page.getByRole("button", { name: "Entrar na minha conta" }).click();
   await expect(page).toHaveURL(/\/dashboard\/professor$/);
 });

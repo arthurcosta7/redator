@@ -11,6 +11,7 @@ from starlette.requests import Request
 
 from app.api.v1.endpoints.auth import (
     create_user,
+    login,
     register_student,
     set_auth_cookies,
     verify_email,
@@ -32,7 +33,7 @@ from app.core.security import (
 from app.db.models.essay import Essay, EssayInputType, EssayStatus, EssayType
 from app.db.models.user import User, UserPlan, UserType
 from app.schemas.appeal import CreateAppealRequest, ResolveAppealRequest
-from app.schemas.auth import RegisterStudentRequest
+from app.schemas.auth import LoginRequest, RegisterStudentRequest
 
 
 class _FailingPipeline:
@@ -83,6 +84,33 @@ async def test_login_rate_limit_fails_closed_when_redis_is_down():
 
 
 @pytest.mark.asyncio
+async def test_failed_login_counter_survives_http_exception(db_session, monkeypatch):
+    async def allow_attempt(*args):
+        return True
+
+    monkeypatch.setattr("app.api.v1.endpoints.auth.check_login_attempts", allow_attempt)
+    user = _user("login-counter@example.com")
+    user_id = user.id
+    db_session.add(user)
+    await db_session.commit()
+
+    with pytest.raises(HTTPException) as exc:
+        await login(
+            LoginRequest(email="login-counter@example.com", password="SenhaErrada123!"),
+            Request({"type": "http", "client": ("127.0.0.1", 12345), "headers": []}),
+            Response(),
+            db_session,
+            object(),
+        )
+
+    assert exc.value.status_code == 401
+    db_session.expire(user)
+    reloaded = await db_session.get(User, user_id)
+    assert reloaded is not None
+    assert reloaded.failed_login_attempts == 1
+
+
+@pytest.mark.asyncio
 async def test_non_sensitive_rate_limit_can_fail_open_when_redis_is_down():
     limiter = RateLimiter(_FailingRedis())
 
@@ -95,7 +123,7 @@ async def test_registration_fails_closed_when_rate_limiter_is_unavailable(db_ses
     data = RegisterStudentRequest(
         full_name="João Silva",
         email="joao@example.com",
-        password="SenhaSegura123",
+        password="SenhaSegura123!",
     )
 
     with pytest.raises(HTTPException) as exc:
@@ -119,6 +147,40 @@ async def test_duplicate_registration_does_not_reveal_existing_email(db_session)
     )
 
     assert result is None
+
+
+@pytest.mark.asyncio
+async def test_duplicate_unverified_registration_resends_when_password_matches(
+    db_session, monkeypatch
+):
+    from app.services.email.email_service import EmailService
+
+    existing = _user("pending@example.com")
+    existing.is_email_verified = False
+    existing.email_verification_token_hash = generate_token_hash("old-token")
+    existing.email_verification_expires_at = datetime.now(UTC) - timedelta(hours=1)
+    db_session.add(existing)
+    await db_session.flush()
+
+    sent_tokens: list[str] = []
+
+    async def capture_email(self, to_email, to_name, verification_token):
+        sent_tokens.append(verification_token)
+
+    monkeypatch.setattr(EmailService, "send_verification_email", capture_email)
+
+    result = await create_user(
+        db_session,
+        full_name="Usuário de Teste",
+        email="pending@example.com",
+        password="SenhaSegura123",
+        user_type=UserType.STUDENT,
+    )
+
+    assert result is existing
+    assert len(sent_tokens) == 1
+    assert existing.email_verification_token_hash == generate_token_hash(sent_tokens[0])
+    assert existing.email_verification_expires_at > datetime.now(UTC)
 
 
 @pytest.mark.asyncio
@@ -205,6 +267,7 @@ def test_nested_sensitive_log_fields_are_redacted():
 def production_settings(**overrides):
     values = {
         "SECRET_KEY": "0123456789abcdef" * 4,
+        "DATA_ENCRYPTION_KEY": "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
         "DATABASE_URL": "postgresql+asyncpg://user:pass@postgres/redator",
         "REDIS_URL": "redis://:strong-password@redis:6379/0",
         "ENVIRONMENT": "production",
@@ -282,6 +345,11 @@ def test_production_rejects_placeholder_credentials():
 
     with pytest.raises(ValidationError, match="REDIS_URL.*autenticação"):
         production_settings(REDIS_URL="redis://:PREENCHER@redis:6379/0")
+
+
+def test_production_requires_a_separate_database_encryption_key():
+    with pytest.raises(ValidationError, match="DATA_ENCRYPTION_KEY"):
+        production_settings(DATA_ENCRYPTION_KEY="")
 
 
 def test_teacher_price_id_uses_stripe_price_format():
