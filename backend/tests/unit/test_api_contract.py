@@ -3,7 +3,6 @@ import pytest
 
 from app.main import app
 
-
 EXPECTED_ROUTES = {
     ("GET", "/health"),
     ("GET", "/ready"),

@@ -124,6 +124,7 @@ class TestFileValidation:
 
     def test_rejects_empty_file(self):
         from fastapi import HTTPException
+
         from app.utils.file_validator import validate_image_file
 
         with pytest.raises(HTTPException) as exc_info:
@@ -145,6 +146,7 @@ class TestFileValidation:
     def test_rejects_fake_jpeg_with_wrong_extension(self):
         """Arquivo executável renomeado como .jpg deve ser rejeitado."""
         from fastapi import HTTPException
+
         from app.utils.file_validator import validate_image_file
 
         # Simula um arquivo executável Windows (MZ header)
@@ -157,6 +159,7 @@ class TestFileValidation:
     def test_rejects_oversized_file(self):
         """Arquivo maior que o limite deve ser rejeitado."""
         from fastapi import HTTPException
+
         from app.utils.file_validator import validate_image_file
 
         # Cria JPEG falso mas grande demais
@@ -177,6 +180,7 @@ class TestFileValidation:
     )
     def test_rejects_truncated_or_polyglot_image(self, payload, filename, content_type):
         from fastapi import HTTPException
+
         from app.utils.file_validator import validate_image_file
 
         with pytest.raises(HTTPException) as exc_info:
@@ -185,7 +189,9 @@ class TestFileValidation:
 
     def test_accepts_a_decodable_png(self):
         import io
+
         from PIL import Image
+
         from app.utils.file_validator import validate_image_file
 
         buffer = io.BytesIO()

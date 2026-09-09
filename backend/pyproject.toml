@@ -74,7 +74,7 @@ dev = [
     "bandit>=1.9.4",            # Analise estatica de padroes inseguros
 
     # ─── Qualidade de código ───────────────────────────────────────
-    "ruff>=0.4.0",              # Linter + formatter
+    "ruff==0.16.4",             # Fixado para o lint do CI ser reproduzível
     "mypy>=1.10.0",             # Type checking
 ]
 

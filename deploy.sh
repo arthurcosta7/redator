@@ -20,7 +20,7 @@ if [[ "${SKIP_PULL:-0}" != "1" ]]; then
     printf 'ERRO: checkout possui alteracoes locais; deploy interrompido.\n' >&2
     exit 1
   }
-  git pull --ff-only origin main
+  git pull --ff-only origin producao
   bash "$ROOT_DIR/scripts/preflight.sh"
 fi
 

@@ -1,5 +1,5 @@
 """Regressões para falhas encontradas durante a auditoria de segurança."""
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
@@ -21,8 +21,8 @@ from app.core.rate_limiter import RateLimiter
 from app.core.security import create_refresh_token, hash_password
 from app.db.models.essay import Essay, EssayInputType, EssayStatus, EssayType
 from app.db.models.user import User, UserPlan, UserType
-from app.schemas.auth import RegisterStudentRequest
 from app.schemas.appeal import CreateAppealRequest, ResolveAppealRequest
+from app.schemas.auth import RegisterStudentRequest
 
 
 class _FailingPipeline:
@@ -147,7 +147,7 @@ async def test_regular_user_cannot_access_admin_dependency(db_session):
 
 def test_profile_response_never_contains_password_or_tokens():
     user = _user("profile@example.com")
-    user.created_at = datetime.now(timezone.utc)
+    user.created_at = datetime.now(UTC)
     response = _serialize_user(user).model_dump()
 
     assert "hashed_password" not in response

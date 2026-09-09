@@ -6,8 +6,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.core.config import settings
 from app.api.v1.endpoints.professor import generate_theme
+from app.core.config import settings
 from app.db.models.essay import EssayStatus, EssayType
 from app.db.models.user import UserPlan
 from app.schemas.tarefa import GenerateThemeRequest

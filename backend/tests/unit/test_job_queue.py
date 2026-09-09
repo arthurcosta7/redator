@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
-import app.core.job_queue as job_queue
+from app.core import job_queue
 
 
 def test_arq_settings_inherit_connection_limits():

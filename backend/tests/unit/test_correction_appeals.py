@@ -4,6 +4,7 @@ import uuid
 import pytest
 from fastapi import HTTPException
 
+from app.api.v1.endpoints.admin import ALL_ADMIN_ROLES
 from app.api.v1.endpoints.appeals import (
     REVIEWER_ROLES,
     claim_appeal,
@@ -13,7 +14,6 @@ from app.api.v1.endpoints.appeals import (
     resolve_appeal,
     review_queue,
 )
-from app.api.v1.endpoints.admin import ALL_ADMIN_ROLES
 from app.core.dependencies import require_admin_role
 from app.db.models.correction import Correction
 from app.db.models.correction_appeal import AppealStatus, CorrectionAppeal

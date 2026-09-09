@@ -6,6 +6,8 @@ Testa:
 - Geração e validação de tokens JWT
 - Tokens seguros para reset de senha
 """
+from datetime import UTC
+
 import pytest
 
 from app.core.security import (
@@ -108,12 +110,14 @@ class TestJWTTokens:
 
     def test_expired_token_rejected(self):
         """Token expirado deve lançar exceção."""
+        from datetime import datetime, timedelta
+
         import jwt
-        from datetime import datetime, timezone, timedelta
+
         from app.core.config import settings
 
         # Cria token já expirado
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         payload = {
             "sub": "user-123",
             "type": "access",
@@ -139,15 +143,17 @@ class TestJWTTokens:
 
     def test_missing_required_claim_rejected(self):
         """JWTs sem claims de segurança obrigatórias nunca são aceitos."""
+        from datetime import datetime, timedelta
+
         import jwt
-        from datetime import datetime, timezone, timedelta
+
         from app.core.config import settings
 
         incomplete = jwt.encode(
             {
                 "sub": "user-123",
                 "type": "access",
-                "exp": datetime.now(timezone.utc) + timedelta(minutes=5),
+                "exp": datetime.now(UTC) + timedelta(minutes=5),
             },
             settings.SECRET_KEY,
             algorithm=settings.JWT_ALGORITHM,
@@ -167,11 +173,13 @@ class TestJWTTokens:
         assert payload1["jti"] != payload2["jti"]
 
     def test_rejects_algorithm_confusion(self):
+        from datetime import datetime, timedelta
+
         import jwt
-        from datetime import datetime, timedelta, timezone
+
         from app.core.config import settings
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         token = jwt.encode(
             {
                 "sub": "user-123",
