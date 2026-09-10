@@ -93,3 +93,4 @@ backups/
 .claude
 .codex
 .ruff_cache
+.github
