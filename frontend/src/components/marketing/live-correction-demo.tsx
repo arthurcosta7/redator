@@ -40,6 +40,7 @@ export function LiveCorrectionDemo() {
   // workaround: o hook lê do scoringTotalRef mutável.
   const { state, setScoringTotal } = useTypewriterMachine(fullText, ESSAY_SEGMENTS, {
     charsPerSecond: CYCLE_CHARS_PER_SECOND,
+    loop: false,
     phaseDurations: {
       typing: 0,
       analyzing: 1200,
@@ -100,7 +101,6 @@ export function LiveCorrectionDemo() {
       }
     }
     return out;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.typedCount, state.phase, state.highlightedCount]);
 
   return (

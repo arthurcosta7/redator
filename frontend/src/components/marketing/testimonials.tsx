@@ -11,18 +11,6 @@ const testimonials = [
     featured: true,
   },
   {
-    name: "Lucas M.",
-    context: "3º ano do Ensino Médio — São Paulo",
-    quote:
-      "Honestamente, não esperava que fosse ajudar tanto. Descobri que eu começava todo parágrafo de conclusão com “Portanto” ou “Sendo assim”. Parece bobo, mas nunca ninguém tinha me apontado isso antes.",
-  },
-  {
-    name: "Ana P.",
-    context: "Aprovada em Direito — USP 2023",
-    quote:
-      "Fiz mais de sessenta redações nos dois meses antes do ENEM. Não teria conseguido sem um retorno rápido. Não é substituto de professor, mas pra treino constante é exatamente o que precisava.",
-  },
-  {
     name: "Gabriel T.",
     context: "Professor de Redação — São Paulo",
     quote:
@@ -33,12 +21,6 @@ const testimonials = [
     context: "Cursinho pré-vestibular — Rio de Janeiro",
     quote:
       "Já testei dois outros serviços parecidos. Os feedbacks eram vagos demais. Aqui o comentário sobre a C5 foi tão específico que em três redações eu já tinha melhorado bastante nessa competência.",
-  },
-  {
-    name: "Felipe N.",
-    context: "Aprovado em Engenharia — UNICAMP 2024",
-    quote:
-      "Minha C5 sempre foi fraca. O problema era que eu propunha a solução mas não dizia quem ia executar. Parece óbvio depois que te falam, mas eu nunca tinha percebido sozinho. A nota nessa competência subiu bastante.",
   },
 ];
 
@@ -56,11 +38,10 @@ export function Testimonials() {
           whileInView={{ opacity: 1, transform: "translateY(0)" }}
           viewport={{ once: true, margin: "-80px" }}
           transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] as [number, number, number, number] }}
-          className="mb-16 lg:mb-20 max-w-3xl"
+          className="mb-14 max-w-3xl lg:mb-16"
         >
-          <p className="eyebrow mb-5">§ IV — Vozes</p>
           <h2 className="font-display font-semibold text-4xl sm:text-5xl lg:text-6xl text-ink leading-[1.05] tracking-[-0.01em] text-balance">
-            O que dizem quem usa.
+            O que dizem as pessoas que usam.
           </h2>
         </motion.header>
 
@@ -70,7 +51,7 @@ export function Testimonials() {
           whileInView={{ opacity: 1, transform: "translateY(0)" }}
           viewport={{ once: true, margin: "-80px" }}
           transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] as [number, number, number, number] }}
-          className="mb-20 lg:mb-24 pb-12 border-b border-ink-line"
+          className="mb-12 border-b border-ink-line pb-10 lg:mb-14"
         >
           <blockquote className="grid lg:grid-cols-12 gap-8">
             <div className="lg:col-span-2">
@@ -106,7 +87,7 @@ export function Testimonials() {
               whileInView={{ opacity: 1, transform: "translateY(0)" }}
               viewport={{ once: true, margin: "-60px" }}
               transition={{ duration: 0.45, delay: i * 0.06, ease: [0.23, 1, 0.32, 1] as [number, number, number, number] }}
-              className="grid grid-cols-12 gap-6 lg:gap-10 py-10 lg:py-12"
+              className="grid grid-cols-12 gap-6 py-8 lg:gap-10 lg:py-10"
             >
               <span className="col-span-2 sm:col-span-1 font-mono text-xs text-ink-muted pt-1">
                 0{i + 2}

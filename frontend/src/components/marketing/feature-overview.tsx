@@ -164,13 +164,12 @@ export function FeatureOverview() {
         </div>
 
         <div
-          className="scrollbar-hide mt-9 flex snap-x gap-5 overflow-x-auto pb-2 sm:justify-center sm:gap-8"
-          role="region"
+          className="mt-9 grid grid-cols-2 gap-5 sm:grid-cols-4 sm:gap-8"
+          role="list"
           aria-label="Etapas do feedback"
-          tabIndex={0}
         >
           {connections.map((connection) => (
-            <div key={connection.result} className="snap-center">
+            <div key={connection.result} role="listitem">
               <ConnectionDiagram {...connection} />
             </div>
           ))}

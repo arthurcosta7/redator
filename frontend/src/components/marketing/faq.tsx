@@ -115,7 +115,6 @@ export function FAQ() {
             transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] as [number, number, number, number] }}
             className="lg:col-span-4 lg:sticky lg:top-28"
           >
-            <p className="eyebrow mb-5">§ VII — Perguntas</p>
             <h2 className="font-display font-semibold text-4xl sm:text-5xl lg:text-6xl text-ink leading-[1.05] tracking-[-0.01em] mb-5 text-balance">
               Perguntas frequentes.
             </h2>

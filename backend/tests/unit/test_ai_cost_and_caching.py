@@ -18,6 +18,7 @@ from app.services.ai.correction_service import CorrectionService, TransientAIErr
 from app.services.ai.openai_client import create_openai_client
 from app.services.ai.prompt_builder import build_correction_prompt
 from app.services.ai.prompts.enem_prompt import ENEM_SYSTEM_PROMPT
+from app.services.ai.prompts.vestibular_prompt import VESTIBULAR_SYSTEM_PROMPT
 from app.services.ai.token_usage import normalize_token_usage
 
 
@@ -83,10 +84,37 @@ def test_enem_prompt_preserves_official_scoring_boundaries():
     assert "até sete linhas manuscritas válidas" in prompt
     assert "recebe 0 apenas na competência 5" in prompt
     assert "não aplique nota zero global" in prompt
-    assert "não exija originalidade como critério autônomo" in prompt
+    assert "originalidade" not in prompt
     assert "sem o tema, não conclua fuga nem tangenciamento" in prompt
     assert "mais de 15 anos" not in prompt
     assert "avaliador oficial do enem" not in prompt
+
+
+def test_vestibular_prompt_preserves_normalized_scoring_and_genre_boundaries():
+    """Impede que a rubrica unificada seja confundida com ENEM ou banca oficial."""
+    prompt = VESTIBULAR_SYSTEM_PROMPT.lower()
+
+    assert "0, 5, 10, 15, 20 ou 25" in prompt
+    assert "não existe uma rubrica única" in prompt
+    assert "não converta automaticamente a tarefa em dissertação" in prompt
+    assert "não exige proposta de intervenção no modelo enem" in prompt
+    assert "sem a proposta completa, não zere por gênero" in prompt
+    assert "quatro competências, numeradas de 1 a 4" in prompt
+    assert "15+ anos" not in prompt
+
+
+def test_vestibular_prompt_treats_theme_as_full_prompt_when_available():
+    built = build_correction_prompt(
+        EssayType.VESTIBULAR,
+        "Texto do candidato",
+        "Escreva uma carta aberta dirigida à comunidade escolar.",
+        settings.OPENAI_CORRECTION_MODEL,
+    )
+    variable = json.loads(built.variable_content)
+
+    assert variable["theme_or_prompt"].startswith("Escreva uma carta aberta")
+    assert variable["essay"] == "Texto do candidato"
+    assert "carta aberta" not in built.cacheable_prefix.lower()
 
 
 def test_structured_output_rejects_missing_and_extra_fields():

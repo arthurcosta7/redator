@@ -433,6 +433,14 @@ a[class*="bg-accent"]:active {
   }
 }
 
+/* Em telas de toque, o conteúdo permanece estável durante a rolagem. */
+@media (pointer: coarse) {
+  [data-scroll-parallax] {
+    transform: none !important;
+    will-change: auto !important;
+  }
+}
+
 /* ─── Reduced motion: mantém feedback por cor/opacidade, remove deslocamento ─ */
 @media (prefers-reduced-motion: reduce) {
   *,

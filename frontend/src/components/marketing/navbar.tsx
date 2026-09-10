@@ -80,7 +80,7 @@ export function Navbar() {
               className="text-[15px] font-semibold text-paper bg-ink hover:bg-ink-soft
                          px-5 py-2.5 rounded transition-colors"
             >
-              Criar conta
+              Corrigir grátis
             </Link>
           </div>
 
@@ -124,7 +124,7 @@ export function Navbar() {
                   className="w-full text-center text-base font-semibold text-paper
                              bg-ink px-4 py-2.5 rounded"
                 >
-                  Criar conta
+                  Corrigir grátis
                 </Link>
               </div>
             </div>

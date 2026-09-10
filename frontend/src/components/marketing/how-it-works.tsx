@@ -1,30 +1,28 @@
 ﻿"use client";
 
-import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowRight } from "lucide-react";
 
 const steps = [
   {
     number: "I",
     title: "Envie sua redação",
     description:
-      "Digite o texto ou tire uma foto da redação manuscrita. A tecnologia OCR reconhece a maior parte das letras manuscritas, incluindo cursiva. Letra muito apertada ou ilegível pode exigir revisão manual do texto extraído antes de enviar.",
+      "Digite o texto ou envie uma foto da folha. Antes da correção, você pode revisar o texto reconhecido.",
     detail: "Texto digitado ou foto (JPG/PNG) — até 5 MB",
   },
   {
     number: "II",
     title: "A análise percorre cada competência",
     description:
-      "A redação é avaliada nos critérios do ENEM ou da banca de vestibular escolhida. Cada competência recebe nota individual e comentário específico.",
+      "Escolha ENEM ou vestibular. Cada critério recebe uma nota e uma explicação objetiva.",
     detail: "Resultado em ~30 segundos",
   },
   {
     number: "III",
-    title: "Você evolui de verdade",
+    title: "Revise e acompanhe sua evolução",
     description:
-      "Nota por competência, grife nos trechos que funcionam e nos que travam, e um plano claro para a próxima redação. Você sabe exatamente o que melhorar — em vez de adivinhar.",
-    detail: "Grifes, insights, histórico e comparativo de evolução",
+      "Use as grifes para reescrever os trechos mais fracos e compare o desempenho das próximas redações.",
+    detail: "Grifes, histórico e próximos passos",
   },
 ];
 
@@ -47,10 +45,9 @@ export function HowItWorks() {
     <section id="como-funciona" className="section-padding bg-paper border-t border-ink-line">
       <div className="container-site">
 
-        <motion.header {...fadeUp} className="mb-20 lg:mb-24 max-w-3xl">
-          <p className="eyebrow mb-5">§ II — Como funciona</p>
+        <motion.header {...fadeUp} className="mb-14 lg:mb-16 max-w-3xl">
           <h2 className="font-display font-semibold text-4xl sm:text-5xl lg:text-6xl text-ink leading-[1.05] tracking-[-0.01em] text-balance">
-            Três passos, menos de um minuto.
+            Envie. Receba o diagnóstico. Evolua.
           </h2>
         </motion.header>
 
@@ -61,7 +58,7 @@ export function HowItWorks() {
               key={step.number}
               {...fadeUp}
               transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] as [number, number, number, number], delay: idx * 0.08 }}
-              className="grid grid-cols-12 gap-6 lg:gap-10 py-10 lg:py-14 group"
+              className="grid grid-cols-12 gap-6 lg:gap-10 py-8 lg:py-10 group"
             >
               {/* Número romano */}
               <div className="col-span-2 sm:col-span-1">
@@ -94,15 +91,6 @@ export function HowItWorks() {
           ))}
         </ol>
 
-        <motion.div {...fadeUp} className="mt-12 flex items-center gap-3">
-          <Link
-            href="/auth/register"
-            className="inline-flex items-center gap-2 text-ink font-semibold text-[17px] link-underline"
-          >
-            Começar grátis
-            <ArrowRight className="w-4 h-4" strokeWidth={2.25} />
-          </Link>
-        </motion.div>
       </div>
     </section>
   );

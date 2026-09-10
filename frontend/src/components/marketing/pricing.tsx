@@ -48,15 +48,9 @@ const studentPlans: Plan[] = [
     audience: "Estudante casual",
     features: [
       { text: "1 correção por dia", included: true },
-      { text: "Foto para texto (OCR)", included: true },
-      { text: "Análise por competências", included: true },
-      { text: "Feedback básico", included: true },
-      { text: "Modelos ENEM e Vestibular", included: true },
-      { text: "Sistema de correção aprimorado", included: false },
-      { text: "Grife no texto (bom/ruim)", included: false },
-      { text: "Insights avançados de melhoria", included: false },
-      { text: "Histórico completo de evolução", included: false },
-      { text: "Suporte prioritário", included: false },
+      { text: "Feedback essencial", included: true },
+      { text: "Grifes diretamente no texto", included: false },
+      { text: "Insights e histórico completo", included: false },
     ],
     cta: "Começar grátis",
     highlighted: false,
@@ -69,14 +63,8 @@ const studentPlans: Plan[] = [
     audience: "ENEM & Vestibular",
     features: [
       { text: "3 correções por dia", included: true },
-      { text: "Foto para texto (OCR)", included: true },
-      { text: "Análise por competências", included: true },
-      { text: "Feedback avançado e detalhado", included: true },
-      { text: "Modelos ENEM e Vestibular", included: true },
-      { text: "Sistema de correção aprimorado", included: true },
-      { text: "Grife no texto (bom/ruim)", included: true },
-      { text: "Insights avançados de melhoria", included: true },
-      { text: "Histórico completo de evolução", included: true },
+      { text: "Feedback detalhado com grifes", included: true },
+      { text: "Insights e histórico completo", included: true },
       { text: "Suporte prioritário", included: false },
     ],
     cta: "Assinar Standard",
@@ -90,14 +78,8 @@ const studentPlans: Plan[] = [
     audience: "Alta performance",
     features: [
       { text: "10 correções por dia", included: true },
-      { text: "Foto para texto (OCR)", included: true },
-      { text: "Análise por competências", included: true },
-      { text: "Feedback avançado e detalhado", included: true },
-      { text: "Modelos ENEM e Vestibular", included: true },
-      { text: "Sistema de correção aprimorado", included: true },
-      { text: "Grife no texto (bom/ruim)", included: true },
-      { text: "Insights avançados de melhoria", included: true },
-      { text: "Histórico completo de evolução", included: true },
+      { text: "Feedback detalhado com grifes", included: true },
+      { text: "Insights e histórico completo", included: true },
       { text: "Suporte prioritário", included: true },
     ],
     cta: "Assinar Pro",
@@ -116,9 +98,7 @@ const teacherOffers: TeacherOffer[] = [
       "Até 3 alunos ativos por turma",
       "Turmas ilimitadas",
       "Tarefas com tema e prazo",
-      "Geração de temas por IA",
-      "Correção automática das entregas",
-      "Analytics geral por turma e aluno",
+      "Correções e relatórios por aluno",
     ],
     cta: "Criar conta de professor",
     highlighted: false,
@@ -132,9 +112,7 @@ const teacherOffers: TeacherOffer[] = [
     features: [
       "10 alunos extras por pacote",
       "Pacotes acumuláveis",
-      "Alunos distribuídos entre todas as turmas",
       "Entregas sem consumir o limite diário do aluno",
-      "Correções com o modelo mais avançado",
       "Insights e ranking por tarefa",
     ],
     cta: "Começar como professor",
@@ -151,14 +129,25 @@ const schoolPlan: Plan = {
   features: [
     { text: "Gestão de turmas e professores", included: true },
     { text: "Relatórios por competência e evolução", included: true },
-    { text: "Banco de temas compartilhado", included: true },
     { text: "Correções em volume por turma", included: true },
-    { text: "Acompanhamento individual", included: true },
     { text: "Onboarding personalizado", included: true },
   ],
   cta: "Falar com vendas",
   highlighted: false,
   consultation: true,
+};
+
+const commonFeatures: Record<PricingAudience, string[]> = {
+  student: [
+    "Texto digitado ou foto (OCR)",
+    "Modelos ENEM e vestibular",
+    "Nota por competência",
+  ],
+  teacher: [
+    "Turmas ilimitadas",
+    "Tarefas com tema e prazo",
+    "Correção automática das entregas",
+  ],
 };
 
 function formatPrice(value: number) {
@@ -230,7 +219,7 @@ function PlanCard({
       viewport={{ once: true, margin: "-80px" }}
       transition={{ type: "spring", stiffness: 105, damping: 22, delay: index * 0.08 }}
       className={cn(
-        "relative flex min-w-0 flex-col border border-ink-line bg-paper p-6 sm:p-8 lg:min-h-[43rem]",
+        "relative flex min-w-0 flex-col border border-ink-line bg-paper p-6 sm:p-8 lg:min-h-[34rem]",
         plan.highlighted
           ? "z-10 border-accent bg-[#fffdf9] shadow-card lg:pb-10"
           : "lg:mt-5 lg:scale-[0.97]"
@@ -289,7 +278,7 @@ function TeacherOfferCard({ offer }: { offer: TeacherOffer }) {
   return (
     <article
       className={cn(
-        "relative flex min-w-0 flex-col border bg-paper p-6 sm:p-8 lg:min-h-[35rem]",
+        "relative flex min-w-0 flex-col border bg-paper p-6 sm:p-8 lg:min-h-[30rem]",
         offer.highlighted
           ? "border-accent bg-[#fffdf9] shadow-card"
           : "border-ink-line",
@@ -367,8 +356,7 @@ export function Pricing() {
   return (
     <section id="planos" className="section-padding border-t border-ink-line bg-paper">
       <div className="container-site">
-        <header className="mx-auto mb-14 max-w-3xl text-center lg:mb-20">
-          <p className="eyebrow mb-5">§ VI — Planos</p>
+        <header className="mx-auto mb-10 max-w-3xl text-center lg:mb-14">
           <h2 className="text-balance font-display text-4xl font-semibold leading-[1.05] tracking-[-0.02em] text-ink sm:text-5xl lg:text-6xl">
             {audience === "student"
               ? "Escolha o ritmo da sua evolução."
@@ -439,6 +427,18 @@ export function Pricing() {
               </button>
             </div>
           )}
+
+          <ul
+            className="mt-6 flex flex-col items-center justify-center gap-2 text-sm text-ink-soft sm:flex-row sm:gap-5"
+            aria-label="Recursos incluídos em todas as opções"
+          >
+            {commonFeatures[audience].map((feature) => (
+              <li key={feature} className="flex items-center gap-2">
+                <Check className="size-4 text-accent" strokeWidth={2.25} aria-hidden />
+                <span>{feature}</span>
+              </li>
+            ))}
+          </ul>
         </header>
 
         <div aria-live="polite">
@@ -496,21 +496,12 @@ export function Pricing() {
           </motion.article>
         )}
 
-        <footer className="mx-auto mt-10 flex max-w-4xl flex-col items-center justify-between gap-4 text-sm text-ink-muted sm:flex-row">
+        <footer className="mx-auto mt-10 flex max-w-4xl justify-center text-center text-sm text-ink-muted">
           <p className="font-mono text-[11px] uppercase tracking-[0.09em]">
             {audience === "student"
               ? "7 dias de garantia · cancelamento sem complicação"
               : "Pacotes acumuláveis · cancele quando quiser"}
           </p>
-          <button
-            type="button"
-            onClick={() => setAudience(audience === "student" ? "teacher" : "student")}
-            className="link-underline font-medium text-accent hover:text-accent-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          >
-            {audience === "student"
-              ? "É professor? Veja seus planos →"
-              : "É aluno? Veja seus planos →"}
-          </button>
         </footer>
       </div>
     </section>

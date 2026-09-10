@@ -42,10 +42,10 @@ compatíveis. O Redator organiza a requisição para aproveitar esse mecanismo:
    `essay-correction:<tipo>:<versão>:<modelo>`, sem ID ou dado pessoal;
 5. `store=false` impede o armazenamento da resposta para recuperação posterior.
 
-O prefixo ENEM v2 tem aproximadamente 11 mil caracteres; junto do schema
-estável, forma um bloco fixo substancial para caching. A confirmação real,
-entretanto, deve vir de `cached_input_tokens`: tamanho em caracteres não
-substitui a contagem feita pelo provedor.
+O prefixo ENEM tem aproximadamente 10 mil caracteres e o de vestibular, 12
+mil; junto do schema estável, formam blocos fixos substanciais para caching. A
+confirmação real, entretanto, deve vir de `cached_input_tokens`: tamanho em
+caracteres não substitui a contagem feita pelo provedor.
 
 O cache é uma otimização, nunca uma dependência funcional. Cache miss produz a
 mesma correção e custo normal. Não existe cache próprio no Redis com redações de
@@ -131,7 +131,7 @@ Alertas recomendados:
 
 ## Modelos de avaliação
 
-O fluxo ENEM v2 segue a matriz de cinco competências e a escala discreta de 0,
+O fluxo ENEM segue a matriz de cinco competências e a escala discreta de 0,
 40, 80, 120, 160 ou 200 pontos. A rubrica separa norma formal, atendimento ao
 tema e repertório, projeto argumentativo, coesão e proposta de intervenção para
 evitar dupla penalização. Ela também distingue nota zero global de nota zero na
@@ -150,9 +150,25 @@ e [documentos oficiais da redação do ENEM](https://www.gov.br/inep/pt-br/areas
 O resultado do sistema é uma estimativa pedagógica; não substitui a correção
 oficial realizada segundo o procedimento do Inep.
 
-O fluxo vestibular usa sua rubrica própria. Alterar prompt, schema de saída,
-modelo ou pós-processamento é uma mudança de comportamento e exige regressão
-com um conjunto estável de redações.
+O fluxo de vestibular v3 usa uma rubrica pedagógica normalizada em quatro
+critérios de 25 pontos: adequação à proposta/tema/gênero; autoria, coletânea e
+desenvolvimento; composição, progressão e coesão; modalidade escrita, registro
+e expressividade. A escala total de 0 a 100 pertence ao produto e não deve ser
+apresentada como nota oficial de qualquer instituição.
+
+A proposta completa sempre prevalece. FUVEST e Unicamp podem solicitar gêneros
+e situações comunicativas diferentes da dissertação tradicional; primeira
+pessoa, marcas de oralidade, estrutura e registro precisam ser avaliados em
+função do gênero. Quando apenas um tema curto é informado, o sistema assume uma
+dissertação argumentativa como convenção pedagógica e explicita essa limitação.
+Ele não exige proposta de intervenção do ENEM.
+
+Referências: [Guia de Provas FUVEST 2026](https://www.fuvest.br/wp-content/uploads/fuvest2026_guia-provas.pdf),
+[Resolução do Vestibular Unicamp 2026](https://www.pg.unicamp.br/norma/32142/1)
+e [Manual do Vestibular Unesp 2026](https://documento.vunesp.com.br/documento/stream/NzI0MDI2OA==).
+
+Alterar prompt, schema de saída, modelo ou pós-processamento é uma mudança de
+comportamento e exige regressão com um conjunto estável de redações.
 
 ## Contestação humana
 

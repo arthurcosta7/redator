@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 
 /**
- * Estado da máquina de animação (5 fases em loop).
+ * Estado da máquina de animação em cinco fases, com repetição opcional.
  * - typing: texto é revelado caractere por caractere
  * - analyzing: texto completo fica visível, shimmer de análise
  * - highlighting: cada trecho grifado aparece um a um
@@ -25,6 +25,8 @@ export interface TypewriterConfig {
   phaseDurations: Record<TypewriterPhase, number>;
   /** Quando true, a animação não inicia automaticamente. */
   paused?: boolean;
+  /** Quando false, mantém o resultado final visível após o primeiro ciclo. */
+  loop?: boolean;
 }
 
 export interface TypewriterState {
@@ -51,6 +53,7 @@ export interface UseTypewriterMachine {
 
 const DEFAULT_CONFIG: TypewriterConfig = {
   charsPerSecond: 180,
+  loop: true,
   phaseDurations: {
     typing: 0, // controlado por cps
     analyzing: 1000,
@@ -120,6 +123,7 @@ export function useTypewriterMachine(
   const totalHighlightsRef = useRef(totalHighlights);
   totalHighlightsRef.current = totalHighlights;
   const scoringTotalRef = useRef(0);
+  const tickRef = useRef<FrameRequestCallback | null>(null);
 
   // API pública para reset.
   const restartRef = useRef<() => void>(() => {});
@@ -132,6 +136,9 @@ export function useTypewriterMachine(
       highlightedCount: 0,
       scoredCount: 0,
     }));
+    if (rafRef.current === null && tickRef.current) {
+      rafRef.current = requestAnimationFrame(tickRef.current);
+    }
   };
 
   useEffect(() => {
@@ -152,7 +159,19 @@ export function useTypewriterMachine(
       const cycleEnd = rStart + c.phaseDurations.reveal;
 
       if (elapsed >= cycleEnd) {
-        // Reinicia o loop.
+        if (c.loop === false) {
+          setState((s) => ({
+            ...s,
+            phase: "reveal",
+            typedCount: totalCharsRef.current,
+            highlightedCount: totalHighlightsRef.current,
+            scoredCount: scoringTotalRef.current,
+          }));
+          rafRef.current = null;
+          return;
+        }
+
+        // Reinicia o loop quando a demonstração pede repetição contínua.
         cycleStartRef.current = now;
         setState((s) => ({
           ...s,
@@ -236,6 +255,7 @@ export function useTypewriterMachine(
       rafRef.current = requestAnimationFrame(tick);
     };
 
+    tickRef.current = tick;
     rafRef.current = requestAnimationFrame(tick);
 
     return () => {
@@ -243,6 +263,7 @@ export function useTypewriterMachine(
         cancelAnimationFrame(rafRef.current);
         rafRef.current = null;
       }
+      tickRef.current = null;
     };
   }, [cfg.paused]);
 
