@@ -68,7 +68,7 @@ class Settings(BaseSettings):
     OPENAI_MAX_OUTPUT_TOKENS: int = 4096
     OPENAI_TIMEOUT_SECONDS: int = 90
     OPENAI_MAX_RETRIES: int = 2
-    ESSAY_CORRECTION_PROMPT_VERSION: str = "v1"
+    ESSAY_CORRECTION_PROMPT_VERSION: str = "v2"
     # Preços mudam: revisar periodicamente na página oficial da OpenAI.
     OPENAI_INPUT_PRICE_PER_MILLION: Decimal = Decimal("0.20")
     OPENAI_CACHED_INPUT_PRICE_PER_MILLION: Decimal = Decimal("0.02")

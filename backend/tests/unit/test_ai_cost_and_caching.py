@@ -17,6 +17,7 @@ from app.services.ai.correction_schema import CorrectionAIResponse
 from app.services.ai.correction_service import CorrectionService, TransientAIError
 from app.services.ai.openai_client import create_openai_client
 from app.services.ai.prompt_builder import build_correction_prompt
+from app.services.ai.prompts.enem_prompt import ENEM_SYSTEM_PROMPT
 from app.services.ai.token_usage import normalize_token_usage
 
 
@@ -72,6 +73,20 @@ def test_cache_key_separates_prompt_type_version_and_model(monkeypatch):
 
     assert enem.cache_key == "essay-correction:enem:v-test:model-a"
     assert len({enem.cache_key, vestibular.cache_key, other_model.cache_key}) == 3
+
+
+def test_enem_prompt_preserves_official_scoring_boundaries():
+    """Evita reintroduzir regras que distorcem a matriz do Inep."""
+    prompt = ENEM_SYSTEM_PROMPT.lower()
+
+    assert "0, 40, 80, 120, 160 ou 200" in prompt
+    assert "até sete linhas manuscritas válidas" in prompt
+    assert "recebe 0 apenas na competência 5" in prompt
+    assert "não aplique nota zero global" in prompt
+    assert "não exija originalidade como critério autônomo" in prompt
+    assert "sem o tema, não conclua fuga nem tangenciamento" in prompt
+    assert "mais de 15 anos" not in prompt
+    assert "avaliador oficial do enem" not in prompt
 
 
 def test_structured_output_rejects_missing_and_extra_fields():

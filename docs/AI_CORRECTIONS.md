@@ -42,10 +42,10 @@ compatíveis. O Redator organiza a requisição para aproveitar esse mecanismo:
    `essay-correction:<tipo>:<versão>:<modelo>`, sem ID ou dado pessoal;
 5. `store=false` impede o armazenamento da resposta para recuperação posterior.
 
-O prefixo ENEM atual tem aproximadamente 4 mil caracteres; junto do schema
-estável, a entrada fixa supera com folga o tamanho mínimo esperado para caching.
-A confirmação real, entretanto, deve vir de `cached_input_tokens`: tamanho em
-caracteres não substitui a contagem feita pelo provedor.
+O prefixo ENEM v2 tem aproximadamente 11 mil caracteres; junto do schema
+estável, forma um bloco fixo substancial para caching. A confirmação real,
+entretanto, deve vir de `cached_input_tokens`: tamanho em caracteres não
+substitui a contagem feita pelo provedor.
 
 O cache é uma otimização, nunca uma dependência funcional. Cache miss produz a
 mesma correção e custo normal. Não existe cache próprio no Redis com redações de
@@ -131,7 +131,28 @@ Alertas recomendados:
 
 ## Modelos de avaliação
 
-O fluxo ENEM avalia competências e nota na escala correspondente. O fluxo vestibular usa seu rubric próprio. Alterar prompt, schema de saída, modelo ou pós-processamento é uma mudança de comportamento e exige regressão com um conjunto estável de redações.
+O fluxo ENEM v2 segue a matriz de cinco competências e a escala discreta de 0,
+40, 80, 120, 160 ou 200 pontos. A rubrica separa norma formal, atendimento ao
+tema e repertório, projeto argumentativo, coesão e proposta de intervenção para
+evitar dupla penalização. Ela também distingue nota zero global de nota zero na
+Competência 5: proposta que viole direitos humanos não elimina automaticamente
+a redação inteira.
+
+Como a entrada pode ser digitada ou extraída por OCR, o agente não pode inferir
+com segurança número de linhas manuscritas, rasuras, identificação ou
+legibilidade. Nesses casos, a correção deve registrar a limitação em vez de
+inventar uma causa de anulação. Sem tema informado, também não se diagnostica
+fuga ou tangenciamento.
+
+Base normativa: [Matrizes de Referência do ENEM 2026](https://www.gov.br/inep/pt-br/centrais-de-conteudo/acervo-linha-editorial/publicacoes-institucionais/avaliacoes-e-exames-da-educacao-basica/matrizes-de-referencia-enem),
+[Cartilha do Participante 2025](https://www.gov.br/inep/pt-br/centrais-de-conteudo/acervo-linha-editorial/publicacoes-institucionais/avaliacoes-e-exames-da-educacao-basica/redacao-do-enem-2025-cartilha-do-participante)
+e [documentos oficiais da redação do ENEM](https://www.gov.br/inep/pt-br/areas-de-atuacao/avaliacao-e-exames-educacionais/enem/outros-documentos).
+O resultado do sistema é uma estimativa pedagógica; não substitui a correção
+oficial realizada segundo o procedimento do Inep.
+
+O fluxo vestibular usa sua rubrica própria. Alterar prompt, schema de saída,
+modelo ou pós-processamento é uma mudança de comportamento e exige regressão
+com um conjunto estável de redações.
 
 ## Contestação humana
 
