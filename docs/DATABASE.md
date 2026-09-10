@@ -31,6 +31,18 @@ Tabelas atuais: `users`, `refresh_tokens`, `subscriptions`, `essays`, `correctio
 - Submissão é única por `(tarefa_id, student_id)`.
 - Chaves estrangeiras e filtros de proprietário sustentam integridade e isolamento.
 
+## Métricas da correção por IA
+
+`corrections` mantém `ai_model_used`, `prompt_version`,
+`openai_response_id`, tokens de entrada/cache/escrita/saída/total,
+`cache_hit_ratio`, `estimated_cost_usd` em `NUMERIC(12,8)` e duração. Os
+campos novos são anuláveis para preservar correções históricas. Competências,
+grifes e insights continuam cifrados; a telemetria não armazena prompt, tema,
+redação ou dado pessoal.
+
+A migration `f5a7b9c1d320` é aditiva e deve ser aplicada antes de subir API e
+worker que gravam essas colunas.
+
 ## Migrações
 
 ```bash

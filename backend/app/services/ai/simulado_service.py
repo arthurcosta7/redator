@@ -18,6 +18,7 @@ from openai import AsyncOpenAI
 
 from app.core.config import settings
 from app.core.logging import get_logger
+from app.services.ai.openai_client import create_openai_client
 
 logger = get_logger(__name__)
 
@@ -71,11 +72,7 @@ Os 5 temas devem ser distintos: literatura e sociedade, filosofia prática, ciê
 
 class SimuladoService:
     def __init__(self, client: AsyncOpenAI | None = None) -> None:
-        self.client = client or AsyncOpenAI(
-            api_key=settings.OPENAI_API_KEY,
-            timeout=settings.OPENAI_TIMEOUT_SECONDS,
-            max_retries=settings.OPENAI_MAX_RETRIES,
-        )
+        self.client = client or create_openai_client()
 
     async def get_simulado(self, essay_type: str, redis_client: Any) -> dict[str, Any]:
         """

@@ -29,11 +29,14 @@ Os limites são configuráveis por ambiente; os padrões atuais são:
 
 | Plano | Correções próprias/dia | Modelo de IA | Recursos adicionais |
 |---|---:|---|---|
-| Free | 1 | `OPENAI_FREE_MODEL` | Correção essencial |
-| Standard | 3 | `OPENAI_PAID_MODEL` | Insights e simulados |
-| Pro | 10 | `OPENAI_PAID_MODEL` | Insights e simulados |
+| Free | 1 | `OPENAI_CORRECTION_MODEL` | Correção essencial |
+| Standard | 3 | `OPENAI_CORRECTION_MODEL` | Insights e simulados |
+| Pro | 10 | `OPENAI_CORRECTION_MODEL` | Insights e simulados |
 
-O limite Pro não é ilimitado no backend. Tarefas enviadas por uma turma ficam fora dessa cota. Benefícios e preços comerciais devem permanecer sincronizados entre configuração, Stripe, landing page e dashboard.
+O modelo único de correção maximiza o prefixo compartilhado e pode ser trocado
+centralmente. O limite Pro não é ilimitado no backend. Tarefas enviadas por uma
+turma ficam fora dessa cota. Benefícios e preços comerciais devem permanecer
+sincronizados entre configuração, Stripe, landing page e dashboard.
 
 ## Estados importantes
 

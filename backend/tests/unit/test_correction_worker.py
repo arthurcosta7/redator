@@ -1,4 +1,5 @@
 """Estados e recuperação do worker assíncrono de correções."""
+
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -8,6 +9,7 @@ from arq import Retry
 import app.workers.correction as worker
 from app.core.config import settings
 from app.db.models.essay import EssayStatus
+from app.services.ai.correction_service import TransientAIError
 
 
 class FakeSession:
@@ -46,9 +48,7 @@ def install_session(monkeypatch, session):
 
 
 def essay(status=EssayStatus.PENDING):
-    return SimpleNamespace(
-        id=uuid4(), user_id=uuid4(), status=status, error_message="old error"
-    )
+    return SimpleNamespace(id=uuid4(), user_id=uuid4(), status=status, error_message="old error")
 
 
 @pytest.mark.asyncio
@@ -114,7 +114,7 @@ async def test_transient_provider_failure_requests_retry(monkeypatch):
     install_session(monkeypatch, session)
 
     async def fail(**_kwargs):
-        raise TimeoutError("provider")
+        raise TransientAIError("provider")
 
     monkeypatch.setattr(
         worker,
@@ -155,6 +155,36 @@ async def test_terminal_failure_marks_error_and_releases_personal_quota(monkeypa
     assert result == {"status": "error"}
     assert item.status == EssayStatus.ERROR
     assert released == [(str(item.user_id), redis)]
+
+
+@pytest.mark.asyncio
+async def test_permanent_failure_is_not_retried(monkeypatch):
+    item = essay()
+    owner = SimpleNamespace(id=item.user_id)
+    session = FakeSession([item, None], [owner, item])
+    install_session(monkeypatch, session)
+
+    async def fail(**_kwargs):
+        raise ValueError("invalid structured output")
+
+    monkeypatch.setattr(
+        worker,
+        "CorrectionService",
+        lambda: SimpleNamespace(correct_essay=fail),
+    )
+
+    async def release(*_args):
+        return None
+
+    monkeypatch.setattr(worker, "release_daily_correction_slot", release)
+
+    result = await worker.process_correction(
+        {"job_try": 1, "redis": object()},
+        str(item.id),
+    )
+
+    assert result == {"status": "error"}
+    assert item.status == EssayStatus.ERROR
 
 
 @pytest.mark.asyncio

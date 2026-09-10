@@ -13,14 +13,14 @@ Documentos relacionados:
 
 | Camada | Ferramentas | Quantidade | Objetivo |
 |---|---|---:|---|
-| Backend unitário/contrato | pytest, pytest-asyncio, HTTPX | 120 aprovados | Regras, segurança, IA, fila, adaptadores e contrato HTTP |
+| Backend unitário/contrato | pytest, pytest-asyncio, HTTPX | 140 aprovados, 1 opcional ignorado | Regras, segurança, IA, fila, adaptadores e contrato HTTP |
 | Integração Redis | pytest + Redis real | 1 opcional | Atomicidade real de cotas e rate limiting |
 | Frontend unitário | Vitest, Testing Library, jsdom | 28 aprovados | Componentes, estados, middleware e cliente HTTP |
 | E2E | Playwright | 16 aprovados | 8 jornadas em desktop Chromium e Pixel 7 |
 | Acessibilidade | Axe + Playwright | 2 execuções | Violações críticas/sérias na landing desktop/mobile |
 | Carga | Locust | Sob demanda | Smoke, carga, pico, soak e SLO |
 
-Baseline verificada em 8 de setembro de 2026. As quantidades mudam conforme novos casos são adicionados; os comandos e critérios são a fonte de verdade.
+Baseline verificada em 10 de setembro de 2026. As quantidades mudam conforme novos casos são adicionados; os comandos e critérios são a fonte de verdade.
 
 ## Matriz de risco
 
@@ -29,7 +29,7 @@ Baseline verificada em 8 de setembro de 2026. As quantidades mudam conforme novo
 | Senhas, JWT, cookies e tokens | Sim | Sim | Login simulado | Não |
 | Autorização, IDOR e papéis | Sim | Sim | Rota protegida | Não |
 | Validação, XSS, injeção e upload | Sim | Sim | Validação de formulário | Não |
-| Correção por IA e seleção de modelo | Sim, OpenAI simulada | Fila/worker | Não chama IA real | Escrita desativada por padrão |
+| Correção por IA, Prompt Caching, Structured Outputs e custo | Sim, OpenAI simulada | Fila/worker | Não chama IA real | Escrita desativada por padrão |
 | Contestação e revisão humana | Sim | Sim | Componente unitário | Não |
 | Stripe, Resend e Google Vision | Adaptadores simulados | Webhook/erros | Não | Não |
 | Planos de aluno/professor | Sim | Rotas críticas | Desktop/mobile | Leitura |
@@ -65,7 +65,7 @@ Cobertura de referência:
 
 | Área | Cobertura observada |
 |---|---:|
-| Backend global | 56,19% |
+| Backend global | 59,69% |
 | Worker de correções | 100% |
 | Email | 100% |
 | Stripe | 97% |

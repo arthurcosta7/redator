@@ -1,22 +1,17 @@
-"""
-correction_service.py — Serviço de correção de redações com OpenAI
+"""Serviço de correção de redações com OpenAI e telemetria de custo."""
 
-Responsável por:
-1. Montar o prompt correto baseado no tipo de redação
-2. Chamar a Responses API da OpenAI
-3. Parsear a resposta JSON
-4. Ajustar o nível de detalhe baseado no plano do usuário
-5. Salvar o resultado no banco
-"""
 import hashlib
 import json
 import math
 import re
 import time
+from decimal import Decimal
+from typing import Any, cast
 
 import bleach
 import openai
 from openai import AsyncOpenAI
+from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -24,32 +19,32 @@ from app.core.logging import get_logger
 from app.db.models.correction import Correction
 from app.db.models.essay import Essay, EssayStatus, EssayType
 from app.db.models.user import User
-from app.services.ai.prompts.enem_prompt import (
-    ENEM_SYSTEM_PROMPT,
-    build_enem_correction_prompt,
+from app.services.ai.correction_schema import (
+    CORRECTION_RESPONSE_FORMAT,
+    CorrectionAIResponse,
 )
-from app.services.ai.prompts.vestibular_prompt import (
-    VESTIBULAR_SYSTEM_PROMPT,
-    build_vestibular_correction_prompt,
-)
+from app.services.ai.openai_client import create_openai_client
+from app.services.ai.prompt_builder import build_correction_prompt
+from app.services.ai.token_usage import normalize_token_usage
 
 logger = get_logger(__name__)
 
 
-class CorrectionService:
-    """
-    Serviço que gerencia a correção de redações usando a OpenAI.
+class InvalidAIResponseError(ValueError):
+    """Resposta concluída, mas inválida e que não deve gerar retry pago."""
 
-    O plano gratuito usa GPT-5.6 Luna; Standard, Pro e tarefas usam
-    GPT-5.4 mini.
-    """
+
+class TransientAIError(RuntimeError):
+    """Falha temporária de rede, limite ou provedor que admite retry."""
+
+
+class CorrectionService:
+    """Corrige, valida e persiste redações sem confiar na saída do modelo."""
 
     def __init__(self, client: AsyncOpenAI | None = None) -> None:
-        self.client = client or AsyncOpenAI(
-            api_key=settings.OPENAI_API_KEY,
-            timeout=settings.OPENAI_TIMEOUT_SECONDS,
-            max_retries=settings.OPENAI_MAX_RETRIES,
-        )
+        # O worker controla retries. Desativá-los na SDK evita multiplicar
+        # silenciosamente chamadas pagas dentro de uma tentativa do job.
+        self.client = client or create_openai_client(max_retries=0)
 
     async def correct_essay(
         self,
@@ -58,40 +53,17 @@ class CorrectionService:
         db: AsyncSession,
         is_assignment: bool = False,
     ) -> Correction:
-        """
-        Corrige uma redação e salva o resultado no banco.
-
-        Processo:
-        1. Seleciona o prompt correto (ENEM ou Vestibular)
-        2. Chama a Responses API da OpenAI
-        3. Parseia o JSON retornado
-        4. Ajusta o nível de detalhe baseado no plano do usuário
-        5. Salva no banco
-        """
+        """Executa uma chamada, mede seu custo e prepara a transação no banco."""
         start_time = time.perf_counter()
 
         try:
-            # Seleciona prompts baseado no tipo de redação
-            if essay.essay_type == EssayType.ENEM:
-                system_prompt = ENEM_SYSTEM_PROMPT
-                user_message = build_enem_correction_prompt(
-                    essay_content=essay.content,
-                    theme=essay.theme,
-                )
-                max_score = 1000.0
-            else:
-                system_prompt = VESTIBULAR_SYSTEM_PROMPT
-                user_message = build_vestibular_correction_prompt(
-                    essay_content=essay.content,
-                    theme=essay.theme,
-                )
-                max_score = 100.0
-
-            # Tarefas usam o modelo pago; redações individuais respeitam o plano.
-            model = (
-                settings.OPENAI_PAID_MODEL
-                if is_assignment or user.plan.value != "free"
-                else settings.OPENAI_FREE_MODEL
+            model = settings.OPENAI_CORRECTION_MODEL
+            max_score = 1000.0 if essay.essay_type == EssayType.ENEM else 100.0
+            prompt = build_correction_prompt(
+                essay_type=essay.essay_type,
+                essay_content=essay.content,
+                theme=essay.theme,
+                model=model,
             )
 
             logger.info(
@@ -99,46 +71,67 @@ class CorrectionService:
                 essay_id=str(essay.id),
                 essay_type=essay.essay_type.value,
                 model=model,
+                prompt_version=prompt.version,
+                is_assignment=is_assignment,
             )
 
+            # O schema é gerado pelo Pydantic em runtime; os casts ficam
+            # restritos à fronteira tipada da SDK.
+            request_input = cast(
+                Any,
+                [
+                    {"role": "developer", "content": prompt.cacheable_prefix},
+                    {"role": "user", "content": prompt.variable_content},
+                ],
+            )
+            response_text_config = cast(
+                Any,
+                {"format": CORRECTION_RESPONSE_FORMAT, "verbosity": "low"},
+            )
             response = await self.client.responses.create(
                 model=model,
                 max_output_tokens=settings.OPENAI_MAX_OUTPUT_TOKENS,
                 reasoning={"effort": "none"},
                 safety_identifier=hashlib.sha256(str(user.id).encode()).hexdigest(),
                 store=False,
-                input=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_message},
-                ],
-                text={"format": {"type": "json_object"}},
+                # A ordem é deliberada: tudo que se repete vem primeiro; tema e
+                # redação ficam por último para preservar o prefixo cacheável.
+                input=request_input,
+                prompt_cache_key=prompt.cache_key,
+                text=response_text_config,
             )
 
             if response.status == "incomplete":
-                raise ValueError("Resposta da IA incompleta")
+                raise InvalidAIResponseError("Resposta da IA incompleta")
 
-            response_text = response.output_text
-
-            # Parseia o JSON
-            correction_data = self._parse_correction_response(response_text, essay.essay_type)
-
+            correction_data = self._parse_correction_response(
+                response.output_text, essay.essay_type
+            )
+            usage = normalize_token_usage(response.usage)
             processing_time = time.perf_counter() - start_time
 
-            # Ajusta detalhe baseado no plano
-            highlights = correction_data.get("highlights", [])
+            highlights = correction_data["highlights"]
             if user.plan.value == "free":
-                highlights = []  # Plano Free não tem grifes
+                highlights = []
 
-            # Cria o registro de correção no banco
             correction = Correction(
                 essay_id=essay.id,
                 user_id=user.id,
-                total_score=float(correction_data.get("total_score", 0)),
+                total_score=float(correction_data["total_score"]),
                 max_score=max_score,
-                competencies=correction_data.get("competencies", []),
+                competencies=correction_data["competencies"],
                 highlights=highlights,
-                insights=correction_data.get("insights", {}),
+                insights=correction_data["insights"],
                 ai_model_used=model,
+                prompt_version=prompt.version,
+                openai_response_id=getattr(response, "id", None),
+                input_tokens=usage.input_tokens,
+                cached_input_tokens=usage.cached_input_tokens,
+                cache_write_tokens=usage.cache_write_tokens,
+                output_tokens=usage.output_tokens,
+                total_tokens=usage.total_tokens,
+                estimated_cost_usd=usage.estimated_cost_usd,
+                cache_hit_ratio=usage.cache_hit_ratio,
                 processing_time_seconds=round(processing_time, 2),
             )
 
@@ -150,36 +143,62 @@ class CorrectionService:
                 essay_id=str(essay.id),
                 score=correction.total_score,
                 max_score=max_score,
-                processing_time=round(processing_time, 2),
-                input_tokens=response.usage.input_tokens if response.usage else 0,
-                output_tokens=response.usage.output_tokens if response.usage else 0,
+                duration_ms=round(processing_time * 1000),
+                request_id=getattr(response, "id", None),
+                model=model,
+                prompt_version=prompt.version,
+                input_tokens=usage.input_tokens,
+                cached_input_tokens=usage.cached_input_tokens,
+                cache_write_tokens=usage.cache_write_tokens,
+                output_tokens=usage.output_tokens,
+                total_tokens=usage.total_tokens,
+                cache_hit_ratio=str(usage.cache_hit_ratio.quantize(Decimal("0.000001"))),
+                estimated_cost_usd=str(usage.estimated_cost_usd.quantize(Decimal("0.00000001"))),
             )
-
             return correction
 
-        except json.JSONDecodeError as e:
-            logger.error("erro_parse_resposta_ia", essay_id=str(essay.id), error=str(e))
+        except InvalidAIResponseError as exc:
+            logger.error(
+                "erro_parse_resposta_ia",
+                essay_id=str(essay.id),
+                error_type=type(exc).__name__,
+            )
             essay.status = EssayStatus.ERROR
             essay.error_message = "Erro ao processar resposta da IA"
             raise
 
-        except openai.APIStatusError as e:
+        except (
+            openai.APITimeoutError,
+            openai.APIConnectionError,
+            openai.RateLimitError,
+        ) as exc:
             logger.error(
-                "erro_api_openai",
+                "erro_transitorio_openai",
                 essay_id=str(essay.id),
-                status_code=e.status_code,
-                error=str(e),
+                error_type=type(exc).__name__,
             )
             essay.status = EssayStatus.ERROR
             essay.error_message = "Serviço de IA temporariamente indisponível"
+            raise TransientAIError("Falha temporária da OpenAI") from exc
+
+        except openai.APIStatusError as exc:
+            logger.error(
+                "erro_api_openai",
+                essay_id=str(essay.id),
+                status_code=exc.status_code,
+                error_type=type(exc).__name__,
+            )
+            essay.status = EssayStatus.ERROR
+            essay.error_message = "Serviço de IA temporariamente indisponível"
+            if exc.status_code >= 500:
+                raise TransientAIError("Falha temporária da OpenAI") from exc
             raise
 
-        except Exception as e:
+        except Exception as exc:
             logger.error(
                 "erro_correcao_ia",
                 essay_id=str(essay.id),
-                error=str(e),
-                error_type=type(e).__name__,
+                error_type=type(exc).__name__,
             )
             essay.status = EssayStatus.ERROR
             essay.error_message = "Serviço de IA temporariamente indisponível"
@@ -187,47 +206,30 @@ class CorrectionService:
 
     def _parse_correction_response(
         self, response_text: str, essay_type: EssayType
-    ) -> dict:
-        """
-        Parseia e valida a resposta JSON da OpenAI.
-        """
+    ) -> dict[str, Any]:
+        """Valida schema, regras de pontuação e sanitiza todo texto retornado."""
         text = response_text.strip()
-
-        # Remove markdown code blocks se presentes (fallback de segurança)
         if text.startswith("```"):
             lines = text.split("\n")
-            # Remove primeira linha (```json) e última (```)
             text = "\n".join(lines[1:-1] if lines[-1] == "```" else lines[1:])
 
-        data = json.loads(
-            text,
-            parse_constant=lambda value: (_ for _ in ()).throw(
-                ValueError(f"Numero JSON nao finito: {value}")
-            ),
-        )
+        try:
+            raw_data = json.loads(
+                text,
+                parse_constant=lambda value: (_ for _ in ()).throw(
+                    ValueError(f"Número JSON não finito: {value}")
+                ),
+            )
+            data = CorrectionAIResponse.model_validate(raw_data).model_dump()
+            self._validate_scores(data, essay_type)
+        except (json.JSONDecodeError, ValidationError, ValueError) as exc:
+            raise InvalidAIResponseError("Resposta estruturada inválida") from exc
 
-        if not isinstance(data, dict):
-            raise ValueError("Resposta da IA deve ser um objeto JSON")
-
-        # Validações básicas da estrutura
-        required_fields = ["total_score", "competencies", "highlights", "insights"]
-        for field in required_fields:
-            if field not in data:
-                raise ValueError(f"Campo obrigatório ausente na resposta da IA: {field}")
-
-        self._validate_scores(data, essay_type)
-
-        if not isinstance(data["highlights"], list):
-            data["highlights"] = []  # Garante lista mesmo se IA retornar null
-
-        if not isinstance(data["insights"], dict):
-            raise ValueError("Campo 'insights' deve ser um objeto")
-
-        return self._sanitize_ai_output(data)
+        return cast(dict[str, Any], self._sanitize_ai_output(data))
 
     @staticmethod
-    def _validate_scores(data: dict, essay_type: EssayType) -> None:
-        """Trata a resposta do modelo como entrada nao confiavel."""
+    def _validate_scores(data: dict[str, Any], essay_type: EssayType) -> None:
+        """Aplica invariantes de negócio além do schema estrutural da API."""
         if essay_type == EssayType.ENEM:
             expected_count = 5
             expected_max = 200.0
@@ -239,61 +241,41 @@ class CorrectionService:
             allowed_scores = {0.0, 5.0, 10.0, 15.0, 20.0, 25.0}
             max_total = 100.0
 
-        competencies = data.get("competencies")
-        if not isinstance(competencies, list) or len(competencies) != expected_count:
-            raise ValueError(f"A correcao deve conter {expected_count} competencias")
+        competencies = data["competencies"]
+        if len(competencies) != expected_count:
+            raise ValueError(f"A correção deve conter {expected_count} competências")
 
-        total_score = data.get("total_score")
-        if (
-            isinstance(total_score, bool)
-            or not isinstance(total_score, (int, float))
-            or not math.isfinite(float(total_score))
-            or not 0 <= float(total_score) <= max_total
-        ):
-            raise ValueError("Nota total invalida na resposta da IA")
+        total_score = data["total_score"]
+        if not math.isfinite(total_score) or not 0 <= total_score <= max_total:
+            raise ValueError("Nota total inválida na resposta da IA")
+        if data["is_zero"] != (total_score == 0):
+            raise ValueError("Indicador de nota zero diverge da nota total")
+        if data["is_zero"] and not data["zero_reason"]:
+            raise ValueError("Motivo obrigatório para nota zero")
+        if not data["is_zero"] and data["zero_reason"] is not None:
+            raise ValueError("Motivo de nota zero deve ser nulo quando a nota é positiva")
 
         seen_numbers: set[int] = set()
         calculated_total = 0.0
-        required_keys = {
-            "number", "name", "score", "max_score", "feedback", "strengths", "improvements"
-        }
         for competency in competencies:
-            if not isinstance(competency, dict) or not required_keys.issubset(competency):
-                raise ValueError("Competencia incompleta na resposta da IA")
             number = competency["number"]
             score = competency["score"]
-            max_score = competency["max_score"]
-            if isinstance(number, bool) or not isinstance(number, int):
-                raise ValueError("Numero de competencia invalido")
             if number in seen_numbers or not 1 <= number <= expected_count:
-                raise ValueError("Competencias duplicadas ou fora da faixa")
-            if (
-                isinstance(score, bool)
-                or not isinstance(score, (int, float))
-                or not math.isfinite(float(score))
-                or float(score) not in allowed_scores
-            ):
-                raise ValueError(f"Nota invalida na competencia {number}")
-            if max_score != expected_max:
-                raise ValueError(f"Nota maxima invalida na competencia {number}")
-            if not isinstance(competency["name"], str) or not isinstance(
-                competency["feedback"], str
-            ):
-                raise ValueError("Textos da competencia sao invalidos")
-            if not isinstance(competency["strengths"], list) or not isinstance(
-                competency["improvements"], list
-            ):
-                raise ValueError("Listas da competencia sao invalidas")
+                raise ValueError("Competências duplicadas ou fora da faixa")
+            if not math.isfinite(score) or score not in allowed_scores:
+                raise ValueError(f"Nota inválida na competência {number}")
+            if competency["max_score"] != expected_max:
+                raise ValueError(f"Nota máxima inválida na competência {number}")
             seen_numbers.add(number)
-            calculated_total += float(score)
+            calculated_total += score
 
         if seen_numbers != set(range(1, expected_count + 1)):
-            raise ValueError("Conjunto de competencias incompleto")
-        if abs(calculated_total - float(total_score)) > 0.01:
-            raise ValueError("Nota total difere da soma das competencias")
+            raise ValueError("Conjunto de competências incompleto")
+        if abs(calculated_total - total_score) > 0.01:
+            raise ValueError("Nota total difere da soma das competências")
 
     @classmethod
-    def _sanitize_ai_output(cls, value):
+    def _sanitize_ai_output(cls, value: Any) -> Any:
         """Remove HTML e controles de qualquer texto devolvido pelo modelo."""
         if isinstance(value, str):
             cleaned = bleach.clean(value, tags=[], strip=True)

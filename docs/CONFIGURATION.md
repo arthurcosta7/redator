@@ -11,7 +11,8 @@ Em desenvolvimento, copie `backend/.env.example` para `backend/.env` e `frontend
 | Rede | `ALLOWED_ORIGINS`, `FRONTEND_URL` |
 | PostgreSQL | `DATABASE_URL`, `DATABASE_POOL_SIZE`, `DATABASE_MAX_OVERFLOW`, `DATABASE_POOL_TIMEOUT_SECONDS`, `DATABASE_POOL_RECYCLE_SECONDS` |
 | Redis | `REDIS_URL`, `REDIS_MAX_CONNECTIONS`, `REDIS_SOCKET_TIMEOUT_SECONDS`, `REDIS_CONNECT_TIMEOUT_SECONDS` |
-| OpenAI | `OPENAI_API_KEY`, `OPENAI_FREE_MODEL`, `OPENAI_PAID_MODEL`, `OPENAI_MAX_OUTPUT_TOKENS`, `OPENAI_TIMEOUT_SECONDS`, `OPENAI_MAX_RETRIES` |
+| OpenAI | `OPENAI_API_KEY`, `OPENAI_CORRECTION_MODEL`, `OPENAI_FREE_MODEL`, `OPENAI_PAID_MODEL`, `OPENAI_MAX_OUTPUT_TOKENS`, `OPENAI_TIMEOUT_SECONDS`, `OPENAI_MAX_RETRIES` |
+| Custo/cache de IA | `ESSAY_CORRECTION_PROMPT_VERSION`, `OPENAI_INPUT_PRICE_PER_MILLION`, `OPENAI_CACHED_INPUT_PRICE_PER_MILLION`, `OPENAI_OUTPUT_PRICE_PER_MILLION`, `OPENAI_CACHE_WRITE_MULTIPLIER` |
 | Fila | `CORRECTION_WORKER_MAX_JOBS`, `CORRECTION_JOB_TIMEOUT_SECONDS`, `CORRECTION_JOB_MAX_TRIES`, `CORRECTION_JOB_EXPIRES_SECONDS` |
 | OCR | `GOOGLE_APPLICATION_CREDENTIALS`, `OCR_TIMEOUT_SECONDS`, `OCR_MAX_CONCURRENCY` |
 | Stripe | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, quatro preços de assinatura e `STRIPE_PRICE_TEACHER_PACKAGE` |
@@ -30,6 +31,11 @@ Listas como `ALLOWED_ORIGINS` e `ALLOWED_IMAGE_TYPES` devem usar JSON válido. E
 | `NEXT_PUBLIC_APP_NAME` | Nome exibido | Pública |
 
 Tudo com prefixo `NEXT_PUBLIC_` é incorporado ao bundle. Nunca coloque segredo, chave privada ou credencial nesse namespace.
+
+`OPENAI_API_KEY` existe somente no backend e no worker. Não a cadastre na
+Vercel do frontend nem crie uma variável `NEXT_PUBLIC_OPENAI_API_KEY`. Ao
+alterar prompt, schema ou modelo de correção, incremente a versão lógica para
+separar cache e telemetria.
 
 ## Segredos e rotação
 

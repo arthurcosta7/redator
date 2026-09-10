@@ -30,9 +30,13 @@ Esses testes devem crescer sempre que surgir uma vulnerabilidade, uma nova permi
 
 | Arquivo | Responsabilidade principal |
 | --- | --- |
-| `test_ai_services.py` | Construção de prompts, seleção de modelos, respostas válidas e inválidas, erros dos provedores e normalização do resultado. |
+| `test_ai_services.py` | Integração simulada da Responses API, modelo de correção, persistência de telemetria, respostas válidas e inválidas. |
+| `test_ai_cost_and_caching.py` | Estabilidade e isolamento do prefixo, versionamento da cache key, schema estrito, cache miss/hit/write, fórmula de custo, ausência de chave e timeout. |
 
-As chamadas aos provedores são simuladas. A suíte padrão não consome créditos nem depende de serviços externos.
+As chamadas aos provedores são simuladas. A suíte padrão não consome créditos
+nem depende de serviços externos. A efetividade do cache em produção deve ser
+confirmada por `cached_input_tokens`; o teste prova a estrutura da requisição e
+a matemática, não o estado interno do provedor.
 
 ### Contestação de correção
 

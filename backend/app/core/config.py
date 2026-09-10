@@ -7,6 +7,7 @@ nunca hard-coded no código.
 """
 import base64
 import ipaddress
+from decimal import Decimal
 from functools import lru_cache
 from typing import Literal
 from urllib.parse import parse_qs, urlparse
@@ -61,11 +62,18 @@ class Settings(BaseSettings):
     # ─── OpenAI API (IA) ─────────────────────────────────────────
     # OBRIGATÓRIO: Obtenha em platform.openai.com
     OPENAI_API_KEY: str = ""
+    OPENAI_CORRECTION_MODEL: str = "gpt-5.6-luna"
     OPENAI_FREE_MODEL: str = "gpt-5.6-luna"
     OPENAI_PAID_MODEL: str = "gpt-5.4-mini"
     OPENAI_MAX_OUTPUT_TOKENS: int = 4096
     OPENAI_TIMEOUT_SECONDS: int = 90
     OPENAI_MAX_RETRIES: int = 2
+    ESSAY_CORRECTION_PROMPT_VERSION: str = "v1"
+    # Preços mudam: revisar periodicamente na página oficial da OpenAI.
+    OPENAI_INPUT_PRICE_PER_MILLION: Decimal = Decimal("0.20")
+    OPENAI_CACHED_INPUT_PRICE_PER_MILLION: Decimal = Decimal("0.02")
+    OPENAI_OUTPUT_PRICE_PER_MILLION: Decimal = Decimal("1.20")
+    OPENAI_CACHE_WRITE_MULTIPLIER: Decimal = Decimal("1.25")
 
     # ─── Processamento assíncrono ────────────────────────────────
     CORRECTION_WORKER_MAX_JOBS: int = 2
@@ -162,6 +170,7 @@ class Settings(BaseSettings):
         "REDIS_MAX_CONNECTIONS",
         "REDIS_SOCKET_TIMEOUT_SECONDS",
         "REDIS_CONNECT_TIMEOUT_SECONDS",
+        "OPENAI_MAX_OUTPUT_TOKENS",
         "OPENAI_TIMEOUT_SECONDS",
         "CORRECTION_WORKER_MAX_JOBS",
         "CORRECTION_JOB_TIMEOUT_SECONDS",
@@ -174,6 +183,24 @@ class Settings(BaseSettings):
     def validate_positive_resource_limits(cls, v: int) -> int:
         if v < 1:
             raise ValueError("Limites de recursos e timeouts devem ser maiores que zero")
+        return v
+
+    @field_validator(
+        "OPENAI_INPUT_PRICE_PER_MILLION",
+        "OPENAI_CACHED_INPUT_PRICE_PER_MILLION",
+        "OPENAI_OUTPUT_PRICE_PER_MILLION",
+    )
+    @classmethod
+    def validate_non_negative_prices(cls, v: Decimal) -> Decimal:
+        if v < 0:
+            raise ValueError("Preços da OpenAI não podem ser negativos")
+        return v
+
+    @field_validator("OPENAI_CACHE_WRITE_MULTIPLIER")
+    @classmethod
+    def validate_positive_multiplier(cls, v: Decimal) -> Decimal:
+        if v <= 0:
+            raise ValueError("Multiplicador de escrita do cache deve ser positivo")
         return v
 
     @model_validator(mode="after")

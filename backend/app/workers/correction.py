@@ -1,5 +1,5 @@
 """Worker ARQ que processa correções com concorrência e tentativas limitadas."""
-from typing import Any
+from typing import Any, ClassVar
 from uuid import UUID
 
 from arq import Retry
@@ -13,7 +13,7 @@ from app.db.models.correction import Correction
 from app.db.models.essay import Essay, EssayStatus
 from app.db.models.user import User
 from app.db.session import AsyncSessionLocal
-from app.services.ai.correction_service import CorrectionService
+from app.services.ai.correction_service import CorrectionService, TransientAIError
 
 logger = get_logger(__name__)
 
@@ -65,7 +65,12 @@ async def process_correction(
             # reagendar o job; cada tentativa recomeça a partir do banco.
             await db.rollback()
             job_try = int(ctx.get("job_try", 1))
-            if job_try < settings.CORRECTION_JOB_MAX_TRIES:
+            # Só falhas transitórias são repetidas; erros permanentes não
+            # devem gerar uma segunda cobrança.
+            if (
+                isinstance(exc, TransientAIError)
+                and job_try < settings.CORRECTION_JOB_MAX_TRIES
+            ):
                 logger.warning(
                     "correcao_reagendada",
                     essay_id=essay_id,
@@ -93,7 +98,7 @@ async def process_correction(
 
 
 class WorkerSettings:
-    functions = [process_correction]
+    functions: ClassVar[list[Any]] = [process_correction]
     redis_settings = get_arq_redis_settings()
     queue_name = "arq:queue:corrections"
     max_jobs = settings.CORRECTION_WORKER_MAX_JOBS

@@ -6,9 +6,10 @@ Os dados de competências e grifes são serializados como JSON e cifrados
 para proteger feedbacks e trechos da redação em repouso.
 """
 import uuid
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Float, ForeignKey, String
+from sqlalchemy import Float, ForeignKey, Integer, Numeric, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -90,6 +91,19 @@ class Correction(UUIDMixin, TimestampMixin, Base):
     # Modelo de IA usado (para rastreabilidade)
     ai_model_used: Mapped[str | None] = mapped_column(
         String(100), nullable=True
+    )
+    prompt_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    openai_response_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    cached_input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    cache_write_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    total_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    estimated_cost_usd: Mapped[Decimal | None] = mapped_column(
+        Numeric(12, 8), nullable=True
+    )
+    cache_hit_ratio: Mapped[Decimal | None] = mapped_column(
+        Numeric(8, 6), nullable=True
     )
     # Tempo de processamento em segundos
     processing_time_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)

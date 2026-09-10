@@ -24,9 +24,15 @@ class FakeResponses:
     async def create(self, **kwargs):
         self.calls.append(kwargs)
         return SimpleNamespace(
+            id="resp_test_123",
             status=self.status,
             output_text=self.output_text,
-            usage=SimpleNamespace(input_tokens=100, output_tokens=200),
+            usage=SimpleNamespace(
+                input_tokens=100,
+                input_tokens_details=SimpleNamespace(cached_tokens=60),
+                output_tokens=200,
+                total_tokens=300,
+            ),
         )
 
 
@@ -72,20 +78,25 @@ CORRECTION_PAYLOAD = {
         }
         for number in range(1, 6)
     ],
-    "highlights": [
-        {"start": 0, "end": 5, "text": "Texto", "type": "positive", "comment": "Bom."}
-    ],
-    "insights": {"general_feedback": "Bom desenvolvimento."},
+    "highlights": [{"start": 0, "end": 5, "text": "Texto", "type": "positive", "comment": "Bom."}],
+    "insights": {
+        "general_feedback": "Bom desenvolvimento.",
+        "main_strengths": ["Argumentação"],
+        "priority_improvements": ["Coesão"],
+        "writing_level": "intermediário",
+    },
+    "is_zero": False,
+    "zero_reason": None,
 }
 
 
 @pytest.mark.parametrize(
     ("plan", "is_assignment", "expected_model"),
     [
-        (UserPlan.FREE, False, settings.OPENAI_FREE_MODEL),
-        (UserPlan.STANDARD, False, settings.OPENAI_PAID_MODEL),
-        (UserPlan.PRO, False, settings.OPENAI_PAID_MODEL),
-        (UserPlan.FREE, True, settings.OPENAI_PAID_MODEL),
+        (UserPlan.FREE, False, settings.OPENAI_CORRECTION_MODEL),
+        (UserPlan.STANDARD, False, settings.OPENAI_CORRECTION_MODEL),
+        (UserPlan.PRO, False, settings.OPENAI_CORRECTION_MODEL),
+        (UserPlan.FREE, True, settings.OPENAI_CORRECTION_MODEL),
     ],
 )
 async def test_correction_routes_model_by_plan(plan, is_assignment, expected_model):
@@ -104,9 +115,16 @@ async def test_correction_routes_model_by_plan(plan, is_assignment, expected_mod
     assert request["model"] == expected_model
     assert request["store"] is False
     assert request["reasoning"] == {"effort": "none"}
-    assert request["text"] == {"format": {"type": "json_object"}}
+    assert request["text"]["format"]["type"] == "json_schema"
+    assert request["text"]["format"]["strict"] is True
+    assert request["prompt_cache_key"].startswith("essay-correction:enem:")
+    assert request["input"][0]["role"] == "developer"
+    assert request["input"][1]["role"] == "user"
     assert len(request["safety_identifier"]) == 64
     assert correction.ai_model_used == expected_model
+    assert correction.prompt_version == settings.ESSAY_CORRECTION_PROMPT_VERSION
+    assert correction.openai_response_id == "resp_test_123"
+    assert correction.cached_input_tokens == 60
     assert essay.status == EssayStatus.COMPLETED
     assert db.added == [correction]
 
@@ -135,7 +153,7 @@ async def test_incomplete_correction_marks_essay_as_error():
         )
 
     assert essay.status == EssayStatus.ERROR
-    assert essay.error_message == "Serviço de IA temporariamente indisponível"
+    assert essay.error_message == "Erro ao processar resposta da IA"
 
 
 @pytest.mark.parametrize(
@@ -200,7 +218,7 @@ async def test_teacher_theme_generation_uses_free_model(monkeypatch):
         ],
     }
     client = FakeClient(json.dumps(payload))
-    monkeypatch.setattr("openai.AsyncOpenAI", lambda **kwargs: client)
+    monkeypatch.setattr("app.api.v1.endpoints.professor.create_openai_client", lambda: client)
 
     class AllowingRedis:
         async def eval(self, *args):

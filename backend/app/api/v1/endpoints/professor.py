@@ -74,6 +74,7 @@ from app.schemas.turma import (
     TurmaUpdate,
     StudentAnalyticsItem,
 )
+from app.services.ai.openai_client import create_openai_client
 
 router = APIRouter(prefix="/professor", tags=["Professor"])
 logger = get_logger(__name__)
@@ -1277,7 +1278,6 @@ async def generate_theme(
     """
     import json
     import re
-    from openai import AsyncOpenAI
     from app.core.config import settings
 
     limiter = RateLimiter(redis_client)
@@ -1287,11 +1287,7 @@ async def generate_theme(
             detail="Muitos temas solicitados. Aguarde alguns minutos.",
         )
 
-    client = AsyncOpenAI(
-        api_key=settings.OPENAI_API_KEY,
-        timeout=settings.OPENAI_TIMEOUT_SECONDS,
-        max_retries=settings.OPENAI_MAX_RETRIES,
-    )
+    client = create_openai_client()
 
     essay_label = "ENEM" if data.essay_type == "enem" else "Vestibular"
     prompt = (
