@@ -30,7 +30,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -218,9 +218,10 @@ async def _get_turma_or_404(
 
 async def _get_member_stats(
     user_ids: list[uuid.UUID],
+    turma_id: uuid.UUID,
     db: AsyncSession,
 ) -> dict[uuid.UUID, dict]:
-    """Retorna estatísticas de ensaios por user_id."""
+    """Retorna apenas estatísticas de submissões vinculadas à turma."""
     if not user_ids:
         return {}
 
@@ -236,7 +237,10 @@ async def _get_member_stats(
             func.max(Essay.created_at).label("last_essay_at"),
         )
         .outerjoin(Correction, Correction.essay_id == Essay.id)
-        .where(Essay.user_id.in_(user_ids))
+        .where(
+            Essay.user_id.in_(user_ids),
+            Essay.id.in_(_turma_essay_ids(turma_id)),
+        )
         .group_by(Essay.user_id)
     )
 
@@ -249,6 +253,39 @@ async def _get_member_stats(
             "last_essay_at": row.last_essay_at.isoformat() if row.last_essay_at else None,
         }
     return stats
+
+
+def _turma_essay_ids(turma_id: uuid.UUID):
+    """IDs das redações efetivamente entregues em tarefas desta turma."""
+    return (
+        select(TarefaSubmissao.essay_id)
+        .join(Tarefa, Tarefa.id == TarefaSubmissao.tarefa_id)
+        .where(
+            Tarefa.turma_id == turma_id,
+            TarefaSubmissao.essay_id.is_not(None),
+        )
+    )
+
+
+def _teacher_essay_ids(teacher_id: uuid.UUID):
+    """IDs das entregas de alunos ativos em tarefas do professor."""
+    return (
+        select(TarefaSubmissao.essay_id)
+        .join(Tarefa, Tarefa.id == TarefaSubmissao.tarefa_id)
+        .join(Turma, Turma.id == Tarefa.turma_id)
+        .join(
+            TurmaMembro,
+            and_(
+                TurmaMembro.turma_id == Turma.id,
+                TurmaMembro.user_id == TarefaSubmissao.student_id,
+            ),
+        )
+        .where(
+            Turma.teacher_id == teacher_id,
+            TurmaMembro.status == TurmaMembroStatus.ACTIVE,
+            TarefaSubmissao.essay_id.is_not(None),
+        )
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -281,7 +318,11 @@ async def list_turmas(
         essay_count = 0
         if active_user_ids:
             count_result = await db.execute(
-                select(func.count(Essay.id)).where(Essay.user_id.in_(active_user_ids))
+                select(func.count(Essay.id))
+                .where(
+                    Essay.user_id.in_(active_user_ids),
+                    Essay.id.in_(_turma_essay_ids(turma.id)),
+                )
             )
             essay_count = count_result.scalar_one() or 0
 
@@ -333,7 +374,7 @@ async def get_turma(
     active_user_ids = [m.user_id for m in active_members if m.user_id is not None]
 
     # Estatísticas por aluno
-    stats = await _get_member_stats(active_user_ids, db)
+    stats = await _get_member_stats(active_user_ids, turma.id, db)
 
     # Total de redações da turma
     total_essays = sum(s.get("essay_count", 0) for s in stats.values())
@@ -595,7 +636,10 @@ async def get_turma_essays(
     base_query = (
         select(Essay)
         .options(selectinload(Essay.correction), selectinload(Essay.user))
-        .where(Essay.user_id.in_(active_user_ids))
+        .where(
+            Essay.user_id.in_(active_user_ids),
+            Essay.id.in_(_turma_essay_ids(turma.id)),
+        )
     )
     if student_uuid:
         base_query = base_query.where(Essay.user_id == student_uuid)
@@ -679,7 +723,10 @@ async def get_overview_analytics(
                     func.count(Correction.id).label("comp"),
                 )
                 .outerjoin(Correction, Correction.essay_id == Essay.id)
-                .where(Essay.user_id.in_(active_uids))
+                .where(
+                    Essay.user_id.in_(active_uids),
+                    Essay.id.in_(_turma_essay_ids(turma.id)),
+                )
             )
             row = rows.one()
             essay_count = row.c or 0
@@ -693,7 +740,10 @@ async def get_overview_analytics(
                         )
                     )
                     .join(Essay, Essay.id == Correction.essay_id)
-                    .where(Essay.user_id.in_(active_uids))
+                    .where(
+                        Essay.user_id.in_(active_uids),
+                        Essay.id.in_(_turma_essay_ids(turma.id)),
+                    )
                 )
                 avg_val = avg_row.scalar()
                 avg_score_pct = round(float(avg_val), 1) if avg_val else None
@@ -715,14 +765,17 @@ async def get_overview_analytics(
     if all_active_user_ids:
         one_week_ago = datetime.now(timezone.utc) - timedelta(days=7)
 
+        teacher_essay_scope = _teacher_essay_ids(teacher.id)
+
         total_row = await db.execute(
-            select(func.count(Essay.id)).where(Essay.user_id.in_(all_active_user_ids))
+            select(func.count(Essay.id)).where(Essay.id.in_(teacher_essay_scope))
         )
         total_essays = total_row.scalar_one() or 0
 
         week_row = await db.execute(
-            select(func.count(Essay.id)).where(
-                Essay.user_id.in_(all_active_user_ids),
+            select(func.count(Essay.id))
+            .where(
+                Essay.id.in_(teacher_essay_scope),
                 Essay.created_at >= one_week_ago,
             )
         )
@@ -735,7 +788,7 @@ async def get_overview_analytics(
                 )
             )
             .join(Essay, Essay.id == Correction.essay_id)
-            .where(Essay.user_id.in_(all_active_user_ids))
+            .where(Essay.id.in_(teacher_essay_scope))
         )
         avg_val = avg_row.scalar()
         overall_avg = round(float(avg_val), 1) if avg_val else None
@@ -766,7 +819,7 @@ async def get_turma_analytics(
     active_members = [m for m in members_visible if m.status == TurmaMembroStatus.ACTIVE]
     active_user_ids = [m.user_id for m in active_members if m.user_id is not None]
 
-    stats = await _get_member_stats(active_user_ids, db)
+    stats = await _get_member_stats(active_user_ids, turma.id, db)
 
     total_essays = sum(s.get("essay_count", 0) for s in stats.values())
     completed_essays = sum(s.get("completed_count", 0) for s in stats.values())
@@ -851,7 +904,10 @@ async def get_student_analytics(
         essays_result = await db.execute(
             select(Essay)
             .options(selectinload(Essay.correction))
-            .where(Essay.user_id == membro.user_id)
+            .where(
+                Essay.user_id == membro.user_id,
+                Essay.id.in_(_turma_essay_ids(membro.turma_id)),
+            )
             .order_by(Essay.created_at.desc())
             .limit(50)
         )

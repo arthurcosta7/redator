@@ -55,12 +55,9 @@ export function Navbar() {
         <nav className="flex items-center justify-between h-16 lg:h-20">
 
           {/* Logo — serif italic, sem caixinha colorida */}
-          <Link href="/" className="flex items-baseline gap-2 group">
+          <Link href="/" className="flex items-baseline group">
             <span className="font-display italic font-medium text-2xl text-ink tracking-tight">
               Redator
-            </span>
-            <span className="hidden sm:inline-block font-mono text-[10px] uppercase tracking-[0.2em] text-ink-muted">
-              ed. 2026
             </span>
           </Link>
 

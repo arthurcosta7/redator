@@ -27,12 +27,9 @@ export function Footer() {
 
           {/* Brand */}
           <div className="col-span-2 lg:col-span-2">
-            <Link href="/" className="flex items-baseline gap-2 mb-5 group w-fit">
+            <Link href="/" className="flex items-baseline mb-5 group w-fit">
               <span className="font-display italic font-medium text-3xl text-paper tracking-tight">
                 Redator
-              </span>
-              <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-paper/50">
-                ed. 2026
               </span>
             </Link>
             <p className="text-[15px] leading-[1.65] max-w-xs text-paper/70">
@@ -63,12 +60,9 @@ export function Footer() {
         </div>
 
         {/* Régua inferior */}
-        <div className="border-t border-paper/15 pt-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
+        <div className="border-t border-paper/15 pt-8">
           <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-paper/50">
-            © {new Date().getFullYear()} Redator · todos os direitos reservados
-          </p>
-          <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-paper/50">
-            feito no Rio de Janeiro · jul 2026
+            © Redator · todos os direitos reservados
           </p>
         </div>
       </div>

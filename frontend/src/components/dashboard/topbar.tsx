@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Menu, Bell, LogOut, ChevronDown, User } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Menu, LogOut, ChevronDown, User } from "lucide-react";
 import { api } from "@/lib/api/client";
 import { useUser } from "@/contexts/UserContext";
 
@@ -13,6 +13,7 @@ interface TopbarProps {
 
 export function Topbar({ onMenuClick, title }: TopbarProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user } = useUser();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -34,6 +35,7 @@ export function Topbar({ onMenuClick, title }: TopbarProps) {
     .map((n) => n[0])
     .join("")
     .toUpperCase();
+  const isTeacher = user?.user_type === "teacher" || pathname.startsWith("/dashboard/professor");
 
   return (
     <header className="h-16 border-b border-ink-line bg-paper/80 backdrop-blur-xl flex items-center px-4 sm:px-7 gap-4 sticky top-0 z-10">
@@ -53,18 +55,20 @@ export function Topbar({ onMenuClick, title }: TopbarProps) {
         </h1>
       )}
 
-      <div className="flex-1" />
+      {!title && (
+        <p className="hidden font-mono text-[10px] uppercase tracking-[0.16em] text-ink-muted sm:block">
+          {isTeacher ? "Espaço do professor" : "Espaço do aluno"}
+        </p>
+      )}
 
-      {/* Notificações (placeholder) */}
-      <button aria-label="Notificações" className="relative p-2 rounded text-ink-muted hover:bg-paper-deep hover:text-ink transition-colors">
-        <Bell className="w-5 h-5" />
-      </button>
+      <div className="flex-1" />
 
       {/* Menu do usuário */}
       <div className="relative">
         <button
           onClick={() => setDropdownOpen(!dropdownOpen)}
           className="flex items-center gap-2 p-1.5 rounded hover:bg-paper-deep transition-colors"
+          aria-label={user ? `Abrir menu de ${user.full_name}` : "Abrir menu da conta"}
           aria-expanded={dropdownOpen}
           aria-haspopup="menu"
         >
@@ -101,7 +105,11 @@ export function Topbar({ onMenuClick, title }: TopbarProps) {
                 <button
                   onClick={() => {
                     setDropdownOpen(false);
-                    router.push("/dashboard/aluno/configuracoes");
+                    router.push(
+                      isTeacher
+                        ? "/dashboard/professor/configuracoes"
+                        : "/dashboard/aluno/configuracoes",
+                    );
                   }}
                   className="w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-colors"
                 >

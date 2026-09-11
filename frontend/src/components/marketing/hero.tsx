@@ -22,7 +22,7 @@ export function Hero() {
           transition={{ duration: 0.5, ease: enterEase }}
           className="flex items-center gap-3 mb-8 lg:mb-10"
         >
-          <span className="eyebrow">Nº 01 — Edição de agosto</span>
+          <span className="eyebrow">Correção inteligente de redações</span>
           <span className="hidden sm:block flex-1 max-w-[120px] h-px bg-ink-line" />
         </motion.div>
 

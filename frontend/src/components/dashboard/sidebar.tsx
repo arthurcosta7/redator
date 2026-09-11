@@ -69,7 +69,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { user } = useUser();
 
-  const isTeacher = user?.user_type === "teacher";
+  const isTeacher = user?.user_type === "teacher" || pathname.startsWith("/dashboard/professor");
   const mainNav   = isTeacher ? teacherNav       : studentNav;
   const botNav    = isTeacher ? teacherBottomNav  : studentBottomNav;
   const isPaid    = user?.plan === "standard" || user?.plan === "pro";
@@ -105,7 +105,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
       <aside
         className={clsx(
-          "fixed top-0 left-0 z-30 h-full w-64 bg-paper/95 border-r border-ink-line backdrop-blur-xl",
+          "fixed top-0 left-0 z-30 h-full w-60 bg-paper/95 border-r border-ink-line backdrop-blur-xl",
           "flex flex-col transition-transform duration-500 [transition-timing-function:var(--ease-drawer)]",
           "lg:translate-x-0 lg:static lg:z-auto",
           isOpen ? "translate-x-0" : "-translate-x-full"
@@ -129,9 +129,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         {/* Badge de tipo de conta */}
         {isTeacher && (
           <div className="px-4 py-3 border-b border-ink-line">
-            <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-accent-deep bg-accent-50 px-2.5 py-1.5 rounded">
+            <span className="inline-flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.16em] text-accent-deep">
               <GraduationCap className="w-3.5 h-3.5" />
-              Conta Professor
+              Área de turmas
             </span>
           </div>
         )}
@@ -139,7 +139,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         {/* Nav principal */}
         <nav className="flex-1 px-3 py-5 space-y-1 overflow-y-auto">
           <p className="px-3 pt-1 pb-3 font-mono text-[10px] text-ink-muted uppercase tracking-[0.18em]">
-            Índice
+            Navegação
           </p>
           {mainNav.map(({ label, href, icon: Icon, exact, paid }) => {
             const locked = paid && !isPaid;
@@ -162,11 +162,11 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 className={clsx(
                   "flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-colors",
                   isActive(href, exact)
-                    ? "bg-ink text-paper"
+                    ? "bg-accent-50 text-accent-deep shadow-[inset_3px_0_0_var(--accent)]"
                     : "text-ink-soft hover:bg-paper-deep hover:text-ink"
                 )}
               >
-                <Icon className={clsx("w-4.5 h-4.5 flex-shrink-0", isActive(href, exact) ? "text-paper/70" : "text-ink-muted")} />
+                <Icon className={clsx("w-4.5 h-4.5 flex-shrink-0", isActive(href, exact) ? "text-accent" : "text-ink-muted")} />
                 {label}
               </Link>
             );
@@ -183,18 +183,18 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               className={clsx(
                 "flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-colors",
                 isActive(href)
-                  ? "bg-ink text-paper"
+                  ? "bg-accent-50 text-accent-deep shadow-[inset_3px_0_0_var(--accent)]"
                   : "text-ink-soft hover:bg-paper-deep hover:text-ink"
               )}
             >
-              <Icon className={clsx("w-4.5 h-4.5 flex-shrink-0", isActive(href) ? "text-paper/70" : "text-ink-muted")} />
+              <Icon className={clsx("w-4.5 h-4.5 flex-shrink-0", isActive(href) ? "text-accent" : "text-ink-muted")} />
               {label}
             </Link>
           ))}
 
           {/* Info do usuário */}
           {user && (
-            <div className="mt-3 px-3 py-3 rounded bg-paper-deep border border-ink-line">
+            <div className="mt-3 border-t border-ink-line px-3 pt-3">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs text-slate-500 font-medium truncate max-w-[100px]">
                   {user.full_name.split(" ")[0]}
