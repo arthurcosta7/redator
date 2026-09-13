@@ -53,10 +53,22 @@ class Correction(UUIDMixin, TimestampMixin, Base):
     Estrutura do campo 'insights':
     {
       "general_feedback": "Sua redação demonstra...",
-      "main_strengths": ["Argumentação clara", "Proposta de intervenção detalhada"],
-      "priority_improvements": ["Trabalhe a coesão", "Desenvolva mais o repertório"],
-      "score_trend": "improving",  # Para quando houver histórico
-      "model_comparison": "Sua nota está acima da média dos candidatos"
+      "main_strengths": [{
+        "title": "Tese clara",
+        "evidence": "Trecho fiel da redação",
+        "explanation": "Por que o trecho funciona",
+        "repeat_strategy": "Como repetir o acerto"
+      }],
+      "priority_improvements": [{
+        "title": "Nexo causal incompleto",
+        "evidence": "Trecho fiel da redação",
+        "impact": "Como o problema afeta a avaliação",
+        "how_to_improve": "Procedimento concreto de revisão",
+        "rewrite_example": "Exemplo pedagógico de reescrita",
+        "practice": "Exercício curto para consolidar"
+      }],
+      "next_essay_checklist": ["Verificação objetiva para a próxima redação"],
+      "writing_level": "intermediário"
     }
     """
     __tablename__ = "corrections"

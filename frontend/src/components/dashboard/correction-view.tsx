@@ -11,8 +11,25 @@
  */
 import { useState } from "react";
 import { clsx } from "clsx";
-import { ChevronDown, ChevronUp, Lightbulb, MessageSquare, FileText } from "lucide-react";
-import type { Correction, Essay } from "@/types/essay";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  FileText,
+  Lightbulb,
+  ListChecks,
+  MessageSquare,
+  Quote,
+  Repeat2,
+  Target,
+} from "lucide-react";
+import type {
+  Correction,
+  DetailedImprovement,
+  DetailedStrength,
+  Essay,
+} from "@/types/essay";
 import { HighlightedText } from "./highlighted-text";
 
 // ─── Barra de score ───────────────────────────────────────────────────────────
@@ -65,12 +82,16 @@ function CompetencyItem({
   score,
   max,
   feedback,
+  strengths,
+  improvements,
   index,
 }: {
   name: string;
   score: number;
   max: number;
   feedback: string;
+  strengths: string[];
+  improvements: string[];
   index: number;
 }) {
   const [open, setOpen] = useState(false);
@@ -115,11 +136,135 @@ function CompetencyItem({
 
       {/* Feedback expandido */}
       {open && (
-        <div className="px-4 pb-4 pt-2 border-t border-slate-50">
-          <p className="text-sm text-slate-600 leading-relaxed">{feedback}</p>
+        <div className="space-y-4 border-t border-slate-100 bg-slate-50/40 px-4 pb-5 pt-4">
+          <div>
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Diagnóstico do critério
+            </p>
+            <p className="text-sm leading-relaxed text-slate-700">{feedback}</p>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            {strengths.length > 0 && (
+              <div className="rounded-xl border border-emerald-100 bg-emerald-50/70 p-4">
+                <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-emerald-800">
+                  <CheckCircle2 className="h-4 w-4" /> O que você acertou
+                </p>
+                <ul className="space-y-2">
+                  {strengths.map((strength, strengthIndex) => (
+                    <li key={`${strength}-${strengthIndex}`} className="text-sm leading-relaxed text-emerald-950">
+                      {strength}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {improvements.length > 0 && (
+              <div className="rounded-xl border border-amber-100 bg-amber-50/70 p-4">
+                <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-amber-800">
+                  <AlertTriangle className="h-4 w-4" /> O que corrigir agora
+                </p>
+                <ul className="space-y-2">
+                  {improvements.map((improvement, improvementIndex) => (
+                    <li key={`${improvement}-${improvementIndex}`} className="text-sm leading-relaxed text-amber-950">
+                      {improvement}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
+  );
+}
+
+function isDetailedStrength(
+  strength: string | DetailedStrength
+): strength is DetailedStrength {
+  return typeof strength !== "string";
+}
+
+function isDetailedImprovement(
+  improvement: string | DetailedImprovement
+): improvement is DetailedImprovement {
+  return typeof improvement !== "string";
+}
+
+function StrengthCard({ strength }: { strength: DetailedStrength }) {
+  return (
+    <article className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-4">
+      <h4 className="flex items-center gap-2 text-sm font-semibold text-emerald-950">
+        <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+        {strength.title}
+      </h4>
+      <dl className="mt-3 space-y-3 text-sm leading-relaxed text-slate-700">
+        <div>
+          <dt className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-emerald-800">
+            <Quote className="h-3.5 w-3.5" /> Evidência no texto
+          </dt>
+          <dd className="rounded-lg border border-emerald-100 bg-white/80 px-3 py-2 italic">
+            “{strength.evidence}”
+          </dd>
+        </div>
+        <div>
+          <dt className="font-semibold text-slate-800">Por que está certo</dt>
+          <dd>{strength.explanation}</dd>
+        </div>
+        <div>
+          <dt className="flex items-center gap-1.5 font-semibold text-slate-800">
+            <Repeat2 className="h-3.5 w-3.5 text-emerald-600" /> Como repetir esse acerto
+          </dt>
+          <dd>{strength.repeat_strategy}</dd>
+        </div>
+      </dl>
+    </article>
+  );
+}
+
+function ImprovementCard({
+  improvement,
+  index,
+}: {
+  improvement: DetailedImprovement;
+  index: number;
+}) {
+  return (
+    <article className="rounded-xl border border-amber-100 bg-white p-5 shadow-card">
+      <div className="flex items-start gap-3">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-100 text-xs font-bold text-amber-800">
+          {index + 1}
+        </span>
+        <div className="min-w-0 flex-1">
+          <h4 className="font-semibold text-slate-900">{improvement.title}</h4>
+          <p className="mt-2 rounded-lg border border-amber-100 bg-amber-50/70 px-3 py-2 text-sm italic leading-relaxed text-amber-950">
+            “{improvement.evidence}”
+          </p>
+        </div>
+      </div>
+      <dl className="mt-4 grid gap-4 text-sm leading-relaxed text-slate-700 md:grid-cols-2">
+        <div>
+          <dt className="font-semibold text-slate-900">Por que prejudica a nota</dt>
+          <dd>{improvement.impact}</dd>
+        </div>
+        <div>
+          <dt className="flex items-center gap-1.5 font-semibold text-slate-900">
+            <Target className="h-3.5 w-3.5 text-brand-600" /> Como melhorar
+          </dt>
+          <dd>{improvement.how_to_improve}</dd>
+        </div>
+        <div className="rounded-lg bg-brand-50/70 p-3 md:col-span-2">
+          <dt className="font-semibold text-brand-900">Exemplo de reescrita</dt>
+          <dd className="mt-1 text-brand-950">{improvement.rewrite_example}</dd>
+        </div>
+        <div className="md:col-span-2">
+          <dt className="font-semibold text-slate-900">Exercício recomendado</dt>
+          <dd>{improvement.practice}</dd>
+        </div>
+      </dl>
+    </article>
   );
 }
 
@@ -199,6 +344,18 @@ export function CorrectionView({ essay, correction }: CorrectionViewProps) {
   const competencies = correction.competencies ?? [];
   const criteria = correction.criteria ?? [];
   const items = competencies.length > 0 ? competencies : criteria;
+  const highlights = correction.highlights ?? [];
+  const hasHighlightsAccess = correction.highlights !== undefined;
+  const rawInsights = correction.insights;
+  const structuredInsights =
+    rawInsights && !Array.isArray(rawInsights) ? rawInsights : null;
+  const legacyInsights = Array.isArray(rawInsights) ? rawInsights : [];
+  const priorityImprovements =
+    structuredInsights?.priority_improvements ?? legacyInsights;
+  const mainStrengths = structuredInsights?.main_strengths ?? [];
+  const hasInsightsAccess = rawInsights !== undefined;
+  const generalFeedback =
+    correction.general_feedback ?? structuredInsights?.general_feedback ?? "";
 
   return (
     <div className="space-y-6">
@@ -217,7 +374,7 @@ export function CorrectionView({ essay, correction }: CorrectionViewProps) {
               </span>
             </div>
             <p className="text-slate-700 text-sm leading-relaxed line-clamp-3">
-              {correction.general_feedback}
+              {generalFeedback || "Correção concluída. Consulte a análise detalhada abaixo."}
             </p>
           </div>
         </div>
@@ -262,6 +419,8 @@ export function CorrectionView({ essay, correction }: CorrectionViewProps) {
                 score={item.score}
                 max={item.max_score}
                 feedback={item.feedback}
+                strengths={item.strengths ?? []}
+                improvements={item.improvements ?? []}
               />
             ))
           ) : (
@@ -280,20 +439,24 @@ export function CorrectionView({ essay, correction }: CorrectionViewProps) {
             <h3 className="font-display font-semibold text-slate-900">
               Texto da Redação
             </h3>
-            {correction.highlights.length > 0 ? (
+            {highlights.length > 0 ? (
               <span className="ml-auto text-xs text-slate-400">
-                {correction.highlights.length} grife
-                {correction.highlights.length !== 1 ? "s" : ""}
+                {highlights.length} grife
+                {highlights.length !== 1 ? "s" : ""}
               </span>
-            ) : (
+            ) : !hasHighlightsAccess ? (
               <span className="ml-auto text-xs text-slate-400 bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full">
                 Grifes disponíveis no plano Standard/Pro
+              </span>
+            ) : (
+              <span className="ml-auto text-xs text-slate-400">
+                Nenhum trecho grifado
               </span>
             )}
           </div>
           <HighlightedText
             text={essay.content}
-            highlights={correction.highlights}
+            highlights={highlights}
           />
         </div>
       )}
@@ -307,26 +470,88 @@ export function CorrectionView({ essay, correction }: CorrectionViewProps) {
               Insights para Melhorar
             </h3>
           </div>
-          {correction.insights.length > 0 ? (
-            correction.insights.map((insight, i) => (
+          {structuredInsights && (
+            <div className="bg-white border border-slate-100 rounded-xl p-5 shadow-card space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-slate-700 leading-relaxed">
+                  {structuredInsights.general_feedback}
+                </p>
+                <span className="shrink-0 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold capitalize text-brand-700">
+                  Nível {structuredInsights.writing_level}
+                </span>
+              </div>
+
+              {mainStrengths.length > 0 && (
+                <div className="border-t border-slate-100 pt-4">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                    Principais pontos fortes
+                  </p>
+                  <ul className="space-y-2">
+                    {mainStrengths.map((strength, index) => (
+                      isDetailedStrength(strength) ? (
+                        <li key={`${strength.title}-${index}`}>
+                          <StrengthCard strength={strength} />
+                        </li>
+                      ) : (
+                        <li key={`${strength}-${index}`} className="flex gap-3 text-sm leading-relaxed text-slate-700">
+                          <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
+                          {strength}
+                        </li>
+                      )
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
+          {priorityImprovements.map((insight, index) => (
+            isDetailedImprovement(insight) ? (
+              <ImprovementCard key={`${insight.title}-${index}`} improvement={insight} index={index} />
+            ) : (
               <div
-                key={i}
+                key={`${insight}-${index}`}
                 className="flex gap-3 bg-white border border-slate-100 rounded-xl p-4 shadow-card"
               >
                 <span className="w-6 h-6 rounded-full bg-brand-50 text-brand-700 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
-                  {i + 1}
+                  {index + 1}
                 </span>
                 <p className="text-sm text-slate-700 leading-relaxed">{insight}</p>
               </div>
-            ))
-          ) : (
+            )
+          ))}
+
+          {structuredInsights && (structuredInsights.next_essay_checklist?.length ?? 0) > 0 && (
+            <section className="rounded-xl border border-brand-100 bg-brand-50/60 p-5">
+              <h4 className="flex items-center gap-2 font-semibold text-brand-950">
+                <ListChecks className="h-4 w-4" /> Checklist para a próxima redação
+              </h4>
+              <ul className="mt-3 space-y-2">
+                {structuredInsights.next_essay_checklist?.map((item, index) => (
+                  <li key={`${item}-${index}`} className="flex gap-2 text-sm leading-relaxed text-brand-950">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {!structuredInsights && priorityImprovements.length === 0 && !hasInsightsAccess ? (
             <div className="flex gap-3 bg-amber-50 border border-amber-100 rounded-xl p-4">
               <MessageSquare className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
               <p className="text-sm text-amber-700">
                 Insights detalhados disponíveis nos planos Standard e Pro.
               </p>
             </div>
-          )}
+          ) : !structuredInsights && priorityImprovements.length === 0 ? (
+            <div className="flex gap-3 bg-slate-50 border border-slate-100 rounded-xl p-4">
+              <MessageSquare className="w-4 h-4 text-slate-500 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-slate-600">
+                Nenhum insight adicional foi gerado para esta correção.
+              </p>
+            </div>
+          ) : null}
         </div>
       )}
     </div>

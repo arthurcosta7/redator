@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useDropzone } from "react-dropzone";
 import {
@@ -159,6 +159,19 @@ export default function NovaRedacaoPage() {
   const [photo, setPhoto] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // O CTA do simulado envia o recorte e o modelo pela URL. A leitura no
+    // cliente evita tornar toda a página dinâmica apenas para preencher o formulário.
+    const params = new URLSearchParams(window.location.search);
+    const requestedTheme = params.get("tema")?.trim();
+    const requestedType = params.get("tipo");
+
+    if (requestedTheme) setTheme(requestedTheme.slice(0, 500));
+    if (requestedType === "enem" || requestedType === "vestibular") {
+      setEssayType(requestedType);
+    }
+  }, []);
 
   const words = wordCount(content);
   const MIN_WORDS = 100;

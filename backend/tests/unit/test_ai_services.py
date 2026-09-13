@@ -12,7 +12,7 @@ from app.db.models.essay import EssayStatus, EssayType
 from app.db.models.user import UserPlan
 from app.schemas.tarefa import GenerateThemeRequest
 from app.services.ai.correction_service import CorrectionService
-from app.services.ai.simulado_service import SimuladoService
+from app.services.ai.simulado_service import MotivatingText, SimuladoService
 
 
 class FakeResponses:
@@ -72,17 +72,62 @@ CORRECTION_PAYLOAD = {
             "name": f"Competencia {number}",
             "score": 160,
             "max_score": 200,
-            "feedback": "Avaliacao detalhada.",
-            "strengths": [],
-            "improvements": [],
+            "feedback": (
+                "O texto mantém o foco no tema e organiza a ideia central com clareza, "
+                "mas ainda precisa aprofundar a relação entre a evidência apresentada "
+                "e a conclusão defendida para alcançar a faixa seguinte da competência."
+            ),
+            "strengths": ["A tese aparece de forma explícita na introdução."],
+            "improvements": ["Explique como o exemplo comprova o argumento central."],
         }
         for number in range(1, 6)
     ],
     "highlights": [{"start": 0, "end": 5, "text": "Texto", "type": "positive", "comment": "Bom."}],
     "insights": {
-        "general_feedback": "Bom desenvolvimento.",
-        "main_strengths": ["Argumentação"],
-        "priority_improvements": ["Coesão"],
+        "general_feedback": (
+            "A redação apresenta tese compreensível, progressão lógica e uma proposta "
+            "relacionada ao problema. Para avançar, precisa aprofundar as relações de "
+            "causa e consequência e tornar cada etapa da intervenção mais específica."
+        ),
+        "main_strengths": [
+            {
+                "title": "Tese claramente delimitada",
+                "evidence": "O problema exige ação conjunta do Estado e da sociedade.",
+                "explanation": (
+                    "O trecho responde diretamente ao recorte temático e antecipa os "
+                    "dois eixos que serão desenvolvidos ao longo da argumentação."
+                ),
+                "repeat_strategy": (
+                    "Continue encerrando a introdução com uma tese que nomeie o problema "
+                    "e indique, em ordem, os eixos desenvolvidos nos parágrafos seguintes."
+                ),
+            }
+        ],
+        "priority_improvements": [
+            {
+                "title": "Aprofundar o nexo causal",
+                "evidence": "A falta de educação prejudica a sociedade.",
+                "impact": (
+                    "A afirmação é ampla e não demonstra o mecanismo pelo qual a causa "
+                    "produz o efeito, o que limita a força do argumento."
+                ),
+                "how_to_improve": (
+                    "Nomeie o grupo afetado, descreva o processo intermediário e conecte "
+                    "essa consequência à tese antes de apresentar outro argumento."
+                ),
+                "rewrite_example": (
+                    "Sem formação midiática, estudantes têm mais dificuldade para verificar "
+                    "fontes, o que amplia a circulação de desinformação no ambiente escolar."
+                ),
+                "practice": (
+                    "Reescreva dois argumentos usando a sequência causa, mecanismo e consequência."
+                ),
+            }
+        ],
+        "next_essay_checklist": [
+            "Confirmar se cada parágrafo desenvolve apenas um eixo da tese.",
+            "Revisar se a proposta apresenta agente, ação, meio e finalidade.",
+        ],
         "writing_level": "intermediário",
     },
     "is_zero": False,
@@ -189,15 +234,32 @@ async def test_untrusted_ai_scores_are_rejected(payload):
 
 
 async def test_simulado_uses_free_model_and_parses_batch():
-    payload = [
-        {
-            "theme": f"Tema {index}",
-            "prompt": "Proposta",
-            "motivating_texts": ["Texto motivador"],
-            "time_suggested_minutes": 60,
-        }
-        for index in range(5)
-    ]
+    motivating_content = " ".join(
+        ["Conteúdo aprofundado e verificável para apoiar a reflexão crítica do candidato."] * 8
+    )
+    payload = {
+        "simulados": [
+            {
+                "theme": f"Desafios sociais brasileiros em debate {index}",
+                "prompt": " ".join(
+                    ["Redija um texto dissertativo-argumentativo com posicionamento claro e argumentos articulados."] * 4
+                ),
+                "motivating_texts": [
+                    {
+                        "title": f"Perspectiva {source_index}",
+                        "content": motivating_content,
+                        "source_name": f"Fonte institucional {source_index}",
+                        "source_url": f"https://www.gov.br/inep/fonte-{index}-{source_index}",
+                        "source_date": "2026-09-13",
+                        "material_type": "research",
+                    }
+                    for source_index in range(4)
+                ],
+                "time_suggested_minutes": 60,
+            }
+            for index in range(3)
+        ]
+    }
     client = FakeClient(json.dumps(payload))
 
     simulados = await SimuladoService(client=client)._generate_batch("enem")
@@ -205,8 +267,34 @@ async def test_simulado_uses_free_model_and_parses_batch():
     request = client.responses.calls[0]
     assert request["model"] == settings.OPENAI_FREE_MODEL
     assert request["store"] is False
-    assert len(simulados) == 5
+    assert request["tool_choice"] == "required"
+    assert request["tools"][0]["type"] == "web_search"
+    assert request["reasoning"] == {"effort": "low"}
+    assert "quatro fontes diferentes" in request["input"][0]["content"]
+    assert request["text"]["format"]["type"] == "json_schema"
+    assert len(simulados) == 3
     assert all(item["essay_type"] == "enem" for item in simulados)
+    assert all(len(item["motivating_texts"]) == 4 for item in simulados)
+    assert simulados[0]["motivating_texts"][0]["source_url"].startswith("https://www.gov.br/")
+
+
+@pytest.mark.parametrize(
+    ("content", "source_url"),
+    [
+        ("Texto raso.", "https://www.gov.br/inep/fonte"),
+        (" ".join(["Conteúdo verificável e aprofundado."] * 25), "https://example.com/fonte"),
+    ],
+)
+def test_simulado_rejects_shallow_or_untrusted_motivating_text(content, source_url):
+    with pytest.raises(ValueError):
+        MotivatingText(
+            title="Uma perspectiva relevante",
+            content=content,
+            source_name="Fonte institucional",
+            source_url=source_url,
+            source_date=None,
+            material_type="research",
+        )
 
 
 async def test_teacher_theme_generation_uses_free_model(monkeypatch):

@@ -19,7 +19,7 @@ class AICompetency(StrictAIModel):
     name: str = Field(max_length=160)
     score: float
     max_score: float
-    feedback: str = Field(max_length=1500)
+    feedback: str = Field(min_length=120, max_length=1800)
     strengths: list[ShortFeedback] = Field(max_length=5)
     improvements: list[ShortFeedback] = Field(max_length=5)
 
@@ -38,10 +38,27 @@ class AIHighlight(StrictAIModel):
         return self
 
 
+class AIStrength(StrictAIModel):
+    title: str = Field(min_length=5, max_length=120)
+    evidence: str = Field(min_length=5, max_length=500)
+    explanation: str = Field(min_length=30, max_length=700)
+    repeat_strategy: str = Field(min_length=30, max_length=600)
+
+
+class AIImprovement(StrictAIModel):
+    title: str = Field(min_length=5, max_length=120)
+    evidence: str = Field(min_length=5, max_length=500)
+    impact: str = Field(min_length=30, max_length=700)
+    how_to_improve: str = Field(min_length=30, max_length=800)
+    rewrite_example: str = Field(min_length=20, max_length=900)
+    practice: str = Field(min_length=20, max_length=600)
+
+
 class AIInsights(StrictAIModel):
-    general_feedback: str = Field(max_length=1800)
-    main_strengths: list[ShortFeedback] = Field(max_length=5)
-    priority_improvements: list[ShortFeedback] = Field(max_length=5)
+    general_feedback: str = Field(min_length=120, max_length=2200)
+    main_strengths: list[AIStrength] = Field(max_length=4)
+    priority_improvements: list[AIImprovement] = Field(max_length=4)
+    next_essay_checklist: list[ShortFeedback] = Field(min_length=2, max_length=6)
     writing_level: Literal["iniciante", "intermediário", "avançado"]
 
 

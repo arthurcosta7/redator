@@ -6,12 +6,21 @@ import { BookOpen, Dumbbell, Clock, ChevronRight, RefreshCw, Lock, FileText } fr
 import { useUser } from "@/contexts/UserContext";
 import { api } from "@/lib/api/client";
 
+interface MotivatingText {
+  title: string;
+  content: string;
+  source_name: string;
+  source_url: string;
+  source_date: string | null;
+  material_type: "article" | "data" | "legal" | "research" | "historical" | "visual";
+}
+
 interface Simulado {
   id: string;
   essay_type: string;
   theme: string;
   prompt: string;
-  motivating_texts: string[];
+  motivating_texts: MotivatingText[];
   time_suggested_minutes: number;
 }
 
@@ -24,7 +33,7 @@ const TYPE_CONFIG = {
   },
   vestibular: {
     label: "Vestibular",
-    description: "FUVEST / UNICAMP / UNESP",
+    description: "FUVEST / Vunesp · dissertação tradicional",
     color: "bg-purple-50 border-purple-200 text-purple-700",
     activeColor: "bg-purple-700 text-white border-purple-700",
   },
@@ -171,10 +180,29 @@ export default function SimuladosPage() {
                     Textos motivadores
                   </p>
                   {simulado.motivating_texts.map((text, i) => (
-                    <div key={i} className="bg-slate-50 rounded-xl p-4">
-                      <p className="text-xs text-slate-400 font-medium mb-1">Texto {i + 1}</p>
-                      <p className="text-sm text-slate-600 leading-relaxed">{text}</p>
-                    </div>
+                    <article key={`${text.source_url}-${i}`} className="bg-slate-50 rounded-xl p-4">
+                      <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide mb-1">
+                        Texto {i + 1}
+                      </p>
+                      <h4 className="font-display font-semibold text-sm text-slate-800 mb-2">
+                        {text.title}
+                      </h4>
+                      <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line">
+                        {text.content}
+                      </p>
+                      <p className="mt-3 border-t border-slate-200 pt-2 text-xs text-slate-500">
+                        Fonte: {" "}
+                        <a
+                          href={text.source_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-brand-700 underline decoration-brand-200 underline-offset-2 hover:text-brand-800"
+                        >
+                          {text.source_name}
+                        </a>
+                        {text.source_date ? ` · ${text.source_date}` : ""}
+                      </p>
+                    </article>
                   ))}
                 </div>
               )}

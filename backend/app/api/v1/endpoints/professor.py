@@ -11,6 +11,7 @@ Rotas para professores:
   POST   /professor/turmas/{id}/convidar         — convida aluno por email
   DELETE /professor/turmas/{id}/membros/{mid}    — remove membro
   GET    /professor/turmas/{id}/redacoes         — redações dos alunos
+  GET    /professor/redacoes/{id}                — correção completa autorizada
   GET    /professor/analytics                    — overview analytics
   GET    /professor/analytics/turma/{id}         — analytics da turma
   GET    /professor/analytics/aluno/{uid}        — analytics do aluno
@@ -30,7 +31,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -42,11 +43,12 @@ from app.db.models.essay import Essay, EssayStatus
 from app.db.models.tarefa import Tarefa, TarefaSubmissao
 from app.db.models.turma import Turma, TurmaMembro, TurmaMembroStatus
 from app.db.models.user import User, UserType
+from app.schemas.essay import EssayDetailResponse
 from app.schemas.tarefa import (
     GenerateThemeRequest,
     GenerateThemeResponse,
-    MotivatingText,
     MinhaSubmissaoView,
+    MotivatingText,
     SubmissaoItem,
     TarefaCreate,
     TarefaListItem,
@@ -62,6 +64,7 @@ from app.schemas.turma import (
     InviteStudentRequest,
     PendingInviteItem,
     ProfessorOverviewAnalytics,
+    StudentAnalyticsItem,
     StudentFullAnalytics,
     TurmaAnalyticsItem,
     TurmaCreate,
@@ -72,9 +75,12 @@ from app.schemas.turma import (
     TurmaListItem,
     TurmaMembroItem,
     TurmaUpdate,
-    StudentAnalyticsItem,
 )
 from app.services.ai.openai_client import create_openai_client
+from app.services.correction_response import (
+    build_basic_correction,
+    build_full_correction,
+)
 
 router = APIRouter(prefix="/professor", tags=["Professor"])
 logger = get_logger(__name__)
@@ -285,6 +291,60 @@ def _teacher_essay_ids(teacher_id: uuid.UUID):
             TurmaMembro.status == TurmaMembroStatus.ACTIVE,
             TarefaSubmissao.essay_id.is_not(None),
         )
+    )
+
+
+@router.get("/redacoes/{essay_id}", response_model=EssayDetailResponse)
+async def get_teacher_essay(
+    essay_id: str,
+    teacher: Annotated[User, Depends(get_current_teacher)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> EssayDetailResponse:
+    """Retorna uma correção própria ou entregue em tarefa deste professor.
+
+    A subconsulta vinculada a tarefa, turma e membro ativo evita IDOR: conhecer
+    o UUID não permite visualizar redações avulsas nem entregas de outro professor.
+    """
+    try:
+        essay_uuid = uuid.UUID(essay_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Redação não encontrada.")
+
+    result = await db.execute(
+        select(Essay)
+        .options(selectinload(Essay.correction))
+        .where(
+            Essay.id == essay_uuid,
+            or_(
+                Essay.user_id == teacher.id,
+                Essay.id.in_(_teacher_essay_ids(teacher.id)),
+            ),
+        )
+    )
+    essay = result.scalar_one_or_none()
+    if not essay:
+        # A resposta não distingue inexistência de falta de permissão.
+        raise HTTPException(status_code=404, detail="Redação não encontrada.")
+
+    correction_data = None
+    if essay.correction:
+        is_own_essay = essay.user_id == teacher.id
+        if is_own_essay and teacher.plan.value == "free":
+            correction_data = build_basic_correction(essay.correction)
+        else:
+            # O professor recebe a análise pedagógica completa das tarefas que criou.
+            correction_data = build_full_correction(essay.correction)
+
+    return EssayDetailResponse(
+        id=str(essay.id),
+        title=essay.title,
+        essay_type=essay.essay_type.value,
+        status=essay.status.value,
+        word_count=essay.word_count,
+        content=essay.content,
+        theme=essay.theme,
+        created_at=essay.created_at.isoformat(),
+        correction=correction_data,
     )
 
 
@@ -1334,6 +1394,7 @@ async def generate_theme(
     """
     import json
     import re
+
     from app.core.config import settings
 
     limiter = RateLimiter(redis_client)

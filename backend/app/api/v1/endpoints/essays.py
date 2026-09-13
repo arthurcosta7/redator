@@ -38,6 +38,10 @@ from app.schemas.essay import (
     EssayResponse,
     SubmitEssayRequest,
 )
+from app.services.correction_response import (
+    build_basic_correction,
+    build_full_correction,
+)
 from app.utils.file_validator import validate_image_file
 from app.utils.text_sanitizer import sanitize_essay_text, sanitize_short_text
 
@@ -347,7 +351,7 @@ async def get_daily_limit(
     redis_client=Depends(get_redis),
 ) -> dict:
     """Retorna o uso de correções do dia e o limite do plano."""
-    from datetime import datetime, timezone, timedelta
+    from datetime import datetime, timedelta, timezone
 
     _, used_today, daily_limit = await check_daily_correction_limit(
         user_id=str(current_user.id),
@@ -454,7 +458,6 @@ async def get_essay(
         essay_uuid = uuid.UUID(essay_id)
     except ValueError:
         raise HTTPException(status_code=404, detail="Redação não encontrada.")
-
     result = await db.execute(
         select(Essay)
         .where(
@@ -481,9 +484,9 @@ async def get_essay(
     if essay.correction:
         # Plano Free recebe versão básica (sem grifes)
         if current_user.plan.value == "free":
-            correction_data = _build_basic_correction(essay.correction)
+            correction_data = build_basic_correction(essay.correction)
         else:
-            correction_data = _build_full_correction(essay.correction)
+            correction_data = build_full_correction(essay.correction)
 
     return EssayDetailResponse(
         id=str(essay.id),
@@ -613,32 +616,3 @@ async def _validate_assignment_submission(
         )
 
     return tarefa, True
-
-
-def _build_basic_correction(correction) -> dict:
-    """Constrói resposta básica (plano Free) sem grifes."""
-    return {
-        "id": str(correction.id),
-        "essay_id": str(correction.essay_id),
-        "total_score": correction.total_score,
-        "max_score": correction.max_score,
-        "score_percentage": correction.score_percentage,
-        "competencies": correction.competencies,
-        "general_feedback": correction.insights.get("general_feedback", ""),
-        "created_at": correction.created_at.isoformat(),
-    }
-
-
-def _build_full_correction(correction) -> dict:
-    """Constrói resposta completa (Standard/Pro) com grifes."""
-    return {
-        "id": str(correction.id),
-        "essay_id": str(correction.essay_id),
-        "total_score": correction.total_score,
-        "max_score": correction.max_score,
-        "score_percentage": correction.score_percentage,
-        "competencies": correction.competencies,
-        "highlights": correction.highlights,
-        "insights": correction.insights,
-        "created_at": correction.created_at.isoformat(),
-    }

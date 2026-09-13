@@ -6,7 +6,6 @@ import Link from "next/link";
 import {
   ArrowLeft,
   Loader2,
-  AlertCircle,
   CalendarClock,
   BookOpen,
   MessageSquare,
@@ -544,7 +543,9 @@ export default function TarefaDetailPage() {
                     <th className="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider hidden sm:table-cell">Entregue em</th>
                     <th className="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider hidden md:table-cell">Nota</th>
                     <th className="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Comentário</th>
-                    <th className="px-5 py-3 w-12" />
+                    <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-400">
+                      Análise
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
@@ -582,10 +583,11 @@ export default function TarefaDetailPage() {
                         {sub.essay_id && (
                           <Link
                             href={`/dashboard/professor/correcao/${sub.essay_id}`}
-                            className="text-brand-700 hover:text-brand-800"
+                            className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-semibold text-brand-700 hover:text-brand-800"
                             title="Ver correção"
                           >
                             <ExternalLink className="w-3.5 h-3.5" />
+                            Ver detalhes
                           </Link>
                         )}
                       </td>

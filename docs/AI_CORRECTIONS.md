@@ -131,6 +131,29 @@ Alertas recomendados:
 
 ## Modelos de avaliação
 
+### Geração dos simulados
+
+Os simulados usam a busca web da Responses API, restrita a domínios de órgãos
+públicos, universidades, organismos internacionais e repositórios acadêmicos.
+Cada proposta contém quatro textos motivadores autorais, cada um associado à
+fonte consultada. Citações extensas são proibidas; dados, datas e referências
+precisam corresponder à página informada.
+
+O lote contém três propostas para manter quatro materiais densos por simulado
+dentro do limite de saída. O pool Redis usa uma versão no nome da chave; mudar o
+formato deve incrementar essa versão para impedir que propostas antigas
+continuem sendo servidas durante o TTL de sete dias.
+
+- ENEM: problema brasileiro bem recortado, perspectivas complementares,
+  dissertação argumentativa e intervenção respeitando direitos humanos.
+- Vestibular tradicional: questão conceitual aberta, posições em tensão,
+  diálogo crítico com a coletânea e sem obrigação de intervenção.
+
+Referências de formato: [Cartilha da Redação do ENEM 2025](https://www.gov.br/inep/pt-br/centrais-de-conteudo/acervo-linha-editorial/publicacoes-institucionais/avaliacoes-e-exames-da-educacao-basica/redacao-do-enem-2025-cartilha-do-a-participante/),
+[diretrizes da prova de redação FUVEST](https://www.fuvest.br/simulado-redacao/),
+[princípios da redação Unicamp](https://www2.unicamp.br/unicamp/noticias/2024/12/01/segunda-fase-do-vestibular-da-unicamp-2025-registra-menor-abstencao-em-15-anos/)
+e [acervo do Vestibular Unesp](https://www.vunesp.com.br/VNSP2504).
+
 O fluxo ENEM segue a matriz de cinco competências e a escala discreta de 0,
 40, 80, 120, 160 ou 200 pontos. A rubrica separa norma formal, atendimento ao
 tema e repertório, projeto argumentativo, coesão e proposta de intervenção para
@@ -150,7 +173,7 @@ e [documentos oficiais da redação do ENEM](https://www.gov.br/inep/pt-br/areas
 O resultado do sistema é uma estimativa pedagógica; não substitui a correção
 oficial realizada segundo o procedimento do Inep.
 
-O fluxo de vestibular v3 usa uma rubrica pedagógica normalizada em quatro
+O fluxo de vestibular v4 usa uma rubrica pedagógica normalizada em quatro
 critérios de 25 pontos: adequação à proposta/tema/gênero; autoria, coletânea e
 desenvolvimento; composição, progressão e coesão; modalidade escrita, registro
 e expressividade. A escala total de 0 a 100 pertence ao produto e não deve ser
@@ -169,6 +192,26 @@ e [Manual do Vestibular Unesp 2026](https://documento.vunesp.com.br/documento/st
 
 Alterar prompt, schema de saída, modelo ou pós-processamento é uma mudança de
 comportamento e exige regressão com um conjunto estável de redações.
+
+### Feedback pedagógico detalhado (prompt v4)
+
+Além da nota, cada competência registra um diagnóstico, acertos e melhorias
+específicas. Nos planos com insights completos, a resposta também contém:
+
+- ponto forte com título, evidência literal, explicação e estratégia de repetição;
+- prioridade de melhoria com evidência, impacto na nota, método de revisão,
+  exemplo de reescrita e exercício recomendado;
+- checklist de duas a seis verificações para a próxima redação.
+
+O modelo não deve inventar evidências. Quando não houver um acerto defensável,
+a lista correspondente pode ficar vazia. Correções anteriores, que armazenavam
+listas de strings, continuam válidas e são exibidas no formato legado.
+
+O aluno acessa a correção conforme os recursos do próprio plano. O professor
+recebe a análise completa somente quando a redação foi entregue em uma tarefa
+de uma turma que lhe pertence e o aluno continua membro ativo. Redações avulsas,
+entregas de outro professor e UUIDs inexistentes retornam a mesma resposta 404,
+evitando enumeração e acesso indevido por referência direta (IDOR).
 
 ## Contestação humana
 

@@ -48,7 +48,7 @@ export default function ProfessorCorrectionPage() {
 
   const loadEssay = useCallback(async () => {
     try {
-      const res = await api.get<Essay>(`/essays/${id}`);
+      const res = await api.get<Essay>(`/professor/redacoes/${id}`);
       setEssay(res.data);
     } catch (err: unknown) {
       const { detail: msg, status } = getApiError(err);

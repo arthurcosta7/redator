@@ -8,11 +8,13 @@ from fastapi import HTTPException
 from app.api.v1.endpoints.professor import (
     get_overview_analytics,
     get_student_analytics,
+    get_teacher_essay,
     get_turma,
     get_turma_analytics,
     get_turma_essays,
     list_turmas,
 )
+from app.db.models.correction import Correction
 from app.db.models.essay import Essay, EssayInputType, EssayStatus, EssayType
 from app.db.models.tarefa import Tarefa, TarefaSubmissao
 from app.db.models.turma import Turma, TurmaMembro, TurmaMembroStatus
@@ -74,6 +76,45 @@ async def _assignment_submission(
     await db_session.flush()
 
 
+async def _correction(db_session, essay: Essay, student: User) -> Correction:
+    correction = Correction(
+        essay_id=essay.id,
+        user_id=student.id,
+        total_score=800,
+        max_score=1000,
+        competencies=[
+            {
+                "number": number,
+                "name": f"Competência {number}",
+                "score": 160,
+                "max_score": 200,
+                "feedback": "Análise pedagógica detalhada.",
+                "strengths": ["Acerto identificado no texto."],
+                "improvements": ["Melhoria específica para a próxima versão."],
+            }
+            for number in range(1, 6)
+        ],
+        highlights=[
+            {
+                "start": 0,
+                "end": 5,
+                "text": "Texto",
+                "type": "positive",
+                "comment": "Tese bem delimitada.",
+            }
+        ],
+        insights={
+            "general_feedback": "Análise completa para aluno e professor.",
+            "main_strengths": ["Tese clara."],
+            "priority_improvements": ["Aprofundar a justificativa."],
+            "writing_level": "intermediário",
+        },
+    )
+    db_session.add(correction)
+    await db_session.flush()
+    return correction
+
+
 @pytest.mark.asyncio
 async def test_teacher_only_sees_essays_submitted_to_own_assignments(db_session):
     teacher = await _user(db_session, UserType.TEACHER)
@@ -103,6 +144,7 @@ async def test_teacher_only_sees_essays_submitted_to_own_assignments(db_session)
     other_submission = await _essay(db_session, student, "Tarefa de outro professor")
     await _assignment_submission(db_session, own_class, student, own_submission)
     await _assignment_submission(db_session, other_class, student, other_submission)
+    await _correction(db_session, own_submission, student)
 
     essays = await get_turma_essays(
         str(own_class.id), teacher, db_session, page=1, per_page=20
@@ -134,6 +176,27 @@ async def test_teacher_only_sees_essays_submitted_to_own_assignments(db_session)
     assert overview.total_essay_count == 1
     assert overview.essays_this_week == 1
     assert overview.turmas[0].essay_count == 1
+
+    # A rota de detalhe libera todos os dados pedagógicos apenas para uma
+    # entrega vinculada à tarefa do professor autenticado.
+    detail = await get_teacher_essay(str(own_submission.id), teacher, db_session)
+    assert detail.content == own_submission.content
+    assert detail.correction is not None
+    assert hasattr(detail.correction, "insights")
+    assert detail.correction.competencies[0].strengths == [
+        "Acerto identificado no texto."
+    ]
+
+    for forbidden_essay in (standalone, other_submission):
+        with pytest.raises(HTTPException) as denied:
+            await get_teacher_essay(str(forbidden_essay.id), teacher, db_session)
+        assert denied.value.status_code == 404
+
+    own_member.status = TurmaMembroStatus.REMOVED
+    await db_session.flush()
+    with pytest.raises(HTTPException) as removed_member_denied:
+        await get_teacher_essay(str(own_submission.id), teacher, db_session)
+    assert removed_member_denied.value.status_code == 404
 
     with pytest.raises(HTTPException) as exc:
         await get_turma_essays(

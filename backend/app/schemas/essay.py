@@ -93,7 +93,7 @@ class EssayResponse(BaseModel):
     """Dados de uma redação para exibição."""
 
     id: str
-    title: str
+    title: str | None
     essay_type: str
     status: str
     word_count: int | None
@@ -133,12 +133,12 @@ class EssayDetailResponse(EssayResponse):
 
     content: str
     theme: str | None
-    correction: "CorrectionResponse | None" = None  # type: ignore
+    correction: "CorrectionResponse | BasicCorrectionResponse | None" = None  # type: ignore
 
     model_config = {"from_attributes": True}
 
 
 # Import circular resolvido aqui
-from app.schemas.correction import CorrectionResponse
+from app.schemas.correction import BasicCorrectionResponse, CorrectionResponse
 
 EssayDetailResponse.model_rebuild()

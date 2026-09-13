@@ -3,7 +3,7 @@ correction.py — Schemas de resposta de correção
 
 Define a estrutura exata do JSON retornado pela IA e armazenado no banco.
 """
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class CompetencyResult(BaseModel):
@@ -33,13 +33,30 @@ class TextHighlight(BaseModel):
     comment: str                        # Comentário sobre o trecho
 
 
+class StrengthInsight(BaseModel):
+    title: str
+    evidence: str
+    explanation: str
+    repeat_strategy: str
+
+
+class ImprovementInsight(BaseModel):
+    title: str
+    evidence: str
+    impact: str
+    how_to_improve: str
+    rewrite_example: str
+    practice: str
+
+
 class CorrectionInsights(BaseModel):
     """Insights gerais sobre a redação."""
 
     general_feedback: str               # Feedback geral
-    main_strengths: list[str]          # Pontos fortes principais
-    priority_improvements: list[str]   # Melhorias prioritárias
-    writing_level: str                 # "iniciante" | "intermediário" | "avançado"
+    main_strengths: list[str | StrengthInsight] = Field(default_factory=list)
+    priority_improvements: list[str | ImprovementInsight] = Field(default_factory=list)
+    next_essay_checklist: list[str] = Field(default_factory=list)
+    writing_level: str = "não informado"
 
 
 class CorrectionResponse(BaseModel):

@@ -28,6 +28,19 @@ logger = get_logger(__name__)
 _CACHE_TTL = 3600  # 1 hora
 
 
+def _improvement_titles(items: list[object]) -> list[str]:
+    """Normaliza prioridades legadas (string) e detalhadas (objeto v4)."""
+    titles: list[str] = []
+    for item in items:
+        if isinstance(item, str):
+            titles.append(item)
+        elif isinstance(item, dict):
+            title = item.get("title")
+            if isinstance(title, str) and title:
+                titles.append(title)
+    return titles
+
+
 class CompetencyAvg(BaseModel):
     number: int
     name: str
@@ -130,7 +143,10 @@ async def get_insights_summary(
         insights = correction.insights or {}
         if wl := insights.get("writing_level"):
             writing_levels.append(wl)
-        all_improvements.extend(insights.get("priority_improvements", []))
+        # Para a frequência agregada, o título é a unidade comparável.
+        all_improvements.extend(
+            _improvement_titles(insights.get("priority_improvements", []))
+        )
 
     # Médias por competência
     comp_avgs = []

@@ -135,10 +135,19 @@ Ao gerar o relatório da redação, siga estritamente a estrutura abaixo:
 1. **Nota Final:** Soma exata das 5 competências (escala de 0 a 1000).
 2. **Análise Detalhada por Competência:** Apresentar a nota da competência acompanhada de:
    - **Diagnóstico Técnico:** Explicação fundamentada com base nos critérios oficiais.
-   - **Evidências Textuais:** Citação direta dos trechos examinados.
-   - **Ação Prática de Melhoria:** Orientação objetiva e acionável para o estudante.
-3. **Diretrizes de Estilo:**
+   - **Evidências Textuais:** Citação curta e exata ou localização inequívoca do trecho examinado.
+   - **Acertos:** Em `strengths`, descreva qual recurso funcionou, onde aparece e por que favorece a competência. Não use elogios genéricos.
+   - **Ajustes:** Em `improvements`, identifique o problema, seu efeito na nota e uma ação concreta. Quando possível, mostre como reformular o trecho sem reescrever toda a redação.
+3. **Insights Pedagógicos para o Plano Pago:**
+   - `general_feedback`: sintetize o projeto de texto, o estágio atual e a principal distância para o próximo nível de nota; não repita apenas as competências.
+   - `main_strengths`: para cada acerto, preencha título, evidência fiel, explicação técnica e estratégia para repetir o recurso em outra redação.
+   - `priority_improvements`: ordene pelo impacto na nota. Para cada item, informe evidência, impacto, procedimento de melhoria, exemplo de reescrita e um exercício curto de prática.
+   - `rewrite_example` deve conservar a ideia original do aluno e demonstrar a técnica recomendada; deixe claro que é exemplo, não modelo pronto para decorar.
+   - `next_essay_checklist`: crie de dois a seis itens verificáveis antes da próxima entrega, específicos para os erros encontrados.
+   - Não escreva “melhore a argumentação”, “aprofunde o tema”, “revise a gramática” ou conselho semelhante sem dizer exatamente o que falta, em qual passagem e como executar a mudança.
+4. **Diretrizes de Estilo:**
    - Não inclua saudações, introduções corteses ou encerramentos genéricos.
+   - Não invente um trecho para preencher evidência. Quando não houver exemplo textual, descreva com precisão a ausência observada.
    - Inicie a resposta diretamente pela avaliação estruturada."""
 
 

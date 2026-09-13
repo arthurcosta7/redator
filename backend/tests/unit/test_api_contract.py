@@ -2,6 +2,7 @@
 import pytest
 
 from app.main import app
+from app.schemas.essay import EssayDetailResponse
 
 EXPECTED_ROUTES = {
     ("GET", "/health"),
@@ -54,6 +55,56 @@ def test_mutating_routes_do_not_accidentally_accept_get():
         "/api/v1/appeals/{appeal_id}/resolve",
     ):
         assert "GET" not in methods_by_path[path]
+
+
+@pytest.mark.parametrize(
+    "correction",
+    [
+        {
+            "id": "correction-free",
+            "essay_id": "essay-1",
+            "total_score": 720,
+            "max_score": 1000,
+            "score_percentage": 72,
+            "competencies": [],
+            "general_feedback": "Feedback geral.",
+            "created_at": "2026-09-13T12:00:00+00:00",
+        },
+        {
+            "id": "correction-paid",
+            "essay_id": "essay-1",
+            "total_score": 720,
+            "max_score": 1000,
+            "score_percentage": 72,
+            "competencies": [],
+            "highlights": [],
+            "insights": {
+                "general_feedback": "Feedback geral.",
+                "main_strengths": ["Tese clara."],
+                "priority_improvements": ["Detalhar a intervenção."],
+                "writing_level": "intermediário",
+            },
+            "created_at": "2026-09-13T12:00:00+00:00",
+        },
+    ],
+)
+def test_essay_detail_accepts_free_and_paid_correction_contracts(correction):
+    response = EssayDetailResponse.model_validate(
+        {
+            "id": "essay-1",
+            "title": "Tema",
+            "essay_type": "enem",
+            "status": "completed",
+            "word_count": 180,
+            "created_at": "2026-09-13T12:00:00+00:00",
+            "content": "Conteúdo da redação.",
+            "theme": "Tema da redação",
+            "correction": correction,
+        }
+    )
+
+    assert response.correction is not None
+    assert response.correction.id == correction["id"]
 
 
 @pytest.mark.asyncio

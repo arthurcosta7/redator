@@ -10,7 +10,7 @@ quando cai abaixo do mínimo configurado.
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, HttpUrl
 
 from app.core.dependencies import get_current_user, get_redis
 from app.core.logging import get_logger
@@ -22,12 +22,21 @@ router = APIRouter(tags=["Simulados"])
 logger = get_logger(__name__)
 
 
+class MotivatingTextResponse(BaseModel):
+    title: str
+    content: str
+    source_name: str
+    source_url: HttpUrl
+    source_date: str | None
+    material_type: Literal["article", "data", "legal", "research", "historical", "visual"]
+
+
 class SimuladoResponse(BaseModel):
     id: str
     essay_type: str
     theme: str
     prompt: str
-    motivating_texts: list[str]
+    motivating_texts: list[MotivatingTextResponse]
     time_suggested_minutes: int
     generated_at: str
 

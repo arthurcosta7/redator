@@ -14,6 +14,8 @@ export interface ENEMCompetency {
   score: number;           // 0, 40, 80, 120, 160 ou 200
   max_score: 200;
   feedback: string;
+  strengths?: string[];
+  improvements?: string[];
 }
 
 // ─── Vestibular ──────────────────────────────────────────────────────────────
@@ -23,6 +25,8 @@ export interface VestibularCriterion {
   score: number;           // 0 a 25
   max_score: 25;
   feedback: string;
+  strengths?: string[];
+  improvements?: string[];
 }
 
 // ─── Highlights ──────────────────────────────────────────────────────────────
@@ -36,6 +40,33 @@ export interface TextHighlight {
   comment: string;
 }
 
+// ─── Insights ────────────────────────────────────────────────────────────────
+
+export interface DetailedStrength {
+  title: string;
+  evidence: string;
+  explanation: string;
+  repeat_strategy: string;
+}
+
+export interface DetailedImprovement {
+  title: string;
+  evidence: string;
+  impact: string;
+  how_to_improve: string;
+  rewrite_example: string;
+  practice: string;
+}
+
+export interface CorrectionInsights {
+  general_feedback: string;
+  // Strings mantêm compatibilidade com correções anteriores ao prompt v4.
+  main_strengths: Array<string | DetailedStrength>;
+  priority_improvements: Array<string | DetailedImprovement>;
+  next_essay_checklist?: string[];
+  writing_level: "iniciante" | "intermediário" | "avançado" | "não informado";
+}
+
 // ─── Correção ────────────────────────────────────────────────────────────────
 
 export interface Correction {
@@ -43,7 +74,9 @@ export interface Correction {
   essay_id: string;
   total_score: number;     // ENEM: 0–1000 | Vestibular: 0–100
   max_score: number;       // 1000 ou 100
-  general_feedback: string;
+  // Presente na resposta simplificada do plano Free. Na resposta completa,
+  // o feedback geral faz parte do objeto estruturado de insights.
+  general_feedback?: string;
 
   // ENEM — 5 competências
   competencies?: ENEMCompetency[];
@@ -51,8 +84,10 @@ export interface Correction {
   // Vestibular — 4 critérios
   criteria?: VestibularCriterion[];
 
-  highlights: TextHighlight[];
-  insights: string[];
+  // Ausentes na resposta simplificada do plano Free. O formato em lista é
+  // mantido para compatibilidade com correções antigas já persistidas.
+  highlights?: TextHighlight[];
+  insights?: CorrectionInsights | string[];
 
   created_at: string;
 }

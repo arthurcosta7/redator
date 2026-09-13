@@ -31,7 +31,11 @@ def _valid_payload() -> dict:
                 "name": f"Competência {number}",
                 "score": 160,
                 "max_score": 200,
-                "feedback": "Análise detalhada.",
+                "feedback": (
+                    "O texto mantém o foco no tema e organiza a ideia central com clareza, "
+                    "mas ainda precisa aprofundar a relação entre a evidência apresentada "
+                    "e a conclusão defendida para alcançar a faixa seguinte da competência."
+                ),
                 "strengths": ["Clareza"],
                 "improvements": ["Aprofundar repertório"],
             }
@@ -39,9 +43,50 @@ def _valid_payload() -> dict:
         ],
         "highlights": [],
         "insights": {
-            "general_feedback": "Bom desenvolvimento.",
-            "main_strengths": ["Argumentação"],
-            "priority_improvements": ["Coesão"],
+            "general_feedback": (
+                "A redação apresenta tese compreensível, progressão lógica e uma proposta "
+                "relacionada ao problema. Para avançar, precisa aprofundar as relações de "
+                "causa e consequência e tornar cada etapa da intervenção mais específica."
+            ),
+            "main_strengths": [
+                {
+                    "title": "Tese claramente delimitada",
+                    "evidence": "O problema exige ação conjunta do Estado e da sociedade.",
+                    "explanation": (
+                        "O trecho responde diretamente ao recorte e antecipa os eixos que "
+                        "serão desenvolvidos na argumentação do texto."
+                    ),
+                    "repeat_strategy": (
+                        "Continue formulando a tese com o problema central e os dois eixos "
+                        "que serão desenvolvidos nos parágrafos seguintes."
+                    ),
+                }
+            ],
+            "priority_improvements": [
+                {
+                    "title": "Aprofundar o nexo causal",
+                    "evidence": "A falta de educação prejudica a sociedade.",
+                    "impact": (
+                        "A afirmação é ampla e não demonstra o mecanismo entre causa e efeito, "
+                        "reduzindo a força persuasiva do argumento."
+                    ),
+                    "how_to_improve": (
+                        "Identifique o grupo afetado e explique o processo intermediário antes "
+                        "de conectar a consequência à tese defendida."
+                    ),
+                    "rewrite_example": (
+                        "Sem formação midiática, estudantes verificam menos as fontes e se "
+                        "tornam mais vulneráveis à desinformação no ambiente escolar."
+                    ),
+                    "practice": (
+                        "Reescreva dois argumentos usando a sequência causa, mecanismo e consequência."
+                    ),
+                }
+            ],
+            "next_essay_checklist": [
+                "Confirmar se cada parágrafo desenvolve um eixo da tese.",
+                "Verificar se a proposta contém agente, ação, meio e finalidade.",
+            ],
             "writing_level": "intermediário",
         },
         "is_zero": False,
