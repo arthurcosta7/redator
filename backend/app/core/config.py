@@ -94,22 +94,28 @@ class Settings(BaseSettings):
     STRIPE_PRICE_STANDARD_QUARTERLY: str = ""
     STRIPE_PRICE_PRO_MONTHLY: str = ""
     STRIPE_PRICE_PRO_QUARTERLY: str = ""
-    # Pacote de professor: R$11,99/mês por 10 alunos
+    STRIPE_PRICE_TEACHER_30_MONTHLY: str = ""
+    STRIPE_PRICE_TEACHER_60_MONTHLY: str = ""
+    STRIPE_PRICE_TEACHER_100_MONTHLY: str = ""
+    # Compatibilidade de webhook; não é oferecido em novos checkouts.
     STRIPE_PRICE_TEACHER_PACKAGE: str = ""
 
     # ─── Email ────────────────────────────────────────────────────
     # Opcional em desenvolvimento — emails não são enviados se não configurado
     RESEND_API_KEY: str = ""
-    FROM_EMAIL: str = "noreply@redator.com.br"
+    FROM_EMAIL: str = "suporte@redator.online"
     FROM_NAME: str = "Redator"
 
     # ─── URLs ─────────────────────────────────────────────────────
     FRONTEND_URL: str = "http://localhost:3000"
 
     # ─── Limites de uso por plano ─────────────────────────────────
-    PLAN_FREE_DAILY_CORRECTIONS: int = 1
-    PLAN_STANDARD_DAILY_CORRECTIONS: int = 3
-    PLAN_PRO_DAILY_CORRECTIONS: int = 10
+    PLAN_FREE_MONTHLY_CORRECTIONS: int = 4
+    PLAN_STANDARD_MONTHLY_CORRECTIONS: int = 12
+    PLAN_PRO_MONTHLY_CORRECTIONS: int = 30
+    PLAN_FREE_MONTHLY_SIMULATIONS: int = 1
+    PLAN_STANDARD_MONTHLY_SIMULATIONS: int = 3
+    PLAN_PRO_MONTHLY_SIMULATIONS: int = 8
 
     # ─── Upload de arquivos ───────────────────────────────────────
     MAX_FILE_SIZE_MB: int = 5                      # Máximo 5MB por arquivo
@@ -211,6 +217,9 @@ class Settings(BaseSettings):
             ("STRIPE_PRICE_STANDARD_QUARTERLY", self.STRIPE_PRICE_STANDARD_QUARTERLY),
             ("STRIPE_PRICE_PRO_MONTHLY", self.STRIPE_PRICE_PRO_MONTHLY),
             ("STRIPE_PRICE_PRO_QUARTERLY", self.STRIPE_PRICE_PRO_QUARTERLY),
+            ("STRIPE_PRICE_TEACHER_30_MONTHLY", self.STRIPE_PRICE_TEACHER_30_MONTHLY),
+            ("STRIPE_PRICE_TEACHER_60_MONTHLY", self.STRIPE_PRICE_TEACHER_60_MONTHLY),
+            ("STRIPE_PRICE_TEACHER_100_MONTHLY", self.STRIPE_PRICE_TEACHER_100_MONTHLY),
             ("STRIPE_PRICE_TEACHER_PACKAGE", self.STRIPE_PRICE_TEACHER_PACKAGE),
         ]
         for field_name, value in price_fields:
@@ -248,10 +257,10 @@ class Settings(BaseSettings):
                 "STRIPE_SECRET_KEY": self.STRIPE_SECRET_KEY,
                 "STRIPE_WEBHOOK_SECRET": self.STRIPE_WEBHOOK_SECRET,
                 "STRIPE_PRICE_STANDARD_MONTHLY": self.STRIPE_PRICE_STANDARD_MONTHLY,
-                "STRIPE_PRICE_STANDARD_QUARTERLY": self.STRIPE_PRICE_STANDARD_QUARTERLY,
                 "STRIPE_PRICE_PRO_MONTHLY": self.STRIPE_PRICE_PRO_MONTHLY,
-                "STRIPE_PRICE_PRO_QUARTERLY": self.STRIPE_PRICE_PRO_QUARTERLY,
-                "STRIPE_PRICE_TEACHER_PACKAGE": self.STRIPE_PRICE_TEACHER_PACKAGE,
+                "STRIPE_PRICE_TEACHER_30_MONTHLY": self.STRIPE_PRICE_TEACHER_30_MONTHLY,
+                "STRIPE_PRICE_TEACHER_60_MONTHLY": self.STRIPE_PRICE_TEACHER_60_MONTHLY,
+                "STRIPE_PRICE_TEACHER_100_MONTHLY": self.STRIPE_PRICE_TEACHER_100_MONTHLY,
                 "RESEND_API_KEY": self.RESEND_API_KEY,
             }
             missing_integrations = [

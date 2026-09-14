@@ -146,7 +146,7 @@ async def test_terminal_failure_marks_error_and_releases_personal_quota(monkeypa
         "CorrectionService",
         lambda: SimpleNamespace(correct_essay=fail),
     )
-    monkeypatch.setattr(worker, "release_daily_correction_slot", release)
+    monkeypatch.setattr(worker, "release_monthly_credit", release)
     redis = object()
     result = await worker.process_correction(
         {"job_try": settings.CORRECTION_JOB_MAX_TRIES, "redis": redis},
@@ -176,7 +176,7 @@ async def test_permanent_failure_is_not_retried(monkeypatch):
     async def release(*_args):
         return None
 
-    monkeypatch.setattr(worker, "release_daily_correction_slot", release)
+    monkeypatch.setattr(worker, "release_monthly_credit", release)
 
     result = await worker.process_correction(
         {"job_try": 1, "redis": object()},
@@ -203,7 +203,7 @@ async def test_assignment_failure_does_not_release_daily_quota(monkeypatch):
         "CorrectionService",
         lambda: SimpleNamespace(correct_essay=fail),
     )
-    monkeypatch.setattr(worker, "release_daily_correction_slot", lambda *args: release.append(args))
+    monkeypatch.setattr(worker, "release_monthly_credit", lambda *args: release.append(args))
     result = await worker.process_correction(
         {"job_try": settings.CORRECTION_JOB_MAX_TRIES, "redis": object()},
         str(item.id),

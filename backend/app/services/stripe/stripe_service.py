@@ -29,9 +29,10 @@ class StripeService:
         """Retorna o Stripe Price ID para o plano e período informados."""
         mapping: dict[tuple[str, str], str] = {
             ("standard", "mensal"):     settings.STRIPE_PRICE_STANDARD_MONTHLY,
-            ("standard", "trimestral"): settings.STRIPE_PRICE_STANDARD_QUARTERLY,
             ("pro", "mensal"):          settings.STRIPE_PRICE_PRO_MONTHLY,
-            ("pro", "trimestral"):      settings.STRIPE_PRICE_PRO_QUARTERLY,
+            ("teacher_30", "mensal"):   settings.STRIPE_PRICE_TEACHER_30_MONTHLY,
+            ("teacher_60", "mensal"):   settings.STRIPE_PRICE_TEACHER_60_MONTHLY,
+            ("teacher_100", "mensal"):  settings.STRIPE_PRICE_TEACHER_100_MONTHLY,
         }
         price_id = mapping.get((plan.lower(), period.lower()))
         if not price_id:
@@ -53,6 +54,18 @@ class StripeService:
         if price_id in pro_ids:
             return UserPlan.PRO
         return UserPlan.FREE
+
+    def price_to_teacher_slots(self, price_id: str) -> int:
+        """Converte o Price ID comercial na capacidade total da conta docente."""
+        legacy_price = settings.STRIPE_PRICE_TEACHER_PACKAGE
+        if legacy_price and price_id == legacy_price:
+            # Assinaturas antigas recebem Professor 30 sem reduzir direitos.
+            return 30
+        return {
+            settings.STRIPE_PRICE_TEACHER_30_MONTHLY: 30,
+            settings.STRIPE_PRICE_TEACHER_60_MONTHLY: 60,
+            settings.STRIPE_PRICE_TEACHER_100_MONTHLY: 100,
+        }.get(price_id, 0)
 
     # ─── Operações Stripe ─────────────────────────────────────────
 

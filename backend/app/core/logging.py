@@ -11,6 +11,8 @@ Regras de segurança neste módulo:
 2. Nunca logue dados pessoais completos (CPF, cartão, endereço completo)
 3. Sempre mascare emails (jo***@gmail.com) e IDs se necessário
 """
+import hashlib
+import hmac
 import logging
 import sys
 from typing import Any
@@ -19,7 +21,6 @@ import structlog
 from structlog.types import EventDict, WrappedLogger
 
 from app.core.config import settings
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Processadores de log — transformam os dados antes de escrever
@@ -44,18 +45,39 @@ def remove_sensitive_data(
     }
 
     sensitive_suffixes = ("_password", "_token", "_secret", "_api_key")
+    personal_fields = {
+        "content", "essay_content", "theme", "title", "full_name", "display_name",
+        "email", "to", "ip",
+    }
+    identifier_fields = {
+        "user_id", "admin_id", "teacher_id", "executor_id", "target_user_id",
+        "deleted_user_id", "invited_user_id", "identifier",
+    }
+
+    def pseudonymize(value: Any) -> str:
+        return hmac.new(
+            settings.SECRET_KEY.encode("utf-8"),
+            str(value).encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()[:24]
 
     def redact(value: Any) -> Any:
         if isinstance(value, dict):
-            return {
-                key: (
-                    "***REDACTED***"
-                    if str(key).lower() in forbidden_fields
-                    or str(key).lower().endswith(sensitive_suffixes)
-                    else redact(item)
-                )
-                for key, item in value.items()
-            }
+            clean: dict[Any, Any] = {}
+            for key, item in value.items():
+                normalized_key = str(key).lower()
+                if (
+                    normalized_key in forbidden_fields
+                    or normalized_key.endswith(sensitive_suffixes)
+                    or normalized_key in personal_fields
+                    or normalized_key.endswith("_email")
+                ):
+                    clean[key] = "***REDACTED***"
+                elif normalized_key in identifier_fields:
+                    clean[key] = pseudonymize(item)
+                else:
+                    clean[key] = redact(item)
+            return clean
         if isinstance(value, list):
             return [redact(item) for item in value]
         if isinstance(value, tuple):

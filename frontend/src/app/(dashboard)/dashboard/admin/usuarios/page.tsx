@@ -157,7 +157,7 @@ function UserActionMenu({
                   Plano de professor
                 </p>
                 <p className="px-4 py-2 text-xs text-slate-400 italic">
-                  Gerenciado via pacotes Stripe (slots de alunos)
+                  Gerenciado pelos planos Professor 30, 60 e 100 no Stripe
                 </p>
               </>
             )}

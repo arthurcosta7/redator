@@ -168,7 +168,7 @@ class TeacherCommentRequest(BaseModel):
 
 class TeacherSlotInfo(BaseModel):
     """Informações sobre os slots de alunos do professor."""
-    slots_total: int        # 0 = free, >0 = pagou pacote(s)
-    slots_used: int         # alunos ativos no total
-    slots_free_per_turma: int = 3  # limite por turma no plano free
+    slots_total: int        # capacidade total da conta: 3, 30, 60 ou 100
+    slots_used: int         # usuários únicos + registros offline ativos
+    plan_name: str
     is_paid: bool

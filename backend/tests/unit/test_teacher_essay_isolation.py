@@ -6,9 +6,11 @@ import pytest
 from fastapi import HTTPException
 
 from app.api.v1.endpoints.professor import (
+    _check_teacher_slot_limit,
     get_overview_analytics,
     get_student_analytics,
     get_teacher_essay,
+    get_teacher_slots,
     get_turma,
     get_turma_analytics,
     get_turma_essays,
@@ -203,3 +205,65 @@ async def test_teacher_only_sees_essays_submitted_to_own_assignments(db_session)
             str(own_class.id), other_teacher, db_session, page=1, per_page=20
         )
     assert exc.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_teacher_capacity_counts_unique_users_across_all_classes(db_session):
+    teacher = await _user(db_session, UserType.TEACHER)
+    student = await _user(db_session, UserType.STUDENT)
+    first = Turma(teacher_id=teacher.id, name="Primeira")
+    second = Turma(teacher_id=teacher.id, name="Segunda")
+    db_session.add_all([first, second])
+    await db_session.flush()
+    first_link = TurmaMembro(
+        turma_id=first.id, user_id=student.id, status=TurmaMembroStatus.ACTIVE
+    )
+    second_link = TurmaMembro(
+        turma_id=second.id, user_id=student.id, status=TurmaMembroStatus.ACTIVE
+    )
+    db_session.add_all([
+        first_link,
+        second_link,
+        TurmaMembro(turma_id=first.id, display_name="Aluno offline 1", status=TurmaMembroStatus.ACTIVE),
+        TurmaMembro(turma_id=second.id, display_name="Aluno offline 2", status=TurmaMembroStatus.ACTIVE),
+    ])
+    await db_session.flush()
+
+    slots = await get_teacher_slots(teacher, db_session)
+    assert slots.slots_total == 3
+    assert slots.slots_used == 3
+
+    # O mesmo usuário já ativo em outra turma não ocupa uma vaga adicional.
+    await _check_teacher_slot_limit(teacher, db_session, student.id)
+    with pytest.raises(HTTPException, match="3 alunos ativos"):
+        await _check_teacher_slot_limit(teacher, db_session)
+
+    # Remover somente um vínculo não libera a vaga se o aluno continuar ativo
+    # em outra turma; a vaga é liberada quando o último vínculo fica inativo.
+    first_link.status = TurmaMembroStatus.REMOVED
+    await db_session.flush()
+    assert (await get_teacher_slots(teacher, db_session)).slots_used == 3
+    second_link.status = TurmaMembroStatus.REMOVED
+    await db_session.flush()
+    assert (await get_teacher_slots(teacher, db_session)).slots_used == 2
+
+
+@pytest.mark.asyncio
+async def test_removing_active_member_releases_teacher_seat(db_session):
+    teacher = await _user(db_session, UserType.TEACHER)
+    turma = Turma(teacher_id=teacher.id, name="Turma")
+    db_session.add(turma)
+    await db_session.flush()
+    members = [
+        TurmaMembro(turma_id=turma.id, display_name=f"Offline {index}", status=TurmaMembroStatus.ACTIVE)
+        for index in range(3)
+    ]
+    db_session.add_all(members)
+    await db_session.flush()
+    with pytest.raises(HTTPException):
+        await _check_teacher_slot_limit(teacher, db_session)
+
+    members[0].status = TurmaMembroStatus.REMOVED
+    await db_session.flush()
+    await _check_teacher_slot_limit(teacher, db_session)
+    assert (await get_teacher_slots(teacher, db_session)).slots_used == 2

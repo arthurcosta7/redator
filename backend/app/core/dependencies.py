@@ -67,7 +67,7 @@ async def get_redis() -> redis.Redis:
 
     Redis é usado para:
     - Rate limiting (controle de requisições)
-    - Contagem de correções diárias
+    - Créditos mensais de correção e simulado
     - Cache de respostas da IA (futuro)
     """
     global _redis_client
@@ -161,8 +161,9 @@ async def get_current_user(
 
     Verifica também se o usuário está ativo (não suspenso/deletado).
     """
-    from app.db.models.user import User
     from sqlalchemy import select
+
+    from app.db.models.user import User
 
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
@@ -318,8 +319,9 @@ def require_admin_role(*allowed_roles: str):
         user_id: Annotated[UUID, Depends(get_current_user_id)],
         db: Annotated[AsyncSession, Depends(get_db)],
     ) -> "User":  # type: ignore
-        from app.db.models.user import User
         from sqlalchemy import select
+
+        from app.db.models.user import User
 
         result = await db.execute(select(User).where(User.id == user_id))
         user = result.scalar_one_or_none()

@@ -264,6 +264,24 @@ def test_nested_sensitive_log_fields_are_redacted():
     assert cleaned["payload"]["metadata"][0]["refresh_token"] == "***REDACTED***"
 
 
+def test_personal_log_fields_are_removed_and_user_ids_are_pseudonymized():
+    event = {
+        "event": "privacy-test",
+        "user_id": "raw-user-id",
+        "email": "aluno@example.com",
+        "essay_content": "Texto integral da redação",
+        "theme": "Tema enviado pelo aluno",
+    }
+
+    cleaned = remove_sensitive_data(None, "info", event)
+
+    assert cleaned["user_id"] != "raw-user-id"
+    assert len(cleaned["user_id"]) == 24
+    assert cleaned["email"] == "***REDACTED***"
+    assert cleaned["essay_content"] == "***REDACTED***"
+    assert cleaned["theme"] == "***REDACTED***"
+
+
 def production_settings(**overrides):
     values = {
         "SECRET_KEY": "0123456789abcdef" * 4,
@@ -281,7 +299,9 @@ def production_settings(**overrides):
         "STRIPE_PRICE_STANDARD_QUARTERLY": "price_standard_quarterly",
         "STRIPE_PRICE_PRO_MONTHLY": "price_pro_monthly",
         "STRIPE_PRICE_PRO_QUARTERLY": "price_pro_quarterly",
-        "STRIPE_PRICE_TEACHER_PACKAGE": "price_teacher_package",
+        "STRIPE_PRICE_TEACHER_30_MONTHLY": "price_teacher_30",
+        "STRIPE_PRICE_TEACHER_60_MONTHLY": "price_teacher_60",
+        "STRIPE_PRICE_TEACHER_100_MONTHLY": "price_teacher_100",
         "RESEND_API_KEY": "re_production_test",
     }
     values.update(overrides)
@@ -322,10 +342,10 @@ def test_production_requires_tls_for_database_and_redis():
         "STRIPE_SECRET_KEY",
         "STRIPE_WEBHOOK_SECRET",
         "STRIPE_PRICE_STANDARD_MONTHLY",
-        "STRIPE_PRICE_STANDARD_QUARTERLY",
         "STRIPE_PRICE_PRO_MONTHLY",
-        "STRIPE_PRICE_PRO_QUARTERLY",
-        "STRIPE_PRICE_TEACHER_PACKAGE",
+        "STRIPE_PRICE_TEACHER_30_MONTHLY",
+        "STRIPE_PRICE_TEACHER_60_MONTHLY",
+        "STRIPE_PRICE_TEACHER_100_MONTHLY",
         "RESEND_API_KEY",
     ],
 )
@@ -353,8 +373,8 @@ def test_production_requires_a_separate_database_encryption_key():
 
 
 def test_teacher_price_id_uses_stripe_price_format():
-    with pytest.raises(ValidationError, match="STRIPE_PRICE_TEACHER_PACKAGE"):
-        production_settings(STRIPE_PRICE_TEACHER_PACKAGE="prod_teacher_package")
+    with pytest.raises(ValidationError, match="STRIPE_PRICE_TEACHER_30_MONTHLY"):
+        production_settings(STRIPE_PRICE_TEACHER_30_MONTHLY="prod_teacher_30")
 
 
 @pytest.mark.asyncio

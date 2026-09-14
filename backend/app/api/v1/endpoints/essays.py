@@ -13,7 +13,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -23,9 +23,10 @@ from app.core.job_queue import enqueue_correction
 from app.core.logging import get_logger
 from app.core.rate_limiter import (
     RateLimiter,
-    check_daily_correction_limit,
-    release_daily_correction_slot,
-    reserve_daily_correction_slot,
+    check_monthly_credits,
+    next_month_start,
+    release_monthly_credit,
+    reserve_monthly_credit,
 )
 from app.db.models.essay import Essay, EssayInputType, EssayStatus, EssayType
 from app.db.models.tarefa import Tarefa, TarefaSubmissao
@@ -42,6 +43,7 @@ from app.services.correction_response import (
     build_basic_correction,
     build_full_correction,
 )
+from app.services.product_analytics import track_product_event
 from app.utils.file_validator import validate_image_file
 from app.utils.text_sanitizer import sanitize_essay_text, sanitize_short_text
 
@@ -69,7 +71,7 @@ async def submit_essay(
     Submete uma redação em texto para correção.
 
     Verifica:
-    1. Limite diário do plano do usuário
+    1. Créditos mensais do plano do usuário
     2. Tamanho mínimo/máximo do texto
     3. Sanitização do conteúdo
     """
@@ -118,21 +120,28 @@ async def submit_essay(
 
     quota_reserved = False
     if not is_assignment:
-        allowed, _, daily_limit = await reserve_daily_correction_slot(
+        allowed, used, monthly_limit, _ = await reserve_monthly_credit(
             user_id=current_user_id,
             plan=current_user.plan.value,
             redis_client=redis_client,
         )
         if not allowed:
-            upgrade_message = _get_upgrade_message(current_user.plan.value)
+            snapshot = await _build_learning_snapshot(current_user.id, db)
+            track_product_event(
+                logger, "credit_limit_exceeded", user_id=current_user_id,
+                account_type=current_user.user_type.value, plan=current_user.plan.value,
+                resource="corrections", used=used, limit=monthly_limit,
+            )
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=(
-                    f"Você atingiu o limite de {daily_limit} correção(ões) por dia. "
-                    f"{upgrade_message}"
-                ),
+                detail=_credit_exhausted_message(snapshot, monthly_limit),
             )
         quota_reserved = True
+        track_product_event(
+            logger, "credits_used", user_id=current_user_id,
+            plan=current_user.plan.value, resource="corrections",
+            used=used, limit=monthly_limit,
+        )
 
     # Cria a redação no banco
     essay = Essay(
@@ -164,6 +173,22 @@ async def submit_essay(
             )
             db.add(submissao)
             await db.flush()
+            track_product_event(
+                logger, "assignment_essay_submitted", user_id=current_user_id,
+                account_type=current_user.user_type.value,
+                essay_type=data.essay_type.value,
+            )
+        else:
+            personal_count = await db.scalar(
+                select(func.count(Essay.id)).where(*_personal_essay_filter(current_user.id))
+            )
+            if personal_count in (1, 2):
+                ordinal = "first" if personal_count == 1 else "second"
+                track_product_event(
+                    logger, f"{ordinal}_essay_submitted", user_id=current_user_id,
+                    account_type=current_user.user_type.value, plan=current_user.plan.value,
+                    essay_type=data.essay_type.value, sequence=int(personal_count),
+                )
 
         # O worker usa outra conexão e só pode ler dados já confirmados.
         await db.commit()
@@ -171,7 +196,7 @@ async def submit_essay(
     except Exception as exc:
         await db.rollback()
         if quota_reserved:
-            await release_daily_correction_slot(current_user_id, redis_client)
+            await release_monthly_credit(current_user_id, redis_client)
         if essay_db_id is not None:
             persisted = await db.get(Essay, essay_db_id)
             if persisted is not None:
@@ -243,16 +268,26 @@ async def submit_essay_photo(
         photo.content_type or "",
     )
 
-    allowed, _, daily_limit = await reserve_daily_correction_slot(
+    allowed, used, monthly_limit, _ = await reserve_monthly_credit(
         user_id=current_user_id,
         plan=current_user.plan.value,
         redis_client=redis_client,
     )
     if not allowed:
+        track_product_event(
+            logger, "credit_limit_exceeded", user_id=current_user_id,
+            account_type=current_user.user_type.value, plan=current_user.plan.value,
+            resource="corrections", used=used, limit=monthly_limit,
+        )
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Limite diário atingido ({daily_limit}/dia).",
+            detail=f"Seus {monthly_limit} créditos mensais foram utilizados. Consulte seu plano de evolução para continuar o treino.",
         )
+    track_product_event(
+        logger, "credits_used", user_id=current_user_id,
+        plan=current_user.plan.value, resource="corrections",
+        used=used, limit=monthly_limit,
+    )
 
     # Extrai texto via OCR
     try:
@@ -260,7 +295,7 @@ async def submit_essay_photo(
         ocr_service = OCRService()
         extracted_text = sanitize_essay_text(await ocr_service.extract_text(file_content))
     except Exception as e:
-        await release_daily_correction_slot(current_user_id, redis_client)
+        await release_monthly_credit(current_user_id, redis_client)
         logger.error("erro_ocr", error=str(e))
         raise HTTPException(
             status_code=422,
@@ -269,7 +304,7 @@ async def submit_essay_photo(
         )
 
     if not extracted_text or len(extracted_text.strip()) < 50:
-        await release_daily_correction_slot(current_user_id, redis_client)
+        await release_monthly_credit(current_user_id, redis_client)
         raise HTTPException(
             status_code=422,
             detail="Não foi possível extrair texto suficiente da imagem. "
@@ -280,7 +315,7 @@ async def submit_essay_photo(
     min_words, max_words = _get_word_limits(essay_type)
 
     if word_count < min_words:
-        await release_daily_correction_slot(current_user_id, redis_client)
+        await release_monthly_credit(current_user_id, redis_client)
         raise HTTPException(
             status_code=422,
             detail=f"Texto extraído muito curto ({word_count} palavras). "
@@ -288,7 +323,7 @@ async def submit_essay_photo(
         )
 
     if word_count > max_words:
-        await release_daily_correction_slot(current_user_id, redis_client)
+        await release_monthly_credit(current_user_id, redis_client)
         raise HTTPException(
             status_code=422,
             detail=f"Texto extraído muito longo ({word_count} palavras).",
@@ -314,11 +349,21 @@ async def submit_essay_photo(
         await db.flush()
         essay_db_id = essay.id
         response_created_at = essay.created_at.isoformat()
+        personal_count = await db.scalar(
+            select(func.count(Essay.id)).where(*_personal_essay_filter(current_user.id))
+        )
+        if personal_count in (1, 2):
+            ordinal = "first" if personal_count == 1 else "second"
+            track_product_event(
+                logger, f"{ordinal}_essay_submitted", user_id=current_user_id,
+                account_type=current_user.user_type.value, plan=current_user.plan.value,
+                essay_type=essay_type.value, sequence=int(personal_count),
+            )
         await db.commit()
         await enqueue_correction(str(essay_db_id))
     except Exception as exc:
         await db.rollback()
-        await release_daily_correction_slot(current_user_id, redis_client)
+        await release_monthly_credit(current_user_id, redis_client)
         if essay_db_id is not None:
             persisted = await db.get(Essay, essay_db_id)
             if persisted is not None:
@@ -345,29 +390,37 @@ async def submit_essay_photo(
 # Listagem e detalhes
 # ─────────────────────────────────────────────────────────────────────────────
 
-@router.get("/daily-limit")
-async def get_daily_limit(
+@router.get("/credits")
+async def get_monthly_credits(
     current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
     redis_client=Depends(get_redis),
 ) -> dict:
-    """Retorna o uso de correções do dia e o limite do plano."""
-    from datetime import datetime, timedelta, timezone
-
-    _, used_today, daily_limit = await check_daily_correction_limit(
+    """Retorna créditos mensais e um resumo pedagógico sem texto pessoal."""
+    _, used, monthly_limit, rollover = await check_monthly_credits(
         user_id=str(current_user.id),
         plan=current_user.plan.value,
         redis_client=redis_client,
     )
-
-    # Próxima meia-noite UTC (quando o limite reseta)
-    now = datetime.now(timezone.utc)
-    tomorrow = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-
+    snapshot = await _build_learning_snapshot(current_user.id, db)
     return {
-        "used": used_today,
-        "limit": daily_limit,
-        "resets_at": tomorrow.isoformat(),
+        "used": used,
+        "limit": monthly_limit,
+        "remaining": max(0, monthly_limit - used),
+        "rollover": rollover,
+        "resets_at": next_month_start().isoformat(),
+        **snapshot,
     }
+
+
+@router.get("/daily-limit", deprecated=True)
+async def get_legacy_limit(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    redis_client=Depends(get_redis),
+) -> dict:
+    """Alias temporário: mantém clientes antigos enquanto migram para /credits."""
+    return await get_monthly_credits(current_user, db, redis_client)
 
 
 @router.get("", response_model=EssayListResponse)
@@ -385,8 +438,6 @@ async def list_essays(
     SEGURANÇA IDOR: A query filtra por user_id = current_user.id
     Isso garante que um usuário NUNCA veja redações de outro.
     """
-    from sqlalchemy import func
-
     page = max(1, page)
     per_page = min(max(1, per_page), 50)
     offset = (page - 1) * per_page
@@ -406,14 +457,14 @@ async def list_essays(
         select(func.count()).select_from(base_query.subquery())
     )
     total = count_result.scalar_one()
+    if current_user.plan.value == "free":
+        total = min(total, 5)
 
     # Busca os itens com a correção (para exibir nota)
+    visible_limit = min(per_page, max(0, total - offset))
     essays_result = await db.execute(
-        base_query
-        .options(selectinload(Essay.correction))
-        .order_by(Essay.created_at.desc())
-        .offset(offset)
-        .limit(per_page)
+        base_query.options(selectinload(Essay.correction))
+        .order_by(Essay.created_at.desc()).offset(offset).limit(visible_limit)
     )
     essays = essays_result.scalars().all()
 
@@ -482,8 +533,13 @@ async def get_essay(
 
     correction_data = None
     if essay.correction:
-        # Plano Free recebe versão básica (sem grifes)
-        if current_user.plan.value == "free":
+        first_completed_id = await _first_personal_completed_essay_id(current_user.id, db)
+        is_assignment = await db.scalar(
+            select(TarefaSubmissao.id).where(TarefaSubmissao.essay_id == essay.id).limit(1)
+        ) is not None
+        # A primeira correção Free demonstra a experiência completa. As demais
+        # mantêm nota por competência, feedback essencial e grifes principais.
+        if current_user.plan.value == "free" and essay.id != first_completed_id and not is_assignment:
             correction_data = build_basic_correction(essay.correction)
         else:
             correction_data = build_full_correction(essay.correction)
@@ -544,12 +600,68 @@ def _get_word_limits(essay_type: EssayType) -> tuple[int, int]:
     return 100, 500  # Vestibular
 
 
-def _get_upgrade_message(plan: str) -> str:
-    if plan == "free":
-        return "Faça upgrade para o plano Standard e tenha 3 correções por dia."
-    elif plan == "standard":
-        return "Faça upgrade para o plano Pro e tenha 10 correções por dia."
-    return ""
+def _personal_essay_filter(user_id: uuid.UUID):
+    assignment_essay_ids = select(TarefaSubmissao.essay_id).where(
+        TarefaSubmissao.essay_id.isnot(None)
+    )
+    return (
+        Essay.user_id == user_id,
+        ~Essay.id.in_(assignment_essay_ids),
+    )
+
+
+async def _first_personal_completed_essay_id(user_id: uuid.UUID, db: AsyncSession) -> uuid.UUID | None:
+    return await db.scalar(
+        select(Essay.id).where(
+            *_personal_essay_filter(user_id), Essay.status == EssayStatus.COMPLETED
+        ).order_by(Essay.created_at.asc()).limit(1)
+    )
+
+
+async def _build_learning_snapshot(user_id: uuid.UUID, db: AsyncSession) -> dict:
+    """Resume evolução apenas com notas; conteúdo da redação nunca entra em logs/analytics."""
+    result = await db.execute(
+        select(Essay).options(selectinload(Essay.correction)).where(
+            *_personal_essay_filter(user_id), Essay.status == EssayStatus.COMPLETED
+        ).order_by(Essay.created_at.desc()).limit(2)
+    )
+    essays = result.scalars().all()
+    completed_count = await db.scalar(
+        select(func.count(Essay.id)).where(
+            *_personal_essay_filter(user_id), Essay.status == EssayStatus.COMPLETED
+        )
+    ) or 0
+    latest = essays[0].correction if essays else None
+    previous = essays[1].correction if len(essays) > 1 else None
+    weakest = None
+    if latest and latest.competencies:
+        item = min(
+            latest.competencies,
+            key=lambda competency: float(competency.get("score", 0)) / max(float(competency.get("max_score", 1)), 1),
+        )
+        weakest = {"number": item.get("number"), "name": item.get("name", "Competência prioritária")}
+    delta = None
+    if latest and previous:
+        delta = round(latest.score_percentage - previous.score_percentage, 1)
+    return {
+        "completed_personal_corrections": completed_count,
+        "weakest_competency": weakest,
+        "latest_score_delta": delta,
+    }
+
+
+def _credit_exhausted_message(snapshot: dict, monthly_limit: int) -> str:
+    weakest = snapshot.get("weakest_competency")
+    if weakest:
+        return (
+            f"Você já usou seus {monthly_limit} créditos deste mês. "
+            f"A {weakest['name']} ainda é sua prioridade de treino. "
+            "Continue no Standard com mais correções e um plano direcionado."
+        )
+    return (
+        f"Você já usou seus {monthly_limit} créditos deste mês. "
+        "Continue no Standard para acompanhar sua evolução com um plano direcionado."
+    )
 
 
 async def _validate_assignment_submission(

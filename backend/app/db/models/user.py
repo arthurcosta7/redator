@@ -5,15 +5,19 @@ Representa tanto alunos quanto professores.
 user_type diferencia os dois tipos de conta.
 """
 import enum
-import uuid
-from datetime import datetime
+from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, Enum, String, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Boolean, DateTime, Enum, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.field_encryption import EncryptedText
 from app.db.base import Base, TimestampMixin, UUIDMixin
+
+if TYPE_CHECKING:
+    from app.db.models.essay import Essay
+    from app.db.models.refresh_token import RefreshToken
+    from app.db.models.subscription import Subscription
 
 
 class UserType(str, enum.Enum):
@@ -25,7 +29,7 @@ class UserType(str, enum.Enum):
 class UserPlan(str, enum.Enum):
     """
     Plano de assinatura do usuário.
-    O plano determina quantas correções por dia e quais funcionalidades.
+    O plano determina os créditos mensais de correção e as funcionalidades.
     """
     FREE = "free"
     STANDARD = "standard"
@@ -143,8 +147,7 @@ class User(UUIDMixin, TimestampMixin, Base):
     )
 
     # ─── Plano de professor ───────────────────────────────────────
-    # 0 = plano free (máx 3 alunos por turma)
-    # N = pacote pago (máx N alunos no total entre todas as turmas)
+    # 0 = Professor Free (3 vagas); 30/60/100 = capacidade comercial total.
     teacher_student_slots: Mapped[int] = mapped_column(
         default=0, nullable=False
     )
@@ -169,6 +172,4 @@ class User(UUIDMixin, TimestampMixin, Base):
         """Verifica se a conta está bloqueada por tentativas de login."""
         if self.locked_until is None:
             return False
-        from datetime import timezone
-        from datetime import datetime as dt
-        return dt.now(timezone.utc) < self.locked_until
+        return datetime.now(timezone.utc) < self.locked_until

@@ -2,20 +2,17 @@ import Link from "next/link";
 
 const links = {
   Produto: [
-    { label: "Funcionalidades", href: "#funcionalidades" },
-    { label: "Planos e preços", href: "#planos" },
-    { label: "Para professores", href: "#professores" },
-    { label: "Como funciona", href: "#como-funciona" },
+    { label: "Funcionalidades", href: "/#funcionalidades" },
+    { label: "Planos e preços", href: "/#planos" },
+    { label: "Para professores", href: "/professores" },
+    { label: "Como funciona", href: "/#como-funciona" },
   ],
   Suporte: [
-    { label: "Central de ajuda", href: "/help" },
-    { label: "Contato", href: "mailto:contato@redator.com.br" },
-    { label: "Status do sistema", href: "/status" },
+    { label: "Contato", href: "mailto:suporte@redator.online" },
   ],
   Legal: [
     { label: "Termos de uso", href: "/terms" },
     { label: "Privacidade", href: "/privacy" },
-    { label: "Cookies", href: "/cookies" },
   ],
 };
 
@@ -33,7 +30,7 @@ export function Footer() {
               </span>
             </Link>
             <p className="text-[15px] leading-[1.65] max-w-xs text-paper/70">
-              Correção de redações para ENEM e vestibular — com grife, nota por competência e histórico de evolução. Em menos de um minuto.
+              Correção e inteligência pedagógica para transformar cada redação em diagnóstico, histórico e próximo passo.
             </p>
           </div>
 

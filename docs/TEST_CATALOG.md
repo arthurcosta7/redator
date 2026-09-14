@@ -55,6 +55,15 @@ Ao alterar estados ou papéis desse fluxo, acrescente casos permitidos e negados
 | `test_scalability.py` | Concorrência, rate limiting, backpressure, timeouts e comportamento degradado. |
 | `integration/test_scalability_redis.py` | Comportamento real de operações dependentes de Redis. É opt-in e exige Redis disponível. |
 
+Essa camada também cobre a reserva atômica de créditos mensais, a virada do mês e os tetos de acumulação dos planos pagos.
+
+### Planos, turmas e inteligência de produto
+
+| Arquivo | Responsabilidade principal |
+| --- | --- |
+| `test_teacher_essay_isolation.py` | Isolamento de redações entre professores, alunos únicos ativos no total da conta e liberação segura de vagas. |
+| `test_product_analytics.py` | Lista permitida de eventos, pseudonimização do ator e descarte de texto livre e dados pessoais. |
+
 Os testes em memória verificam regras da aplicação. O teste de integração Redis verifica semântica real de expiração, atomicidade e concorrência.
 
 ### Integrações externas
@@ -75,7 +84,7 @@ Mudanças incompatíveis em campos, códigos de resposta ou formatos precisam se
 
 ## Frontend — testes unitários e de componentes
 
-Diretório principal: `frontend/src/__tests__/`.
+Diretório principal: `frontend/tests/unit/`.
 
 | Suíte | O que protege |
 | --- | --- |
@@ -93,18 +102,19 @@ Prefira consultas por papel, nome acessível, rótulo ou texto. Seletores ligado
 
 ## Frontend — jornadas E2E
 
-Diretório principal: `frontend/e2e/`.
+Diretório principal: `frontend/tests/e2e/`.
 
-A configuração atual executa oito jornadas em dois projetos — desktop e mobile — totalizando 16 execuções:
+A configuração atual executa nove jornadas em dois projetos — desktop e mobile — totalizando 18 execuções:
 
 1. carregamento e conteúdo essencial da página inicial;
 2. navegação pela landing page;
 3. apresentação e seleção de preços;
-4. acesso e validação do login;
-5. acesso e validação do cadastro;
-6. carregamento do dashboard simulado;
-7. envio e acompanhamento de uma redação com APIs simuladas;
-8. verificação automatizada de acessibilidade com Axe.
+4. proposta, confiança, planos e CTA da página dedicada a professores;
+5. acesso e validação do login;
+6. acesso e validação do cadastro;
+7. carregamento do dashboard simulado;
+8. envio e acompanhamento de uma redação com APIs simuladas;
+9. verificação automatizada de acessibilidade com Axe.
 
 Os testes E2E validam o produto pelo navegador. Sempre que possível, devem observar o resultado visível ao usuário em vez de detalhes internos do React.
 

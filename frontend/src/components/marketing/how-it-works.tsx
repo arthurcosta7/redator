@@ -15,7 +15,7 @@ const steps = [
     title: "A análise percorre cada competência",
     description:
       "Escolha ENEM ou vestibular. Cada critério recebe uma nota e uma explicação objetiva.",
-    detail: "Resultado em ~30 segundos",
+    detail: "Correção automática e feedback baseado no texto",
   },
   {
     number: "III",
@@ -47,7 +47,7 @@ export function HowItWorks() {
 
         <motion.header {...fadeUp} className="mb-14 lg:mb-16 max-w-3xl">
           <h2 className="font-display font-semibold text-4xl sm:text-5xl lg:text-6xl text-ink leading-[1.05] tracking-[-0.01em] text-balance">
-            Envie. Receba o diagnóstico. Evolua.
+            Descubra onde você perde pontos — e o que treinar depois.
           </h2>
         </motion.header>
 

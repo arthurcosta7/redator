@@ -19,7 +19,7 @@ const evaluationModels = [
   },
   {
     name: "Vestibular tradicional",
-    description: "Critérios adaptados a provas como FUVEST, UNICAMP e UNESP.",
+    description: "Escala pedagógica normalizada de 0 a 100; não equivale à nota oficial de cada banca.",
     criteria: [
       "Adequação ao tema e ao gênero",
       "Desenvolvimento e argumentação",
@@ -115,7 +115,7 @@ export function Features() {
               Uma rotina mais leve para professores.
             </h3>
             <p className="mt-4 max-w-lg leading-relaxed text-paper/70">
-              Comece grátis com até três alunos ativos por turma e amplie quando precisar.
+              Comece grátis com até três alunos ativos no total. Turmas continuam ilimitadas.
             </p>
           </div>
 
@@ -132,10 +132,10 @@ export function Features() {
 
           <div className="mt-8 lg:col-span-3 lg:mt-0 lg:text-right">
             <Link
-              href="/auth/register?type=teacher"
+              href="/professores"
               className="inline-flex min-h-12 items-center justify-center gap-2 bg-accent px-6 font-semibold text-paper transition-colors hover:bg-accent-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-light focus-visible:ring-offset-2 focus-visible:ring-offset-ink"
             >
-              Criar conta de professor
+              Conhecer a plataforma docente
               <ArrowRight className="size-4" strokeWidth={2.25} aria-hidden />
             </Link>
           </div>

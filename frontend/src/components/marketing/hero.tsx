@@ -22,7 +22,7 @@ export function Hero() {
           transition={{ duration: 0.5, ease: enterEase }}
           className="flex items-center gap-3 mb-8 lg:mb-10"
         >
-          <span className="eyebrow">Correção inteligente de redações</span>
+          <span className="eyebrow">Correção + inteligência pedagógica</span>
           <span className="hidden sm:block flex-1 max-w-[120px] h-px bg-ink-line" />
         </motion.div>
 
@@ -40,12 +40,12 @@ export function Hero() {
               className="font-display font-semibold text-[2.65rem] sm:text-6xl lg:text-7xl xl:text-[5.25rem]
                          text-ink leading-[1.04] tracking-[-0.015em] text-balance"
             >
-              Sua redação corrigida em menos de um minuto.
+              Cada redação vira um plano de evolução.
             </h1>
 
             {/* Subhead */}
             <p className="text-lg lg:text-xl text-ink-soft leading-[1.55] max-w-xl font-sans">
-              Envie o texto ou foto. A plataforma devolve grife nos trechos, nota por competência e o que mudar da próxima vez — sem esperar o cursinho devolver em duas semanas.
+              Uma plataforma que conecta alunos e professores, organiza a correção e mostra onde você perde pontos, o que treinar e qual deve ser o próximo passo.
             </p>
 
             {/* CTAs */}
@@ -70,9 +70,9 @@ export function Hero() {
             {/* Trust line */}
             <div className="pt-6 border-t border-ink-line">
               <p className="font-mono text-[13px] text-ink-muted leading-relaxed">
-                <span className="text-ink">[01]</span> feedback em ~30 segundos &nbsp;·&nbsp;
-                <span className="text-ink">[02]</span> sem cartão de crédito &nbsp;·&nbsp;
-                <span className="text-ink">[03]</span> ENEM e vestibular
+                <span className="text-ink">[01]</span> correção automática &nbsp;·&nbsp;
+                <span className="text-ink">[02]</span> plano de melhoria &nbsp;·&nbsp;
+                <span className="text-ink">[03]</span> professor no controle
               </p>
             </div>
           </motion.div>

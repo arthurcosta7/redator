@@ -13,14 +13,14 @@ Documentos relacionados:
 
 | Camada | Ferramentas | Quantidade | Objetivo |
 |---|---|---:|---|
-| Backend unitário/contrato | pytest, pytest-asyncio, HTTPX | 140 aprovados, 1 opcional ignorado | Regras, segurança, IA, fila, adaptadores e contrato HTTP |
+| Backend unitário/contrato | pytest, pytest-asyncio, HTTPX | 158 aprovados, 1 opcional ignorado | Regras, segurança, IA, fila, adaptadores e contrato HTTP |
 | Integração Redis | pytest + Redis real | 1 opcional | Atomicidade real de cotas e rate limiting |
-| Frontend unitário | Vitest, Testing Library, jsdom | 28 aprovados | Componentes, estados, middleware e cliente HTTP |
-| E2E | Playwright | 16 aprovados | 8 jornadas em desktop Chromium e Pixel 7 |
-| Acessibilidade | Axe + Playwright | 2 execuções | Violações críticas/sérias na landing desktop/mobile |
+| Frontend unitário | Vitest, Testing Library, jsdom | 33 aprovados | Componentes, estados, middleware e cliente HTTP |
+| E2E | Playwright | 18 aprovados | 9 jornadas em desktop Chromium e Pixel 7 |
+| Acessibilidade | Axe + Playwright | 4 análises | Violações críticas/sérias na landing e página de professores, em desktop/mobile |
 | Carga | Locust | Sob demanda | Smoke, carga, pico, soak e SLO |
 
-Baseline verificada em 10 de setembro de 2026. As quantidades mudam conforme novos casos são adicionados; os comandos e critérios são a fonte de verdade.
+Baseline verificada em 14 de setembro de 2026. As quantidades mudam conforme novos casos são adicionados; os comandos e critérios são a fonte de verdade.
 
 ## Matriz de risco
 
@@ -65,8 +65,8 @@ Cobertura de referência:
 
 | Área | Cobertura observada |
 |---|---:|
-| Backend global | 59,69% |
-| Worker de correções | 100% |
+| Backend global | 64,34% |
+| Worker de correções | 93% |
 | Email | 100% |
 | Stripe | 97% |
 | Middleware | 96% |
@@ -76,10 +76,10 @@ Cobertura de referência:
 
 | Métrica | Piso | Referência observada |
 |---|---:|---:|
-| Statements | 41% | 41,15% |
-| Branches | 50% | 50,10% |
-| Functions | 43% | 43,31% |
-| Lines | 41% | 41,56% |
+| Statements | 41% | 42,77% |
+| Branches | 50% | 51,42% |
+| Functions | 43% | 45,09% |
+| Lines | 41% | 43,02% |
 
 Além da cobertura, `tsc --noEmit`, o build Next.js e todos os projetos Playwright precisam passar. Cobertura não substitui verificação de comportamento: componentes estáticos podem ter baixa cobertura unitária e ainda serem exercitados no E2E.
 

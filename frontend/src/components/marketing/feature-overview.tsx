@@ -60,7 +60,7 @@ function CorrectionPreview() {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(100%_120%_at_50%_0%,transparent_35%,rgba(241,236,226,0.9)_100%)]" />
       <div className="relative caderno border border-ink-line p-5 font-display text-[15px] leading-8 text-ink-soft shadow-card sm:p-6 sm:text-base">
         <p>
-          Segundo dados do <span className="grife-good">IBGE (2023)</span>, o acesso à educação ainda revela desigualdades profundas. Por isso, políticas públicas precisam considerar a realidade de cada região.
+          O acesso à educação ainda revela <span className="grife-good">desigualdades entre diferentes contextos sociais</span>. Por isso, o argumento precisa explicar causas e consequências com evidências pertinentes.
         </p>
         <div className="mt-5 flex flex-wrap gap-2 font-sans text-xs">
           <span className="bg-[var(--good-bg)] px-2 py-1 text-[var(--good-fg)]">repertório pertinente</span>
@@ -76,6 +76,7 @@ function CompetencyPreview() {
     <div className="relative border-t border-dashed border-ink-line px-6 pb-8 pt-7 sm:px-8">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(85%_100%_at_75%_30%,transparent_30%,rgba(241,236,226,0.9)_100%)]" />
       <div className="relative border border-ink-line bg-[#fffdf9] p-5 shadow-card sm:p-6">
+        <span className="sr-only">Dados ilustrativos de uma demonstração de interface.</span>
         <div className="mb-5 flex items-end justify-between border-b border-ink-line pb-4">
           <div>
             <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink-muted">Resultado ENEM</p>

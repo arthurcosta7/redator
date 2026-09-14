@@ -6,7 +6,12 @@ from uuid import UUID, uuid4
 import pytest
 
 from app.api.v1.endpoints.essays import submit_essay
-from app.core.rate_limiter import RateLimiter, reserve_daily_correction_slot
+from app.core.rate_limiter import (
+    RateLimiter,
+    _credit_policy,
+    check_monthly_credits,
+    reserve_monthly_credit,
+)
 from app.core.security import hash_password
 from app.db.models.essay import Essay, EssayStatus, EssayType
 from app.db.models.user import User, UserPlan, UserType
@@ -19,7 +24,7 @@ class AtomicRedis:
 
     def __init__(self) -> None:
         self.lock = asyncio.Lock()
-        self.daily_count = 0
+        self.credit_state: dict[str, dict[str, int | str]] = {}
         self.window_count = 0
 
     async def eval(
@@ -30,15 +35,33 @@ class AtomicRedis:
         *args: str,
     ) -> list[int]:
         async with self.lock:
-            if "DECR" in script:
-                self.daily_count = max(0, self.daily_count - 1)
-                return [self.daily_count]
-            if "local maximum = tonumber(ARGV[1])" in script:
-                maximum = int(args[0])
-                if self.daily_count >= maximum:
-                    return [0, self.daily_count]
-                self.daily_count += 1
-                return [1, self.daily_count]
+            if "HSET" in script:
+                period, plan, base, rollover_cap, _ttl, reserve, previous_period = args
+                state = self.credit_state.get(key)
+                if state is None or state["period"] != period or state["plan"] != plan:
+                    carry = 0
+                    if (
+                        state is not None
+                        and state["plan"] == plan
+                        and state["period"] == previous_period
+                    ):
+                        carry = min(
+                            max(int(state["limit"]) - int(state["used"]), 0),
+                            int(rollover_cap),
+                        )
+                    state = {
+                        "period": period,
+                        "plan": plan,
+                        "used": 0,
+                        "limit": int(base) + carry,
+                        "rollover": carry,
+                    }
+                    self.credit_state[key] = state
+                if reserve == "1":
+                    if int(state["used"]) >= int(state["limit"]):
+                        return [0, int(state["used"]), int(state["limit"]), int(state["rollover"])]
+                    state["used"] = int(state["used"]) + 1
+                return [1, int(state["used"]), int(state["limit"]), int(state["rollover"])]
 
             maximum = int(args[3])
             if self.window_count >= maximum:
@@ -93,19 +116,68 @@ class CountingSimuladoService(SimuladoService):
 
 
 @pytest.mark.asyncio
-async def test_daily_quota_cannot_be_oversubscribed_concurrently(monkeypatch: Any) -> None:
+async def test_monthly_quota_cannot_be_oversubscribed_concurrently(monkeypatch: Any) -> None:
     redis_client = AtomicRedis()
-    monkeypatch.setattr("app.core.rate_limiter.settings.PLAN_FREE_DAILY_CORRECTIONS", 3)
+    monkeypatch.setattr("app.core.rate_limiter.settings.PLAN_FREE_MONTHLY_CORRECTIONS", 3)
 
     results = await asyncio.gather(
         *(
-            reserve_daily_correction_slot("same-user", "free", redis_client)
+            reserve_monthly_credit("same-user", "free", redis_client)
             for _ in range(100)
         )
     )
 
-    assert sum(allowed for allowed, _, _ in results) == 3
-    assert redis_client.daily_count == 3
+    assert sum(allowed for allowed, _, _, _ in results) == 3
+    assert redis_client.credit_state["monthly_credits:corrections:same-user"]["used"] == 3
+
+
+@pytest.mark.asyncio
+async def test_paid_monthly_credits_roll_over_only_up_to_cap(monkeypatch: Any) -> None:
+    redis_client = AtomicRedis()
+    monkeypatch.setattr("app.core.rate_limiter.settings.PLAN_STANDARD_MONTHLY_CORRECTIONS", 12)
+    monkeypatch.setattr("app.core.rate_limiter._month_period", lambda _now=None: "2026-08")
+    monkeypatch.setattr("app.core.rate_limiter._previous_month_period", lambda _now=None: "2026-07")
+    await asyncio.gather(
+        *(reserve_monthly_credit("paid", "standard", redis_client) for _ in range(2))
+    )
+
+    monkeypatch.setattr("app.core.rate_limiter._month_period", lambda _now=None: "2026-09")
+    monkeypatch.setattr("app.core.rate_limiter._previous_month_period", lambda _now=None: "2026-08")
+    allowed, used, limit, rollover = await check_monthly_credits("paid", "standard", redis_client)
+
+    assert allowed is True
+    assert used == 0
+    assert limit == 16
+    assert rollover == 4
+
+
+@pytest.mark.asyncio
+async def test_paid_credits_do_not_roll_over_after_an_inactive_month(monkeypatch: Any) -> None:
+    redis_client = AtomicRedis()
+    monkeypatch.setattr("app.core.rate_limiter.settings.PLAN_STANDARD_MONTHLY_CORRECTIONS", 12)
+    monkeypatch.setattr("app.core.rate_limiter._month_period", lambda _now=None: "2026-07")
+    monkeypatch.setattr("app.core.rate_limiter._previous_month_period", lambda _now=None: "2026-06")
+    await reserve_monthly_credit("inactive", "standard", redis_client)
+
+    monkeypatch.setattr("app.core.rate_limiter._month_period", lambda _now=None: "2026-09")
+    monkeypatch.setattr("app.core.rate_limiter._previous_month_period", lambda _now=None: "2026-08")
+    allowed, used, limit, rollover = await check_monthly_credits(
+        "inactive", "standard", redis_client
+    )
+
+    assert allowed is True
+    assert used == 0
+    assert limit == 12
+    assert rollover == 0
+
+
+def test_monthly_credit_policies_match_commercial_plans() -> None:
+    assert _credit_policy("free", "corrections") == (4, 0)
+    assert _credit_policy("standard", "corrections") == (12, 4)
+    assert _credit_policy("pro", "corrections") == (30, 10)
+    assert _credit_policy("free", "simulations") == (1, 0)
+    assert _credit_policy("standard", "simulations") == (3, 0)
+    assert _credit_policy("pro", "simulations") == (8, 0)
 
 
 @pytest.mark.asyncio

@@ -106,7 +106,7 @@ class TarefaSubmissao(UUIDMixin, Base):
 
     - Criada quando o aluno envia a redação.
     - essay_id aponta para a redação/correção normal do sistema.
-    - Correções de tarefas NÃO descontam o limite diário do aluno.
+    - Correções de tarefas NÃO descontam créditos pessoais do aluno.
     - O professor pode adicionar um comentário depois da correção automática.
 
     SEGURANÇA - IDOR:

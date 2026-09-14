@@ -28,12 +28,26 @@ test("pricing separa ofertas de aluno e professor", async ({ page }) => {
   await page.goto("/#planos");
   const pricing = page.locator("#planos");
   await expect(pricing.getByRole("heading", { name: "Standard" })).toBeVisible();
-  await expect(pricing.getByText("10 correções por dia")).toBeVisible();
+  await expect(pricing.getByText("12 correções por mês")).toBeVisible();
 
   await pricing.getByRole("button", { name: "Para professores" }).click();
   await expect(pricing.getByRole("heading", { name: "Professor Free" })).toBeVisible();
-  await expect(pricing.getByText("Até 3 alunos ativos por turma")).toBeVisible();
+  await expect(pricing.getByText("Até 3 alunos ativos no total")).toBeVisible();
+  await expect(pricing.getByRole("heading", { name: "Professor 30" })).toBeVisible();
   await expect(pricing.getByRole("heading", { name: "Standard" })).toHaveCount(0);
+});
+
+test("página de professores apresenta proposta, confiança e conversão", async ({ page }) => {
+  await page.goto("/professores");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Mais clareza para ensinar");
+  await expect(page.getByRole("link", { name: "Criar minha primeira turma grátis" }).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Professor 30" })).toBeVisible();
+  await expect(page.getByText("estimativa pedagógica").first()).toBeVisible();
+  const results = await new AxeBuilder({ page }).analyze();
+  const blocking = results.violations.filter(
+    (violation) => violation.impact === "critical" || violation.impact === "serious",
+  );
+  expect(blocking, blocking.map((item) => `${item.id}: ${item.help}`).join("\n")).toEqual([]);
 });
 
 test("seleção de cadastro direciona para cada perfil", async ({ page }) => {

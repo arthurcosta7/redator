@@ -43,10 +43,12 @@ Respostas de recuperação e reenvio são deliberadamente genéricas para não r
 |---|---|---|
 | POST | `/essays` | Texto; retorna estado pendente |
 | POST | `/essays/photo` | Foto JPEG/PNG/WebP + OCR |
-| GET | `/essays/daily-limit` | Uso e limite do dia |
+| GET | `/essays/credits` | Uso, saldo, renovação e resumo pedagógico do mês |
 | GET | `/essays` | Histórico paginado |
 | GET | `/essays/{essay_id}` | Detalhe e correção quando pronta |
 | DELETE | `/essays/{essay_id}` | Exclui recurso do próprio usuário |
+
+`GET /essays/daily-limit` permanece temporariamente como alias depreciado de `/essays/credits` para clientes antigos.
 
 Exemplo de submissão:
 
@@ -64,7 +66,7 @@ Exemplo de submissão:
 
 | Grupo | Endpoints |
 |---|---|
-| Perfil | `GET/PATCH/DELETE /users/me` |
+| Perfil | `GET/PATCH/DELETE /users/me`; `POST /users/events` aceita somente `plans_viewed` sem payload livre |
 | Stripe | `POST /checkout/session`, `POST /checkout/portal`, `GET /subscription`, `POST /webhooks/stripe` |
 | Insights | `GET /insights/summary` |
 | Simulados | `GET /simulados/new` |

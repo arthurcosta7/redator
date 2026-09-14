@@ -2,8 +2,11 @@
 
 import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
+import { useUser } from "@/contexts/UserContext";
 
 export default function CheckoutSucessoPage() {
+  const { user } = useUser();
+  const dashboard = user?.user_type === "teacher" ? "/dashboard/professor" : "/dashboard/aluno";
   return (
     <main id="conteudo-principal" className="app-canvas min-h-dvh flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-10 w-full max-w-md text-center">
@@ -15,7 +18,7 @@ export default function CheckoutSucessoPage() {
           Seu plano já está ativo. Pode começar a corrigir suas redações com todos os recursos desbloqueados.
         </p>
         <Link
-          href="/dashboard/aluno"
+          href={dashboard}
           className="block w-full bg-brand-700 hover:bg-brand-800 text-white
                      font-semibold py-3 rounded-xl transition-colors"
         >

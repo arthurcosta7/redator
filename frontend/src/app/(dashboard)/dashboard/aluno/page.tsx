@@ -12,7 +12,7 @@ import {
 import { api } from "@/lib/api/client";
 import { useUser } from "@/contexts/UserContext";
 import type {
-  DailyLimitResponse,
+  MonthlyCreditsResponse,
   EssayListItem,
   EssayListResponse,
 } from "@/types/essay";
@@ -56,7 +56,7 @@ export default function StudentDashboard() {
   const { user, isLoading: userLoading } = useUser();
   const [essays, setEssays] = useState<EssayListItem[]>([]);
   const [essayTotal, setEssayTotal] = useState(0);
-  const [dailyLimit, setDailyLimit] = useState<DailyLimitResponse | null>(null);
+  const [credits, setCredits] = useState<MonthlyCreditsResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -64,11 +64,11 @@ export default function StudentDashboard() {
       try {
         const [essayRes, limitRes] = await Promise.all([
           api.get<EssayListResponse>("/essays?per_page=5"),
-          api.get<DailyLimitResponse>("/essays/daily-limit"),
+          api.get<MonthlyCreditsResponse>("/essays/credits"),
         ]);
         setEssays(essayRes.data.items);
         setEssayTotal(essayRes.data.total);
-        setDailyLimit(limitRes.data);
+        setCredits(limitRes.data);
       } catch {
         // O interceptor apresenta erros globais de conexão.
       } finally {
@@ -91,10 +91,10 @@ export default function StudentDashboard() {
           100,
       )
     : null;
-  const used = dailyLimit?.used ?? 0;
-  const limit = dailyLimit?.limit ?? 0;
+  const used = credits?.used ?? 0;
+  const limit = credits?.limit ?? 0;
   const isUnlimited = limit >= 9999 || limit === Infinity;
-  const canSubmit = dailyLimit ? used < limit : true;
+  const canSubmit = credits ? credits.remaining > 0 : true;
   const usagePercentage = isUnlimited || limit === 0
     ? 0
     : Math.min(100, Math.round((used / limit) * 100));
@@ -156,14 +156,14 @@ export default function StudentDashboard() {
               </Link>
             ) : (
               <span className="mt-7 inline-flex rounded bg-paper/10 px-5 py-3 text-sm font-semibold text-paper/45">
-                Limite diário atingido
+                Créditos do mês utilizados
               </span>
             )}
           </div>
 
           <div className="border-t border-paper/10 bg-paper/[0.04] px-6 py-8 sm:px-9 lg:border-l lg:border-t-0 lg:px-7 lg:py-10">
             <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-paper/50">
-              Uso de hoje
+              Créditos deste mês
             </p>
             <p className="mt-4 font-display text-5xl font-semibold tabular-nums">
               {used}
@@ -178,12 +178,18 @@ export default function StudentDashboard() {
               />
             </div>
             <p className="mt-3 text-xs leading-5 text-paper/55">
-              Plano {user ? PLAN_LABELS[user.plan] : ""}. O limite é renovado diariamente.
+              Plano {user ? PLAN_LABELS[user.plan] : ""}. Renovação mensal
+              {credits?.rollover ? ` · ${credits.rollover} acumulados` : ""}.
             </p>
             {!canSubmit && (
-              <Link href="/dashboard/aluno/plano" className="mt-5 inline-block text-xs font-semibold text-accent-200 hover:text-paper">
-                Ver opções de plano →
-              </Link>
+              <div className="mt-5 space-y-2">
+                <p className="text-xs leading-5 text-paper/70">
+                  {credits?.weakest_competency
+                    ? `Você evoluiu, mas ${credits.weakest_competency.name} ainda limita sua nota. Continue com mais correções e um plano direcionado.`
+                    : "Continue o treino com mais correções e um plano direcionado."}
+                </p>
+                <Link href="/dashboard/aluno/plano" className="inline-block text-xs font-semibold text-accent-200 hover:text-paper">Conhecer o Standard →</Link>
+              </div>
             )}
           </div>
         </div>
@@ -279,9 +285,13 @@ export default function StudentDashboard() {
 
           <section className="rounded-lg bg-accent-50 px-5 py-5">
             <TrendingUp className="h-5 w-5 text-accent-deep" strokeWidth={1.8} />
-            <h3 className="mt-4 font-display text-lg font-semibold text-ink">Encontre seu padrão</h3>
+            <h3 className="mt-4 font-display text-lg font-semibold text-ink">
+              {credits?.weakest_competency?.name ?? "Encontre seu padrão"}
+            </h3>
             <p className="mt-2 text-xs leading-5 text-ink-muted">
-              Compare competências e descubra onde sua próxima hora de estudo terá mais impacto.
+              {credits?.weakest_competency
+                ? `Esta é sua prioridade atual. ${credits.latest_score_delta === null ? "Use a próxima redação para criar uma comparação." : credits.latest_score_delta >= 0 ? `Sua nota recente avançou ${credits.latest_score_delta} ponto(s) percentual(is).` : `Sua nota recente variou ${credits.latest_score_delta} ponto(s) percentual(is); revise o diagnóstico.`}`
+                : "Compare competências e descubra onde sua próxima hora de estudo terá mais impacto."}
             </p>
             <Link href="/dashboard/aluno/insights" className="mt-4 inline-block text-xs font-semibold text-accent-deep hover:text-accent">
               Abrir insights →

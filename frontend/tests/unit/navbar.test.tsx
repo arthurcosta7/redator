@@ -17,19 +17,24 @@ describe("Navbar", () => {
   it("faz scroll suave, atualiza a URL e fecha o menu", async () => {
     const user = userEvent.setup();
     const target = document.createElement("section");
-    target.id = "professores";
+    target.id = "como-funciona";
     const scrollIntoView = vi.spyOn(target, "scrollIntoView");
     document.body.appendChild(target);
     const pushState = vi.spyOn(window.history, "pushState");
 
     render(<Navbar />);
     await user.click(screen.getByRole("button", { name: "Abrir menu" }));
-    await user.click(screen.getAllByRole("link", { name: "Para professores" }).at(-1)!);
+    await user.click(screen.getAllByRole("link", { name: "Como funciona" }).at(-1)!);
 
     expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
-    expect(pushState).toHaveBeenCalledWith(null, "", "#professores");
+    expect(pushState).toHaveBeenCalledWith(null, "", "#como-funciona");
     expect(screen.queryByRole("button", { name: "Fechar menu" })).not.toBeInTheDocument();
     target.remove();
+  });
+
+  it("leva professores para a página dedicada", () => {
+    render(<Navbar />);
+    expect(screen.getByRole("link", { name: "Para professores" })).toHaveAttribute("href", "/professores");
   });
 
   it("respeita preferência por movimento reduzido", async () => {

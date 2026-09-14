@@ -42,7 +42,8 @@ O `correction_worker` é obrigatório. Sem ele, submissões são aceitas mas nã
 
 ## Provedores
 
-- Stripe: configure os quatro Price IDs e webhook para `https://api.redator.online/api/v1/webhooks/stripe`; copie o signing secret.
+- Stripe: configure os Price IDs mensais de Standard, Pro, Professor 30, 60 e 100 e o webhook para `https://api.redator.online/api/v1/webhooks/stripe`; copie o signing secret. IDs trimestrais e `STRIPE_PRICE_TEACHER_PACKAGE` só são mantidos para assinaturas legadas.
+- Migre no Stripe as assinaturas antigas de pacote para um plano comercial. Até a migração, o backend reconhece o Price ID legado como Professor 30; ele nunca é oferecido em novos checkouts.
 - Resend: valide o domínio remetente.
 - Google Vision: monte/forneça a credencial somente ao backend que executa OCR.
 - OpenAI: use projeto, limites de gasto e chave próprios do ambiente.

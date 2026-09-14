@@ -45,6 +45,7 @@ from app.schemas.auth import (
     RegisterTeacherRequest,
     ResetPasswordRequest,
 )
+from app.services.product_analytics import track_product_event
 
 router = APIRouter(prefix="/auth", tags=["Autenticação"])
 logger = get_logger(__name__)
@@ -145,6 +146,13 @@ async def create_user(
             user_type=user_type,
             email=mask_email(email),    # Mascara no log
         )
+        track_product_event(
+            logger,
+            "registration_completed",
+            user_id=str(user.id),
+            account_type=user_type.value,
+            plan=UserPlan.FREE.value,
+        )
 
     # Envia email de verificação (assíncrono, não bloqueia o registro)
     try:
@@ -171,6 +179,7 @@ async def register_student(
     """Cria uma conta de aluno."""
     ip = request.client.host if request.client else "unknown"
     limiter = RateLimiter(redis_client)
+    track_product_event(logger, "registration_started", account_type=UserType.STUDENT.value)
     if not await limiter.check("registration", ip, max_requests=5, window_seconds=3600):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -200,6 +209,7 @@ async def register_teacher(
     """Cria uma conta de professor."""
     ip = request.client.host if request.client else "unknown"
     limiter = RateLimiter(redis_client)
+    track_product_event(logger, "registration_started", account_type=UserType.TEACHER.value)
     if not await limiter.check("registration", ip, max_requests=5, window_seconds=3600):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,

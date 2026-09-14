@@ -360,7 +360,7 @@ export default function AlunoTarefaPage() {
             : <><Send className="w-4 h-4" /> Enviar Tarefa</>}
         </button>
         <p className="text-xs text-slate-400 text-center">
-          A correção por IA será iniciada automaticamente. Esta entrega não desconta seu limite diário.
+          A correção automática será iniciada após o envio. Esta tarefa não consome seus créditos pessoais mensais.
         </p>
       </form>
     </div>

@@ -81,6 +81,8 @@ from app.services.correction_response import (
     build_basic_correction,
     build_full_correction,
 )
+from app.services.product_analytics import track_product_event
+from app.services.teacher_plans import normalize_teacher_capacity
 
 router = APIRouter(prefix="/professor", tags=["Professor"])
 logger = get_logger(__name__)
@@ -153,46 +155,51 @@ def _membro_to_item(
 
 async def _check_teacher_slot_limit(
     teacher: User,
-    turma: Turma,
     db: AsyncSession,
+    student_id: uuid.UUID | None = None,
 ) -> None:
     """
     Verifica se o professor ainda tem slots para adicionar alunos.
 
-    Plano free  → máx 3 alunos ACTIVE por turma individual
-    Plano pago  → máx teacher.teacher_student_slots ACTIVE no total de todas as turmas
+    O limite vale para a conta inteira. Um mesmo usuário em várias turmas ocupa
+    uma vaga; cada aluno offline ocupa uma vaga própria.
     """
-    if teacher.teacher_student_slots == 0:
-        active_count = sum(
-            1 for m in turma.members
-            if m.status == TurmaMembroStatus.ACTIVE
+    # Serializa alterações concorrentes da lotação da mesma conta.
+    await db.execute(select(User.id).where(User.id == teacher.id).with_for_update())
+    registered, offline = await _active_teacher_seats(teacher.id, db)
+    if student_id is not None and student_id in registered:
+        return
+    capacity = normalize_teacher_capacity(teacher.teacher_student_slots)
+    if len(registered) + offline >= capacity:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                f"Seu plano permite {capacity} alunos ativos no total. "
+                "Remova um vínculo ativo ou escolha um plano com mais vagas."
+            ),
         )
-        if active_count >= 3:
-            raise HTTPException(
-                status_code=403,
-                detail=(
-                    "Limite de 3 alunos por turma no plano gratuito. "
-                    "Adquira um pacote de alunos para expandir."
-                ),
-            )
-    else:
-        result = await db.execute(
-            select(func.count(TurmaMembro.id))
-            .join(Turma, Turma.id == TurmaMembro.turma_id)
-            .where(
-                Turma.teacher_id == teacher.id,
-                TurmaMembro.status == TurmaMembroStatus.ACTIVE,
-            )
+
+
+async def _active_teacher_seats(
+    teacher_id: uuid.UUID, db: AsyncSession
+) -> tuple[set[uuid.UUID], int]:
+    """Retorna usuários únicos e quantidade de registros offline ativos."""
+    result = await db.execute(
+        select(TurmaMembro.user_id, TurmaMembro.id)
+        .join(Turma, Turma.id == TurmaMembro.turma_id)
+        .where(
+            Turma.teacher_id == teacher_id,
+            TurmaMembro.status == TurmaMembroStatus.ACTIVE,
         )
-        total_active = result.scalar_one() or 0
-        if total_active >= teacher.teacher_student_slots:
-            raise HTTPException(
-                status_code=403,
-                detail=(
-                    f"Você já tem {teacher.teacher_student_slots} alunos ativos "
-                    "(limite do pacote adquirido). Adquira mais pacotes para expandir."
-                ),
-            )
+    )
+    registered: set[uuid.UUID] = set()
+    offline = 0
+    for user_id, _member_id in result.all():
+        if user_id is None:
+            offline += 1
+        else:
+            registered.add(user_id)
+    return registered, offline
 
 
 async def _get_turma_or_404(
@@ -416,6 +423,11 @@ async def create_turma(
     turma = result_t.scalar_one()
 
     logger.info("turma_criada", turma_id=str(turma.id), teacher_id=str(teacher.id))
+    track_product_event(
+        logger, "class_created", user_id=str(teacher.id),
+        account_type=teacher.user_type.value,
+        teacher_plan=str(normalize_teacher_capacity(teacher.teacher_student_slots)),
+    )
     return _turma_to_list_item(turma)
 
 
@@ -514,7 +526,7 @@ async def add_offline_student(
     para controle de presença/turma. Nenhum dado de redação estará disponível.
     """
     turma = await _get_turma_or_404(turma_id, teacher.id, db)
-    await _check_teacher_slot_limit(teacher, turma, db)
+    await _check_teacher_slot_limit(teacher, db)
 
     membro = TurmaMembro(
         turma_id=turma.id,
@@ -534,7 +546,12 @@ async def add_offline_student(
     logger.info(
         "membro_offline_adicionado",
         turma_id=turma_id,
-        display_name=data.display_name,
+        teacher_id=str(teacher.id),
+    )
+    track_product_event(
+        logger, "student_activated", user_id=str(teacher.id),
+        account_type=teacher.user_type.value,
+        teacher_plan=str(normalize_teacher_capacity(teacher.teacher_student_slots)),
     )
     return _membro_to_item(membro)
 
@@ -556,8 +573,6 @@ async def invite_student_by_email(
     e uma mensagem genérica caso não encontre o usuário.
     """
     turma = await _get_turma_or_404(turma_id, teacher.id, db)
-    await _check_teacher_slot_limit(teacher, turma, db)
-
     # Busca o usuário pelo email (case-insensitive)
     result = await db.execute(
         select(User).where(func.lower(User.email) == data.email.lower())
@@ -570,6 +585,8 @@ async def invite_student_by_email(
             status_code=404,
             detail="Usuário não encontrado. Confirme se o aluno já se cadastrou no Redator.",
         )
+
+    await _check_teacher_slot_limit(teacher, db, invited_user.id)
 
     # Verifica se já é membro (ativo ou pendente)
     existing = await db.execute(
@@ -607,6 +624,11 @@ async def invite_student_by_email(
         turma_id=turma_id,
         invited_user_id=str(invited_user.id),
         teacher_id=str(teacher.id),
+    )
+    track_product_event(
+        logger, "invitation_sent", user_id=str(teacher.id),
+        account_type=teacher.user_type.value,
+        teacher_plan=str(normalize_teacher_capacity(teacher.teacher_student_slots)),
     )
     return _membro_to_item(membro)
 
@@ -755,6 +777,10 @@ async def get_overview_analytics(
 ) -> ProfessorOverviewAnalytics:
     """Analytics gerais do professor: contagens e médias por turma."""
     from datetime import datetime, timedelta, timezone
+    track_product_event(
+        logger, "teacher_report_viewed", user_id=str(teacher.id),
+        account_type=teacher.user_type.value, report_type="overview",
+    )
 
     # Busca todas as turmas com membros
     turmas_result = await db.execute(
@@ -873,6 +899,10 @@ async def get_turma_analytics(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> TurmaFullAnalytics:
     """Analytics detalhado de uma turma: por aluno."""
+    track_product_event(
+        logger, "teacher_report_viewed", user_id=str(teacher.id),
+        account_type=teacher.user_type.value, report_type="class",
+    )
     turma = await _get_turma_or_404(turma_id, teacher.id, db)
 
     members_visible = [m for m in turma.members if m.status != TurmaMembroStatus.REMOVED]
@@ -925,6 +955,10 @@ async def get_student_analytics(
     teacher: Annotated[User, Depends(get_current_teacher)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> StudentFullAnalytics:
+    track_product_event(
+        logger, "teacher_report_viewed", user_id=str(teacher.id),
+        account_type=teacher.user_type.value, report_type="student",
+    )
     """
     Analytics completo de um aluno específico.
 
@@ -1091,9 +1125,22 @@ async def accept_invite(
     if not membro:
         raise HTTPException(status_code=404, detail="Convite não encontrado.")
 
+    teacher_result = await db.execute(
+        select(User)
+        .join(Turma, Turma.teacher_id == User.id)
+        .where(Turma.id == membro.turma_id)
+    )
+    teacher = teacher_result.scalar_one()
+    # A aceitação é o momento autoritativo: convites pendentes não ocupam vaga.
+    await _check_teacher_slot_limit(teacher, db, current_user.id)
     membro.status = TurmaMembroStatus.ACTIVE
     await db.flush()
     logger.info("convite_aceito", member_id=member_id, user_id=str(current_user.id))
+    track_product_event(
+        logger, "student_activated", user_id=str(teacher.id),
+        account_type=teacher.user_type.value,
+        teacher_plan=str(normalize_teacher_capacity(teacher.teacher_student_slots)),
+    )
     return {"message": "Você entrou na turma!"}
 
 
@@ -1186,18 +1233,12 @@ async def get_teacher_slots(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> TeacherSlotInfo:
     """Retorna informações sobre os slots de alunos do professor."""
-    result = await db.execute(
-        select(func.count(TurmaMembro.id))
-        .join(Turma, Turma.id == TurmaMembro.turma_id)
-        .where(
-            Turma.teacher_id == teacher.id,
-            TurmaMembro.status == TurmaMembroStatus.ACTIVE,
-        )
-    )
-    total_active = result.scalar_one() or 0
+    registered, offline = await _active_teacher_seats(teacher.id, db)
+    capacity = normalize_teacher_capacity(teacher.teacher_student_slots)
     return TeacherSlotInfo(
-        slots_total=teacher.teacher_student_slots,
-        slots_used=total_active,
+        slots_total=capacity,
+        slots_used=len(registered) + offline,
+        plan_name=f"Professor {capacity}" if teacher.teacher_student_slots else "Professor Free",
         is_paid=teacher.teacher_student_slots > 0,
     )
 
@@ -1238,6 +1279,11 @@ async def create_tarefa(
     tarefa = result.scalar_one()
 
     logger.info("tarefa_criada", tarefa_id=str(tarefa.id), turma_id=turma_id)
+    track_product_event(
+        logger, "assignment_created", user_id=str(teacher.id),
+        account_type=teacher.user_type.value,
+        teacher_plan=str(normalize_teacher_capacity(teacher.teacher_student_slots)),
+    )
     return _tarefa_to_response(tarefa)
 
 
@@ -1397,6 +1443,12 @@ async def generate_theme(
 
     from app.core.config import settings
 
+    if normalize_teacher_capacity(teacher.teacher_student_slots) < 30:
+        raise HTTPException(
+            status_code=403,
+            detail="A geração de tarefas com IA está disponível a partir do Professor 30.",
+        )
+
     limiter = RateLimiter(redis_client)
     if not await limiter.check("theme_generation", str(teacher.id), 5, 300):
         raise HTTPException(
@@ -1438,6 +1490,11 @@ async def generate_theme(
         parsed = json.loads(match.group())
 
     logger.info("tema_gerado", teacher_id=str(teacher.id), essay_type=data.essay_type)
+    track_product_event(
+        logger, "assignment_ai_generated", user_id=str(teacher.id),
+        account_type=teacher.user_type.value,
+        teacher_plan=str(normalize_teacher_capacity(teacher.teacher_student_slots)),
+    )
     return GenerateThemeResponse(
         theme=parsed["theme"],
         motivating_texts=[MotivatingText(**t) for t in parsed["motivating_texts"]],
@@ -1639,7 +1696,7 @@ async def reabrir_tarefa(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Insights por tarefa (apenas professores com pacote pago)
+# Insights por tarefa (Professor 30 ou superior)
 # ─────────────────────────────────────────────────────────────────────────────
 
 @router.get("/tarefas/{tarefa_id}/insights")
@@ -1653,13 +1710,13 @@ async def get_tarefa_insights(
     competência e ranking dos alunos.
 
     SEGURANÇA:
-    - Apenas professores com teacher_student_slots > 0 (pacote pago).
+    - Apenas professores no Professor 30 ou superior.
     - IDOR prevenido verificando que a tarefa pertence à turma do professor.
     """
-    if teacher.teacher_student_slots == 0:
+    if normalize_teacher_capacity(teacher.teacher_student_slots) < 30:
         raise HTTPException(
             status_code=403,
-            detail="Insights por tarefa estão disponíveis apenas para professores com pacote de alunos ativo.",
+            detail="Insights por tarefa estão disponíveis a partir do Professor 30.",
         )
 
     tarefa = await _get_tarefa_or_404(tarefa_id, teacher.id, db)

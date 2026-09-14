@@ -30,9 +30,9 @@ export const PLAN_LABELS: Record<UserPlan, string> = {
 };
 
 export const PLAN_LIMITS: Record<UserPlan, number> = {
-  free: 1,
-  standard: 3,
-  pro: 10,
+  free: 4,
+  standard: 12,
+  pro: 30,
 };
 
 export const PLAN_COLORS: Record<UserPlan, string> = {

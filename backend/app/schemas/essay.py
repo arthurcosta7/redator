@@ -49,7 +49,7 @@ class SubmitEssayRequest(BaseModel):
         description="Modelo: 'enem' ou 'vestibular'",
     )
 
-    # Se fornecido, a redação é uma entrega de tarefa (não desconta limite diário)
+    # Se fornecido, a redação é uma entrega de tarefa (não desconta crédito pessoal)
     assignment_id: str | None = Field(
         default=None,
         description="ID da tarefa (quando entregando para um professor)",

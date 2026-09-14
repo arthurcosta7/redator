@@ -174,7 +174,7 @@ async def test_correction_routes_model_by_plan(plan, is_assignment, expected_mod
     assert db.added == [correction]
 
 
-async def test_free_plan_removes_highlights_from_saved_correction():
+async def test_free_plan_preserves_highlights_for_controlled_response():
     client = FakeClient(json.dumps(CORRECTION_PAYLOAD))
 
     correction = await CorrectionService(client=client).correct_essay(
@@ -183,7 +183,7 @@ async def test_free_plan_removes_highlights_from_saved_correction():
         db=FakeDb(),
     )
 
-    assert correction.highlights == []
+    assert correction.highlights == CORRECTION_PAYLOAD["highlights"]
 
 
 async def test_incomplete_correction_marks_essay_as_error():
@@ -314,7 +314,10 @@ async def test_teacher_theme_generation_uses_free_model(monkeypatch):
 
     result = await generate_theme(
         data=GenerateThemeRequest(essay_type="enem"),
-        teacher=SimpleNamespace(id=uuid.uuid4()),
+        teacher=SimpleNamespace(
+            id=uuid.uuid4(), teacher_student_slots=30,
+            user_type=SimpleNamespace(value="teacher"),
+        ),
         redis_client=AllowingRedis(),
     )
 

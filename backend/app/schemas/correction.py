@@ -79,7 +79,7 @@ class BasicCorrectionResponse(BaseModel):
     """
     Resposta simplificada para plano Free.
 
-    O plano Free recebe análise por competências mas sem grifes no texto.
+    O plano Free recebe análise por competências e as principais grifes.
     """
 
     id: str
@@ -88,7 +88,8 @@ class BasicCorrectionResponse(BaseModel):
     max_score: float
     score_percentage: float
     competencies: list[CompetencyResult]  # Análise básica por competência
-    general_feedback: str                  # Feedback geral (sem grifes)
+    highlights: list[TextHighlight] = Field(default_factory=list)
+    general_feedback: str
     created_at: str
 
     model_config = {"from_attributes": True}

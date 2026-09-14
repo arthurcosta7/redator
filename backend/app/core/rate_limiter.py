@@ -5,7 +5,7 @@ Protege contra:
 - Brute force em login (muitas tentativas de senha)
 - Abuso da API (muitas requisições em pouco tempo)
 - Excesso de uso de IA (custo elevado por requisição)
-- Violação dos limites de plano (Free: 1/dia, Standard: 3/dia, Pro: ilimitado)
+- Violação dos créditos mensais de correção e simulado
 
 Estratégia: Sliding Window Counter com Redis
 - Mais preciso que Fixed Window
@@ -13,7 +13,7 @@ Estratégia: Sliding Window Counter com Redis
 """
 import secrets
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import redis.asyncio as redis
@@ -42,24 +42,41 @@ redis.call('EXPIRE', key, ttl)
 return {1, count + 1}
 """
 
-_RESERVE_DAILY_SCRIPT = """
-local current = tonumber(redis.call('GET', KEYS[1]) or '0')
-local maximum = tonumber(ARGV[1])
-if current >= maximum then
-    return {0, current}
+_MONTHLY_CREDIT_SCRIPT = """
+local period = redis.call('HGET', KEYS[1], 'period')
+local plan = redis.call('HGET', KEYS[1], 'plan')
+local base_limit = tonumber(ARGV[3])
+local rollover_cap = tonumber(ARGV[4])
+local should_reserve = tonumber(ARGV[6])
+
+if period ~= ARGV[1] or plan ~= ARGV[2] then
+    local carry = 0
+    if period == ARGV[7] and plan == ARGV[2] and rollover_cap > 0 then
+        local old_limit = tonumber(redis.call('HGET', KEYS[1], 'limit') or '0')
+        local old_used = tonumber(redis.call('HGET', KEYS[1], 'used') or '0')
+        carry = math.min(math.max(old_limit - old_used, 0), rollover_cap)
+    end
+    redis.call('HSET', KEYS[1],
+        'period', ARGV[1], 'plan', ARGV[2], 'used', 0,
+        'limit', base_limit + carry, 'rollover', carry)
 end
-current = redis.call('INCR', KEYS[1])
-redis.call('EXPIRE', KEYS[1], tonumber(ARGV[2]))
-return {1, current}
+
+local used = tonumber(redis.call('HGET', KEYS[1], 'used') or '0')
+local maximum = tonumber(redis.call('HGET', KEYS[1], 'limit') or base_limit)
+local rollover = tonumber(redis.call('HGET', KEYS[1], 'rollover') or '0')
+redis.call('EXPIRE', KEYS[1], tonumber(ARGV[5]))
+if should_reserve == 1 then
+    if used >= maximum then return {0, used, maximum, rollover} end
+    used = redis.call('HINCRBY', KEYS[1], 'used', 1)
+end
+return {1, used, maximum, rollover}
 """
 
-_RELEASE_DAILY_SCRIPT = """
-local current = tonumber(redis.call('GET', KEYS[1]) or '0')
-if current <= 1 then
-    redis.call('DEL', KEYS[1])
-    return 0
-end
-return redis.call('DECR', KEYS[1])
+_RELEASE_MONTHLY_SCRIPT = """
+if redis.call('HGET', KEYS[1], 'period') ~= ARGV[1] then return 0 end
+local current = tonumber(redis.call('HGET', KEYS[1], 'used') or '0')
+if current <= 0 then return 0 end
+return redis.call('HINCRBY', KEYS[1], 'used', -1)
 """
 
 
@@ -168,83 +185,133 @@ class RateLimiter:
 # Verificação de limite de plano
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _daily_limit(plan: str) -> int:
-    return int({
-        "free": settings.PLAN_FREE_DAILY_CORRECTIONS,
-        "standard": settings.PLAN_STANDARD_DAILY_CORRECTIONS,
-        "pro": settings.PLAN_PRO_DAILY_CORRECTIONS,
-    }.get(plan, settings.PLAN_FREE_DAILY_CORRECTIONS))
+def _credit_policy(plan: str, resource: str) -> tuple[int, int]:
+    """Retorna (créditos-base, teto de acúmulo) para o recurso e plano."""
+    if resource == "simulations":
+        limits = {
+            "free": settings.PLAN_FREE_MONTHLY_SIMULATIONS,
+            "standard": settings.PLAN_STANDARD_MONTHLY_SIMULATIONS,
+            "pro": settings.PLAN_PRO_MONTHLY_SIMULATIONS,
+        }
+        return int(limits.get(plan, limits["free"])), 0
+    limits = {
+        "free": settings.PLAN_FREE_MONTHLY_CORRECTIONS,
+        "standard": settings.PLAN_STANDARD_MONTHLY_CORRECTIONS,
+        "pro": settings.PLAN_PRO_MONTHLY_CORRECTIONS,
+    }
+    rollover = {"free": 0, "standard": 4, "pro": 10}
+    return int(limits.get(plan, limits["free"])), rollover.get(plan, 0)
 
 
-def _daily_key(user_id: str) -> str:
-    return f"corrections:{user_id}:{datetime.now(timezone.utc).date().isoformat()}"
+def _monthly_key(user_id: str, resource: str) -> str:
+    return f"monthly_credits:{resource}:{user_id}"
 
 
-def _seconds_until_midnight() -> int:
-    now = datetime.now(timezone.utc)
-    midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-    return max(1, int((midnight - now).total_seconds()) + 1)
+def _month_period(now: datetime | None = None) -> str:
+    current = now or datetime.now(UTC)
+    return current.strftime("%Y-%m")
 
 
-async def check_daily_correction_limit(
-    user_id: str,
-    plan: str,
-    redis_client: Any,
-) -> tuple[bool, int, int]:
-    """
-    Verifica se o usuário pode fazer uma nova correção hoje.
-
-    Retorna:
-        (permitido: bool, usado_hoje: int, limite_diario: int)
-
-    A chave expira à meia-noite (início do próximo dia).
-    """
-    daily_limit = _daily_limit(plan)
-    key = _daily_key(user_id)
-
-    try:
-        count = await redis_client.get(key)
-        used_today = int(count) if count else 0
-
-        if used_today >= daily_limit:
-            return False, used_today, daily_limit
-
-        return True, used_today, daily_limit
-
-    except redis.RedisError:
-        logger.error("redis_error_checking_correction_limit", user_id=user_id)
-        # Correções geram custo externo: indisponibilidade do limitador não pode
-        # virar consumo ilimitado (denial of wallet).
-        return False, 0, daily_limit
+def _previous_month_period(now: datetime | None = None) -> str:
+    """Identifica o mês imediatamente anterior, inclusive na virada do ano."""
+    current = now or datetime.now(UTC)
+    return (current.replace(day=1) - timedelta(days=1)).strftime("%Y-%m")
 
 
-async def reserve_daily_correction_slot(
-    user_id: str,
-    plan: str,
-    redis_client: Any,
-) -> tuple[bool, int, int]:
-    """Reserva uma correção de forma atômica, sem corrida entre requisições."""
-    daily_limit = _daily_limit(plan)
-    try:
-        allowed, used_today = await redis_client.eval(
-            _RESERVE_DAILY_SCRIPT,
-            1,
-            _daily_key(user_id),
-            str(daily_limit),
-            str(_seconds_until_midnight()),
+def next_month_start(now: datetime | None = None) -> datetime:
+    current = now or datetime.now(UTC)
+    if current.month == 12:
+        return current.replace(
+            year=current.year + 1, month=1, day=1,
+            hour=0, minute=0, second=0, microsecond=0,
         )
-        return bool(allowed), int(used_today), daily_limit
-    except redis.RedisError as exc:
-        logger.error("redis_error_reserving_correction", user_id=user_id, error=str(exc))
-        return False, 0, daily_limit
+    return current.replace(
+        month=current.month + 1, day=1,
+        hour=0, minute=0, second=0, microsecond=0,
+    )
 
 
-async def release_daily_correction_slot(user_id: str, redis_client: Any) -> None:
-    """Devolve uma reserva quando a correção não pôde ser enfileirada/concluída."""
+async def _monthly_credit_operation(
+    user_id: str,
+    plan: str,
+    redis_client: Any,
+    *,
+    resource: str,
+    reserve: bool,
+) -> tuple[bool, int, int, int]:
+    base_limit, rollover_cap = _credit_policy(plan, resource)
+    current_period = _month_period()
     try:
-        await redis_client.eval(_RELEASE_DAILY_SCRIPT, 1, _daily_key(user_id))
+        allowed, used, limit, rollover = await redis_client.eval(
+            _MONTHLY_CREDIT_SCRIPT,
+            1,
+            _monthly_key(user_id, resource),
+            current_period,
+            plan,
+            str(base_limit),
+            str(rollover_cap),
+            str(370 * 24 * 60 * 60),
+            "1" if reserve else "0",
+            _previous_month_period(),
+        )
+        return bool(allowed), int(used), int(limit), int(rollover)
     except redis.RedisError as exc:
-        logger.error("redis_error_releasing_correction", user_id=user_id, error=str(exc))
+        logger.error(
+            "redis_error_monthly_credits",
+            resource=resource,
+            user_id=user_id,
+            error=str(exc),
+        )
+        # Créditos protegem custos externos; falhar fechado evita denial of wallet.
+        return False, 0, base_limit, 0
+
+
+async def check_monthly_credits(
+    user_id: str,
+    plan: str,
+    redis_client: Any,
+    *,
+    resource: str = "corrections",
+) -> tuple[bool, int, int, int]:
+    return await _monthly_credit_operation(
+        user_id, plan, redis_client, resource=resource, reserve=False
+    )
+
+
+async def reserve_monthly_credit(
+    user_id: str,
+    plan: str,
+    redis_client: Any,
+    *,
+    resource: str = "corrections",
+) -> tuple[bool, int, int, int]:
+    """Reserva um crédito mensal de forma atômica."""
+    return await _monthly_credit_operation(
+        user_id, plan, redis_client, resource=resource, reserve=True
+    )
+
+
+async def release_monthly_credit(
+    user_id: str,
+    redis_client: Any,
+    *,
+    resource: str = "corrections",
+) -> None:
+    """Devolve uma reserva do mês corrente após uma falha operacional."""
+    try:
+        await redis_client.eval(
+            _RELEASE_MONTHLY_SCRIPT,
+            1,
+            _monthly_key(user_id, resource),
+            _month_period(),
+        )
+    except redis.RedisError as exc:
+        logger.error(
+            "redis_error_releasing_monthly_credit",
+            resource=resource,
+            user_id=user_id,
+            error=str(exc),
+        )
 
 
 # ─────────────────────────────────────────────────────────────────────────────

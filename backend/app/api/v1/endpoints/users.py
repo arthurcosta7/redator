@@ -13,14 +13,17 @@ SEGURANÇA:
 """
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import get_current_user, get_db
+from app.core.dependencies import get_current_user, get_db, get_redis
 from app.core.logging import get_logger
+from app.core.rate_limiter import RateLimiter
 from app.core.security import hash_password, validate_bcrypt_password_size, verify_password
 from app.db.models.user import User, UserType
+from app.services.product_analytics import track_product_event
+from app.services.teacher_plans import public_teacher_slots
 from app.utils.text_sanitizer import sanitize_short_text
 
 logger = get_logger(__name__)
@@ -44,7 +47,7 @@ class UserMeResponse(BaseModel):
     created_at: str
     admin_role: str | None = None
     has_stripe_subscription: bool = False  # True = assinou pelo Stripe (pode usar portal)
-    teacher_student_slots: int = 0  # 0 = free, >0 = pacote(s) pago(s)
+    teacher_student_slots: int = 0  # 0 = Professor Free; 30/60/100 = capacidade
 
     model_config = {"from_attributes": True}
 
@@ -122,6 +125,10 @@ class UpdateProfileRequest(BaseModel):
         return v
 
 
+class ProductEventRequest(BaseModel):
+    event: str
+
+
 # ─── Helper ────────────────────────────────────────────────────────────────────
 
 def _serialize_user(user: User) -> UserMeResponse:
@@ -138,7 +145,7 @@ def _serialize_user(user: User) -> UserMeResponse:
         created_at=user.created_at.isoformat(),
         admin_role=user.admin_role.value if user.admin_role else None,
         has_stripe_subscription=user.stripe_customer_id is not None,
-        teacher_student_slots=user.teacher_student_slots,
+        teacher_student_slots=public_teacher_slots(user.teacher_student_slots),
     )
 
 
@@ -156,6 +163,35 @@ async def get_my_profile(
     Campos sensíveis (hashed_password, tokens) são excluídos do schema.
     """
     return _serialize_user(current_user)
+
+
+@router.post("/events", status_code=204)
+async def record_safe_product_event(
+    body: ProductEventRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> None:
+    """Aceita apenas eventos de interface sem payload livre ou dados pessoais."""
+    if body.event != "plans_viewed":
+        raise HTTPException(status_code=422, detail="Evento não permitido.")
+    track_product_event(
+        logger, body.event, user_id=str(current_user.id),
+        account_type=current_user.user_type.value, plan=current_user.plan.value,
+    )
+
+
+@router.post("/events/public", status_code=204)
+async def record_public_plan_view(
+    body: ProductEventRequest,
+    request: Request,
+    redis_client=Depends(get_redis),
+) -> None:
+    """Mede visualização pública dos planos sem cookie, PII ou payload livre."""
+    if body.event != "plans_viewed":
+        raise HTTPException(status_code=422, detail="Evento não permitido.")
+    ip = request.client.host if request.client else "unknown"
+    if not await RateLimiter(redis_client).check("public_product_event", ip, 60, 3600):
+        raise HTTPException(status_code=429, detail="Muitos eventos.")
+    track_product_event(logger, body.event)
 
 
 @router.patch("/me", response_model=UserMeResponse)

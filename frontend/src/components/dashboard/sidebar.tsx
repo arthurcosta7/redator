@@ -37,7 +37,7 @@ const studentNav: NavItem[] = [
   { label: "Histórico",       href: "/dashboard/aluno/historico",     icon: ScrollText },
   { label: "Minhas Turmas",   href: "/dashboard/aluno/turmas",        icon: Users },
   { label: "Insights",        href: "/dashboard/aluno/insights",      icon: TrendingUp,  paid: true },
-  { label: "Simulados",       href: "/dashboard/aluno/simulados",     icon: Dumbbell,    paid: true },
+  { label: "Simulados",       href: "/dashboard/aluno/simulados",     icon: Dumbbell },
 ];
 
 const studentBottomNav: NavItem[] = [

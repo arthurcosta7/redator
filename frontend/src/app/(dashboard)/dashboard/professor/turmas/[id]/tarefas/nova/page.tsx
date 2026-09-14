@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { api, getApiError } from "@/lib/api/client";
 import type { TarefaResponse, MotivatingText } from "@/types/turma";
+import { useUser } from "@/contexts/UserContext";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -36,6 +37,8 @@ function InputClass(extra = "") {
 export default function NovaTarefaPage() {
   const { id: turmaId } = useParams<{ id: string }>();
   const router = useRouter();
+  const { user } = useUser();
+  const canGenerateWithAI = (user?.teacher_student_slots ?? 0) >= 30;
 
   const [title, setTitle] = useState("");
   const [essayType, setEssayType] = useState<"enem" | "vestibular">("enem");
@@ -183,14 +186,14 @@ export default function NovaTarefaPage() {
             <button
               type="button"
               onClick={handleGenerate}
-              disabled={generating}
+              disabled={generating || !canGenerateWithAI}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100
                          text-xs font-medium text-amber-800 transition-colors disabled:opacity-60"
             >
               {generating
                 ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 : <Sparkles className="w-3.5 h-3.5" />}
-              Gerar com IA
+              {canGenerateWithAI ? "Gerar com IA" : "IA no Professor 30"}
             </button>
           </div>
 

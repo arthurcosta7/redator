@@ -1,7 +1,9 @@
 import { Hero } from "@/components/marketing/hero";
 import { HowItWorks } from "@/components/marketing/how-it-works";
 import { Features } from "@/components/marketing/features";
-import { Testimonials } from "@/components/marketing/testimonials";
+import { ProductProof } from "@/components/marketing/product-proof";
+import { TeacherWorkflow } from "@/components/marketing/teacher-workflow";
+import { CorrectionTrust } from "@/components/marketing/correction-trust";
 import { Pricing } from "@/components/marketing/pricing";
 import { FAQ } from "@/components/marketing/faq";
 import { Footer } from "@/components/marketing/footer";
@@ -61,7 +63,9 @@ export default function LandingPage() {
         <Hero />
         <HowItWorks />
         <Features />
-        <Testimonials />
+        <TeacherWorkflow compact />
+        <CorrectionTrust />
+        <ProductProof />
         <Pricing />
         <FAQ />
         <FinalCTA />

@@ -5,7 +5,7 @@
 - A API persiste a redação e responde rapidamente; correções são executadas em um worker ARQ separado.
 - O worker limita a concorrência cara e usa IDs de job únicos. O banco mantém `corrections.essay_id`
   como único, dando uma segunda barreira contra duplicação.
-- Cotas diárias e janelas de rate limit são atômicas no Redis (Lua), evitando ultrapassagem por corrida.
+- Créditos mensais, acúmulo e janelas de rate limit são atômicos no Redis (Lua), evitando ultrapassagem por corrida.
 - Banco, Redis, OpenAI e OCR têm pools/concorrência/timeouts explícitos.
 - Upload é lido até `limite + 1`, validado em thread e OCR síncrono não bloqueia o event loop.
 - O pool de simulados usa lock distribuído para impedir múltiplas gerações quando fica vazio.

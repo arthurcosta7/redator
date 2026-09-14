@@ -305,5 +305,15 @@ class SimuladoService:
             s["essay_type"] = essay_type
             s["generated_at"] = now
 
-        logger.info("simulados_gerados", essay_type=essay_type, count=len(simulados))
+        web_search_calls = sum(
+            1 for item in (getattr(response, "output", None) or [])
+            if getattr(item, "type", None) == "web_search_call"
+        )
+        logger.info(
+            "simulados_gerados",
+            essay_type=essay_type,
+            count=len(simulados),
+            responses_api_calls=1,
+            web_search_calls=web_search_calls,
+        )
         return simulados

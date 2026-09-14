@@ -129,8 +129,13 @@ export interface EssayListResponse {
   has_more: boolean;
 }
 
-export interface DailyLimitResponse {
+export interface MonthlyCreditsResponse {
   used: number;
   limit: number;
+  remaining: number;
+  rollover: number;
   resets_at: string; // ISO timestamp
+  completed_personal_corrections: number;
+  weakest_competency: { number?: number; name: string } | null;
+  latest_score_delta: number | null;
 }

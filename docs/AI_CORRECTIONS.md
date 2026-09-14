@@ -42,8 +42,8 @@ compatíveis. O Redator organiza a requisição para aproveitar esse mecanismo:
    `essay-correction:<tipo>:<versão>:<modelo>`, sem ID ou dado pessoal;
 5. `store=false` impede o armazenamento da resposta para recuperação posterior.
 
-O prefixo ENEM tem aproximadamente 10 mil caracteres e o de vestibular, 12
-mil; junto do schema estável, formam blocos fixos substanciais para caching. A
+Medição em 14/09/2026, serializando o schema de forma compacta: prefixo ENEM
+11.724 caracteres, prefixo vestibular 13.683 e schema compartilhado 3.869. A
 confirmação real, entretanto, deve vir de `cached_input_tokens`: tamanho em
 caracteres não substitui a contagem feita pelo provedor.
 
@@ -67,8 +67,15 @@ Evite colocar timestamp, UUID, nome, plano ou qualquer valor variável no bloco
 Cada correção persiste, sem texto da redação:
 
 - modelo, versão do prompt e ID da resposta;
-- tokens de entrada, cache hit, cache write, saída e total;
+- tokens de entrada sem cache, cache hit, cache write, saída e total;
 - proporção cacheada, duração e custo estimado em USD.
+
+Os custos devem ser lidos separadamente:
+
+- **cache miss**: tokens de entrada cobrados pela tarifa integral;
+- **cache hit**: `cached_input_tokens` cobrados pela tarifa reduzida;
+- **cache write**: tokens informados como escrita multiplicados por `OPENAI_CACHE_WRITE_MULTIPLIER`;
+- **saída**: tokens gerados cobrados pela tarifa de output.
 
 O custo usa `Decimal` e preços configuráveis por milhão de tokens. Os defaults
 documentam o GPT-5.6 Luna no momento da implementação: USD 0,20 entrada, USD
@@ -117,8 +124,8 @@ Nesse exemplo, a parcela de entrada cai cerca de 58,5% e o custo total cerca de
 | 10.000 redações | USD 16,0000 | USD 13,6600 | USD 2,3400 |
 
 A primeira requisição pode ser cache miss ou cache write e não recebe essa
-economia. O prefixo fixo e o schema somam aproximadamente 6,8 mil caracteres,
-mas o número exato de tokens depende da contagem do modelo. Substitua a
+economia. Pelas medidas acima, ENEM + schema somam 15.593 caracteres e
+vestibular + schema, 17.552; o número exato de tokens depende da contagem do modelo. Substitua a
 ilustração por médias reais após 100–500 correções de staging, segmentadas por
 versão do prompt.
 
@@ -138,6 +145,20 @@ públicos, universidades, organismos internacionais e repositórios acadêmicos.
 Cada proposta contém quatro textos motivadores autorais, cada um associado à
 fonte consultada. Citações extensas são proibidas; dados, datas e referências
 precisam corresponder à página informada.
+
+Cada lote usa uma chamada à Responses API. O provedor pode executar uma ou mais
+buscas dentro dela; o backend conta os itens `web_search_call` retornados e
+registra `responses_api_calls=1` e `web_search_calls=N`. Custos de busca web não
+entram em `corrections.estimated_cost_usd`.
+
+## Custos externos separados
+
+- **Tokens de correção:** persistidos em `corrections` com custo estimado.
+- **OCR:** cada invocação registra provedor, quantidade de chamadas, duração e
+  quantidade de caracteres extraídos, sem imagem ou texto. O custo financeiro é
+  conciliado separadamente no provedor de OCR.
+- **Busca web de simulados:** chamada de Responses e quantidade de buscas ficam
+  no evento `simulados_gerados`; a cobrança é conciliada separadamente.
 
 O lote contém três propostas para manter quatro materiais densos por simulado
 dentro do limite de saída. O pool Redis usa uma versão no nome da chave; mudar o

@@ -6,7 +6,7 @@ from app.db.models.correction import Correction
 
 
 def build_basic_correction(correction: Correction) -> dict[str, Any]:
-    """Retorna a análise básica, sem grifes nem insights premium."""
+    """Retorna a análise essencial, com apenas as principais grifes."""
     return {
         "id": str(correction.id),
         "essay_id": str(correction.essay_id),
@@ -14,6 +14,7 @@ def build_basic_correction(correction: Correction) -> dict[str, Any]:
         "max_score": correction.max_score,
         "score_percentage": correction.score_percentage,
         "competencies": correction.competencies,
+        "highlights": correction.highlights[:3],
         "general_feedback": correction.insights.get("general_feedback", ""),
         "created_at": correction.created_at.isoformat(),
     }

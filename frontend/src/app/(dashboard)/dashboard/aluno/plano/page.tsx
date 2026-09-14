@@ -17,10 +17,10 @@ const plans = [
     period: "/mês",
     description: "Para quem está começando",
     features: [
-      "1 correção por dia",
-      "Análise básica por competência",
-      "Feedback geral",
-      "Sistema de correção padrão",
+      "4 correções por mês",
+      "Primeira correção com experiência completa",
+      "Feedback essencial e grifes principais nas seguintes",
+      "Histórico limitado e 1 simulado por mês",
     ],
     highlight: false,
   },
@@ -31,11 +31,11 @@ const plans = [
     period: "/mês",
     description: "Para quem treina com frequência",
     features: [
-      "3 correções por dia",
-      "Sistema de correção aprimorado",
-      "Grifes no texto",
-      "Insights detalhados",
-      "Análise avançada",
+      "12 correções por mês",
+      "Feedback, grifes e insights completos",
+      "Histórico e evolução por competência",
+      "Plano de melhoria e 3 simulados por mês",
+      "Acumule até 4 créditos",
     ],
     highlight: true,
   },
@@ -46,11 +46,12 @@ const plans = [
     period: "/mês",
     description: "Para quem quer o máximo",
     features: [
-      "10 correções por dia",
-      "Sistema de correção aprimorado",
-      "Grifes e insights",
-      "Suporte prioritário",
-      "Simulados ENEM",
+      "30 correções por mês",
+      "Tudo do Standard",
+      "8 simulados por mês e exercícios personalizados",
+      "Comparação avançada entre redações",
+      "Prioridade de processamento e suporte",
+      "Acumule até 10 créditos",
     ],
     highlight: false,
   },
@@ -117,7 +118,7 @@ export default function PlanoPage() {
             >
               {plan.highlight && !isCurrent && (
                 <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-brand-700 text-white text-xs font-bold px-3 py-1 rounded-full">
-                  Mais popular
+                  Recomendado para treino frequente
                 </span>
               )}
               {isCurrent && (

@@ -20,7 +20,8 @@ from app.core.config import settings
 from app.core.dependencies import get_current_user, get_db
 from app.core.logging import get_logger
 from app.db.models.subscription import Subscription, SubscriptionStatus
-from app.db.models.user import User, UserPlan
+from app.db.models.user import User, UserPlan, UserType
+from app.services.product_analytics import track_product_event
 from app.services.stripe.stripe_service import StripeService
 
 router = APIRouter(tags=["Pagamentos"])
@@ -40,8 +41,8 @@ _STRIPE_STATUS_MAP: dict[str, SubscriptionStatus] = {
 # ─── Schemas ──────────────────────────────────────────────────────────────────
 
 class CheckoutRequest(BaseModel):
-    plan: Literal["standard", "pro"]
-    period: Literal["mensal", "trimestral"]
+    plan: Literal["standard", "pro", "teacher_30", "teacher_60", "teacher_100"]
+    period: Literal["mensal"] = "mensal"
 
 
 class CheckoutResponse(BaseModel):
@@ -75,6 +76,9 @@ async def create_checkout_session(
     service = StripeService()
 
     try:
+        is_teacher_plan = data.plan.startswith("teacher_")
+        if is_teacher_plan != (current_user.user_type == UserType.TEACHER):
+            raise ValueError("Este plano não está disponível para o seu tipo de conta.")
         price_id = service.get_price_id(data.plan, data.period)
         customer_id = await service.get_or_create_customer(current_user)
 
@@ -82,11 +86,14 @@ async def create_checkout_session(
             current_user.stripe_customer_id = customer_id
             await db.flush()
 
+        dashboard_path = "professor" if is_teacher_plan else "aluno"
         success_url = (
-            f"{settings.FRONTEND_URL}/checkout/sucesso"
-            "?session_id={CHECKOUT_SESSION_ID}"
+            f"{settings.FRONTEND_URL}/checkout/sucesso?destino={dashboard_path}"
+            "&session_id={CHECKOUT_SESSION_ID}"
         )
-        cancel_url = f"{settings.FRONTEND_URL}/checkout/cancelado"
+        cancel_url = (
+            f"{settings.FRONTEND_URL}/checkout/cancelado?destino={dashboard_path}"
+        )
 
         checkout_url = await service.create_checkout_session(
             customer_id=customer_id,
@@ -101,6 +108,10 @@ async def create_checkout_session(
         raise HTTPException(status_code=502, detail="Erro ao criar sessão de pagamento.")
 
     logger.info("checkout_session_criada", user_id=str(current_user.id), plan=data.plan)
+    track_product_event(
+        logger, "checkout_started", user_id=str(current_user.id),
+        account_type=current_user.user_type.value, plan=data.plan,
+    )
     return CheckoutResponse(checkout_url=checkout_url)
 
 
@@ -124,7 +135,11 @@ async def create_portal_session(
     try:
         portal_url = await service.create_portal_session(
             customer_id=current_user.stripe_customer_id,
-            return_url=f"{settings.FRONTEND_URL}/dashboard/aluno/plano",
+            return_url=(
+                f"{settings.FRONTEND_URL}/dashboard/professor/plano"
+                if current_user.user_type == UserType.TEACHER
+                else f"{settings.FRONTEND_URL}/dashboard/aluno/plano"
+            ),
         )
     except stripe.StripeError as e:
         logger.error("erro_stripe_portal", error=str(e), user_id=str(current_user.id))
@@ -220,6 +235,7 @@ async def _handle_checkout_completed(session: dict, db: AsyncSession) -> None:
     stripe_sub = await service.retrieve_subscription(subscription_id)
     price_id = stripe_sub["items"]["data"][0]["price"]["id"]
     plan = service.price_to_plan(price_id)
+    teacher_slots = service.price_to_teacher_slots(price_id)
 
     result = await db.execute(
         select(User).where(User.stripe_customer_id == customer_id)
@@ -259,7 +275,13 @@ async def _handle_checkout_completed(session: dict, db: AsyncSession) -> None:
 
     # Atualiza plano APÓS garantir que a subscription foi persistida
     user.plan = plan
-    logger.info("subscription_ativada", user_id=str(user.id), plan=plan.value)
+    user.teacher_student_slots = teacher_slots
+    entitlement = f"teacher_{teacher_slots}" if teacher_slots else plan.value
+    logger.info("subscription_ativada", user_id=str(user.id), plan=entitlement)
+    track_product_event(
+        logger, "subscription_completed", user_id=str(user.id),
+        account_type=user.user_type.value, plan=entitlement,
+    )
 
 
 async def _handle_subscription_updated(stripe_sub: dict, db: AsyncSession) -> None:
@@ -296,9 +318,12 @@ async def _handle_subscription_updated(stripe_sub: dict, db: AsyncSession) -> No
     if user:
         if stripe_status == "active":
             price_id = stripe_sub["items"]["data"][0]["price"]["id"]
-            user.plan = StripeService().price_to_plan(price_id)
+            service = StripeService()
+            user.plan = service.price_to_plan(price_id)
+            user.teacher_student_slots = service.price_to_teacher_slots(price_id)
         elif stripe_status in ("canceled", "cancelled"):
             user.plan = UserPlan.FREE
+            user.teacher_student_slots = 0
 
     logger.info("subscription_atualizada", subscription_id=subscription_id, status=stripe_status)
 
@@ -324,6 +349,11 @@ async def _handle_subscription_deleted(stripe_sub: dict, db: AsyncSession) -> No
     user = user_result.scalar_one_or_none()
     if user:
         user.plan = UserPlan.FREE
+        user.teacher_student_slots = 0
+        track_product_event(
+            logger, "subscription_cancelled", user_id=str(user.id),
+            account_type=user.user_type.value, plan="free",
+        )
 
     logger.info("subscription_cancelada", subscription_id=subscription_id, user_id=str(sub.user_id))
 

@@ -3,17 +3,19 @@ from typing import Any, ClassVar
 from uuid import UUID
 
 from arq import Retry
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.core.config import settings
 from app.core.job_queue import get_arq_redis_settings
 from app.core.logging import get_logger
-from app.core.rate_limiter import release_daily_correction_slot
+from app.core.rate_limiter import release_monthly_credit
 from app.db.models.correction import Correction
 from app.db.models.essay import Essay, EssayStatus
+from app.db.models.tarefa import TarefaSubmissao
 from app.db.models.user import User
 from app.db.session import AsyncSessionLocal
 from app.services.ai.correction_service import CorrectionService, TransientAIError
+from app.services.product_analytics import track_product_event
 
 logger = get_logger(__name__)
 
@@ -58,6 +60,23 @@ async def process_correction(
                 db=db,
                 is_assignment=is_assignment,
             )
+            if not is_assignment:
+                assignment_ids = select(TarefaSubmissao.essay_id).where(
+                    TarefaSubmissao.essay_id.isnot(None)
+                )
+                completed_count = await db.scalar(
+                    select(func.count(Correction.id)).join(Essay).where(
+                        Essay.user_id == user.id,
+                        ~Essay.id.in_(assignment_ids),
+                    )
+                )
+                if completed_count in (1, 2):
+                    ordinal = "first" if completed_count == 1 else "second"
+                    track_product_event(
+                        logger, f"{ordinal}_correction_completed",
+                        user_id=str(user.id), account_type=user.user_type.value,
+                        plan=user.plan.value, sequence=int(completed_count),
+                    )
             await db.commit()
             return {"status": "completed"}
         except Exception as exc:
@@ -85,9 +104,9 @@ async def process_correction(
                 essay.error_message = "Erro ao processar correção. Tente novamente."
                 await db.commit()
                 # Entregas de tarefas pertencem à cota do professor. Somente a
-                # correção avulsa reservou um slot diário do aluno para devolver.
+                # correção avulsa reservou um crédito mensal do aluno para devolver.
                 if not is_assignment:
-                    await release_daily_correction_slot(str(essay.user_id), ctx["redis"])
+                    await release_monthly_credit(str(essay.user_id), ctx["redis"])
             logger.error(
                 "correcao_falhou_definitivamente",
                 essay_id=essay_id,

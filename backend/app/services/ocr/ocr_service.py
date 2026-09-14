@@ -10,6 +10,7 @@ Segurança:
 """
 import asyncio
 import re
+import time
 
 from app.core.config import settings
 from app.core.logging import get_logger
@@ -43,15 +44,25 @@ class OCRService:
         Raises:
             Exception: Se a API falhar ou não conseguir extrair texto
         """
+        started = time.perf_counter()
+        provider = "google_vision"
         async with _ocr_slots:
             async with asyncio.timeout(settings.OCR_TIMEOUT_SECONDS):
                 try:
                     full_text = await asyncio.to_thread(self._google_ocr_sync, image_bytes)
                 except ImportError:
+                    provider = "tesseract"
                     logger.warning("google_vision_nao_disponivel_usando_fallback")
                     full_text = await asyncio.to_thread(self._fallback_ocr_sync, image_bytes)
-
-        return self._sanitize_extracted_text(full_text) if full_text else ""
+        sanitized = self._sanitize_extracted_text(full_text) if full_text else ""
+        logger.info(
+            "ocr_usage",
+            provider=provider,
+            calls=1,
+            duration_ms=round((time.perf_counter() - started) * 1000),
+            extracted_characters=len(sanitized),
+        )
+        return sanitized
 
     @staticmethod
     def _google_ocr_sync(image_bytes: bytes) -> str:

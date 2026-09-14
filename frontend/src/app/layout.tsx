@@ -33,12 +33,11 @@ const kalam = Kalam({
 
 export const metadata: Metadata = {
   title: {
-    default: "Redator — Corrija sua redação em menos de um minuto",
+    default: "Redator — Correção e inteligência pedagógica",
     template: "%s | Redator",
   },
   description:
-    "Correção de redações ENEM e vestibular com grife, nota por competência e motivo de cada nota. " +
-    "Sem esperar duas semanas o cursinho devolver.",
+    "Plataforma de correção e inteligência pedagógica que conecta alunos e professores e transforma cada redação em um plano de evolução.",
   keywords: [
     "correção de redação",
     "redação ENEM",
@@ -49,9 +48,9 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "pt_BR",
-    title: "Redator — Corrija sua redação em menos de um minuto",
+    title: "Redator — Correção e inteligência pedagógica",
     description:
-      "Grife, nota por competência e motivo de cada nota. Resultado em ~30 segundos.",
+      "Diagnóstico por competência, evolução histórica e próximos passos para alunos, professores e instituições.",
     siteName: "Redator",
   },
   robots: {

@@ -37,7 +37,7 @@ class AuthenticatedReads(HttpUser):
 
     @task(2)
     def daily_limit(self):
-        self.client.get("/api/v1/essays/daily-limit", name="GET /essays/daily-limit")
+        self.client.get("/api/v1/essays/credits", name="GET /essays/credits")
 
     @task(1)
     def profile(self):

@@ -5,17 +5,27 @@ import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import VariableFontHoverNav from "@/components/ui/m-variable-font-hover-1";
 
-const navLinks = [
+const defaultLinks = [
   { label: "Como funciona", href: "#como-funciona" },
   { label: "Funcionalidades", href: "#funcionalidades" },
   { label: "Planos", href: "#planos" },
-  { label: "Para professores", href: "#professores" },
+  { label: "Para professores", href: "/professores" },
 ];
 
-export function Navbar() {
+export function Navbar({ teacherPage = false }: { teacherPage?: boolean }) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const navLinks = teacherPage ? [
+    { label: "Visão geral", href: "#visao-geral" },
+    { label: "Como funciona", href: "#fluxo-professor" },
+    { label: "Planos", href: "#planos" },
+    { label: "Para alunos", href: "/" },
+  ] : defaultLinks;
 
   const handleNavClick = (event: MouseEvent<HTMLAnchorElement>, href: string) => {
+    if (!href.startsWith("#")) {
+      setIsMobileOpen(false);
+      return;
+    }
     // Preserva abrir em nova aba/janela e demais comportamentos nativos do link.
     if (
       event.defaultPrevented ||

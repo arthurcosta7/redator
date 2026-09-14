@@ -14,8 +14,8 @@ from pydantic import BaseModel, HttpUrl
 
 from app.core.dependencies import get_current_user, get_redis
 from app.core.logging import get_logger
-from app.core.rate_limiter import RateLimiter
-from app.db.models.user import User, UserPlan
+from app.core.rate_limiter import RateLimiter, release_monthly_credit, reserve_monthly_credit
+from app.db.models.user import User
 from app.services.ai.simulado_service import SimuladoService
 
 router = APIRouter(tags=["Simulados"])
@@ -50,15 +50,9 @@ async def get_new_simulado(
     """
     Retorna um simulado de redação para praticar.
 
-    Requer plano Standard ou Pro.
+    Consome um crédito mensal de simulado conforme o plano.
     Servido de um pool Redis — geração com GPT-5.6 Luna em lote para reduzir custo.
     """
-    if current_user.plan == UserPlan.FREE:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Simulados disponíveis nos planos Standard e Pro.",
-        )
-
     limiter = RateLimiter(redis_client)
     if not await limiter.check("simulado_generation", str(current_user.id), 10, 600):
         raise HTTPException(
@@ -66,12 +60,23 @@ async def get_new_simulado(
             detail="Muitos simulados solicitados. Aguarde alguns minutos.",
         )
 
+    allowed, _, limit, _ = await reserve_monthly_credit(
+        str(current_user.id), current_user.plan.value, redis_client, resource="simulations"
+    )
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Você utilizou seus {limit} tema(s) ou simulado(s) deste mês.",
+        )
+
     service = SimuladoService()
     try:
         simulado = await service.get_simulado(type, redis_client)
     except ValueError as e:
+        await release_monthly_credit(str(current_user.id), redis_client, resource="simulations")
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e))
     except Exception as e:
+        await release_monthly_credit(str(current_user.id), redis_client, resource="simulations")
         logger.error("erro_get_simulado", error=str(e), user_id=str(current_user.id))
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

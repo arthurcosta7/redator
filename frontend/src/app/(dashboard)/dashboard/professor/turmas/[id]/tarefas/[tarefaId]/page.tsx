@@ -81,7 +81,7 @@ function InsightsPanel({ tarefaId, isPaid }: { tarefaId: string; isPaid: boolean
         <div className="flex-1">
           <p className="font-semibold text-slate-700 text-sm">Insights por Tarefa</p>
           <p className="text-xs text-slate-400 mt-0.5">
-            Disponível para professores com pacote de alunos ativo. Inclui distribuição de notas,
+            Disponível a partir do Professor 30. Inclui distribuição de notas,
             médias por competência e ranking dos alunos.
           </p>
           <a
@@ -299,7 +299,7 @@ export default function TarefaDetailPage() {
   const router = useRouter();
   const { user } = useUser();
 
-  const isPaid = (user?.teacher_student_slots ?? 0) > 0;
+  const isPaid = (user?.teacher_student_slots ?? 0) >= 30;
 
   const [tarefa, setTarefa] = useState<TarefaWithSubmissoes | null>(null);
   const [loading, setLoading] = useState(true);

@@ -2,7 +2,7 @@
 
 /** Resume a oferta escolhida e delega a cobrança à sessão hospedada do Stripe. */
 import { Suspense, useState, useEffect } from "react";
-import { useParams, useSearchParams, useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, CreditCard, Loader2, Check, Shield } from "lucide-react";
 import { api, getApiError } from "@/lib/api/client";
@@ -12,41 +12,40 @@ const PLAN_INFO = {
   standard: {
     label: "Standard",
     features: [
-      "3 correções por dia",
-      "Grifes no texto",
-      "Sistema de correção aprimorado",
-      "Insights dos últimos 30 dias",
-      "Simulados com IA",
-      "Histórico de evolução",
+      "12 correções por mês",
+      "Feedback, grifes e insights completos",
+      "Evolução por competência e plano de melhoria",
+      "3 simulados por mês",
+      "Acumule até 4 créditos",
     ],
-    prices: { mensal: "R$18,99/mês", trimestral: "R$47,99 a cada 3 meses (R$15,99/mês)" },
+    price: "R$18,99/mês",
   },
   pro: {
     label: "Pro",
     features: [
-      "10 correções por dia",
-      "Grifes e insights avançados",
-      "Sistema de correção aprimorado",
-      "Insights dos últimos 30 dias",
-      "Simulados com IA",
-      "Suporte prioritário",
-      "Histórico de evolução",
+      "30 correções por mês",
+      "Tudo do Standard",
+      "8 simulados por mês",
+      "Comparação avançada e exercícios personalizados",
+      "Prioridade de processamento e suporte",
+      "Acumule até 10 créditos",
     ],
-    prices: { mensal: "R$29,99/mês", trimestral: "R$74,99 a cada 3 meses (R$24,99/mês)" },
+    price: "R$29,99/mês",
   },
+  teacher_30: { label: "Professor 30", features: ["Até 30 alunos ativos no total", "Turmas ilimitadas", "Tarefas e geração com IA", "Relatórios por aluno, turma e competência"], price: "R$49,90/mês" },
+  teacher_60: { label: "Professor 60", features: ["Até 60 alunos ativos no total", "Todos os recursos do Professor 30"], price: "R$89,90/mês" },
+  teacher_100: { label: "Professor 100", features: ["Até 100 alunos ativos no total", "Todos os recursos anteriores", "Prioridade quando operacionalmente disponível"], price: "R$149,90/mês" },
 } as const;
 
 type PlanKey = keyof typeof PLAN_INFO;
-type PeriodKey = "mensal" | "trimestral";
 
 function CheckoutContent() {
   const params = useParams<{ plano: string }>();
-  const searchParams = useSearchParams();
   const router = useRouter();
   const { user, isLoading } = useUser();
 
   const plano = (params.plano ?? "standard") as PlanKey;
-  const periodo = (searchParams.get("periodo") ?? "mensal") as PeriodKey;
+  const periodo = "mensal" as const;
 
   const plan = PLAN_INFO[plano] ?? PLAN_INFO.standard;
   const [loading, setLoading] = useState(false);
@@ -93,7 +92,7 @@ function CheckoutContent() {
     <main id="conteudo-principal" className="app-canvas min-h-dvh flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md">
         <Link
-          href="/dashboard/aluno/plano"
+          href={plano.startsWith("teacher_") ? "/dashboard/professor/plano" : "/dashboard/aluno/plano"}
           className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-slate-600 mb-6 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -105,7 +104,7 @@ function CheckoutContent() {
             Assinar {plan.label}
           </h1>
           <p className="text-sm text-slate-400 mb-6">
-            {plan.prices[periodo]}
+            {plan.price}
           </p>
 
           <ul className="space-y-2.5 mb-8">

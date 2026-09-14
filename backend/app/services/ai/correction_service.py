@@ -110,17 +110,15 @@ class CorrectionService:
             usage = normalize_token_usage(response.usage)
             processing_time = time.perf_counter() - start_time
 
-            highlights = correction_data["highlights"]
-            if user.plan.value == "free":
-                highlights = []
-
             correction = Correction(
                 essay_id=essay.id,
                 user_id=user.id,
                 total_score=float(correction_data["total_score"]),
                 max_score=max_score,
                 competencies=correction_data["competencies"],
-                highlights=highlights,
+                # O resultado completo é preservado cifrado. A camada de resposta
+                # decide quanto mostrar conforme plano e ordem da correção.
+                highlights=correction_data["highlights"],
                 insights=correction_data["insights"],
                 ai_model_used=model,
                 prompt_version=prompt.version,

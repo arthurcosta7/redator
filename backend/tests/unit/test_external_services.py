@@ -9,6 +9,7 @@ from app.db.models.user import User, UserPlan
 from app.services.email.email_service import EmailService
 from app.services.ocr.ocr_service import OCRService
 from app.services.stripe.stripe_service import StripeService
+from app.services.teacher_plans import normalize_teacher_capacity, public_teacher_slots
 
 
 @pytest.mark.asyncio
@@ -76,18 +77,35 @@ def test_stripe_maps_all_supported_prices_and_rejects_invalid(monkeypatch):
         "STRIPE_PRICE_STANDARD_QUARTERLY": "price_std_quarter",
         "STRIPE_PRICE_PRO_MONTHLY": "price_pro_month",
         "STRIPE_PRICE_PRO_QUARTERLY": "price_pro_quarter",
+        "STRIPE_PRICE_TEACHER_30_MONTHLY": "price_teacher_30",
+        "STRIPE_PRICE_TEACHER_60_MONTHLY": "price_teacher_60",
+        "STRIPE_PRICE_TEACHER_100_MONTHLY": "price_teacher_100",
+        "STRIPE_PRICE_TEACHER_PACKAGE": "price_teacher_legacy",
     }
     for name, value in prices.items():
         monkeypatch.setattr(settings, name, value)
 
     service = StripeService()
     assert service.get_price_id("STANDARD", "MENSAL") == "price_std_month"
-    assert service.get_price_id("pro", "trimestral") == "price_pro_quarter"
+    assert service.get_price_id("pro", "mensal") == "price_pro_month"
+    assert service.get_price_id("teacher_60", "mensal") == "price_teacher_60"
+    assert service.price_to_teacher_slots("price_teacher_100") == 100
+    assert service.price_to_teacher_slots("price_teacher_legacy") == 30
     assert service.price_to_plan("price_std_quarter") == UserPlan.STANDARD
     assert service.price_to_plan("price_pro_month") == UserPlan.PRO
     assert service.price_to_plan("price_unknown") == UserPlan.FREE
     with pytest.raises(ValueError, match="Plano ou período inválido"):
         service.get_price_id("enterprise", "anual")
+
+
+def test_legacy_teacher_capacity_moves_to_next_commercial_tier():
+    assert normalize_teacher_capacity(0) == 3
+    assert normalize_teacher_capacity(10) == 30
+    assert normalize_teacher_capacity(40) == 60
+    assert normalize_teacher_capacity(70) == 100
+    assert normalize_teacher_capacity(120) == 120
+    assert public_teacher_slots(0) == 0
+    assert public_teacher_slots(20) == 30
 
 
 @pytest.mark.asyncio

@@ -6,29 +6,29 @@ import { cn } from "@/lib/utils";
 
 const faqs = [
   {
-    question: "O feedback é tão bom quanto o de um professor humano?",
+    question: "A plataforma substitui o professor?",
     answer:
-      "Para análise objetiva de competências, é muito próximo. A vantagem é consistência: os mesmos critérios, sem dias ruins, sem subjetividade. Para mentoria personalizada e desenvolvimento de escrita no longo prazo, um professor ainda faz diferença. Mas para treino constante e identificar padrões de erro, a plataforma resolve bem.",
+      "Não. A IA organiza a correção e evidencia padrões; o professor interpreta o contexto, acompanha o aluno e transforma o diagnóstico em evolução.",
   },
   {
     question: "Posso confiar na nota que aparece?",
     answer:
-      "A nota segue os critérios publicados pelo INEP para o ENEM e das bancas de vestibular. É uma estimativa estruturada — não é o gabarito oficial, mas é consistente e útil para saber onde você está. O mais importante é o diagnóstico por competência, não o número em si.",
+      "A nota é uma estimativa pedagógica baseada nas rubricas e em evidências do texto, nunca uma nota oficial. No vestibular tradicional, 0 a 100 é uma normalização do Redator e não equivale à escala oficial de uma banca específica.",
   },
   {
     question: "Como funciona o plano Free?",
     answer:
-      "Uma correção por dia, para sempre, sem cartão. Você recebe nota por competência e feedback básico. Grife no texto e insights avançados são exclusivos dos planos pagos.",
+      "São 4 correções por mês. A primeira demonstra a experiência completa; as seguintes mantêm nota por competência, feedback essencial e grifes principais. Créditos gratuitos não acumulam.",
   },
   {
     question: "O OCR funciona bem com letra à mão?",
     answer:
-      "Sim, na maioria dos casos. Para melhores resultados: boa iluminação, papel liso, foto sem sombra. Letras muito apertadas ou ilegíveis podem ter menos precisão — se isso acontecer, você pode digitar o texto manualmente.",
+      "A qualidade depende da legibilidade, iluminação, enquadramento e nitidez. Revise o texto reconhecido antes de enviar; se houver muitos erros, prefira digitar.",
   },
   {
     question: "Funciona para vestibulares além do ENEM?",
     answer:
-      "Sim. Há dois modelos: ENEM (cinco competências, 0–200 cada) e Vestibular Tradicional, com os critérios de FUVEST, UNICAMP, UNESP e similares.",
+      "Sim. Há o modelo ENEM, com cinco competências, e o Vestibular Tradicional, que considera tema, gênero, desenvolvimento, coesão e linguagem sem se apresentar como correção oficial de uma banca.",
   },
   {
     question: "Posso cancelar quando quiser?",
@@ -36,14 +36,9 @@ const faqs = [
       "Sim, pelo painel de configurações da conta. Sem multa, sem precisar falar com ninguém. Você continua com acesso até o fim do período pago.",
   },
   {
-    question: "E a garantia?",
-    answer:
-      "Sete dias a partir do primeiro pagamento. Se não ficou satisfeito, manda um email e devolvemos tudo — sem perguntas.",
-  },
-  {
     question: "Sou professor. Como funciona para mim?",
     answer:
-      "Professores começam gratuitamente com até 3 alunos ativos por turma. Para ampliar, cada pacote de R$ 11,99/mês adiciona 10 vagas distribuídas livremente entre as turmas, além dos insights detalhados por tarefa. As assinaturas pessoais dos alunos continuam separadas.",
+      "Professores começam com até 3 alunos ativos no total e turmas ilimitadas. Os planos Professor 30, 60 e 100 ampliam a capacidade da conta; o mesmo aluno em duas turmas conta uma vez.",
   },
 ];
 
@@ -121,7 +116,7 @@ export function FAQ() {
             <p className="text-ink-soft leading-relaxed">
               Não achou o que precisava?{" "}
               <a
-                href="mailto:contato@redator.com.br"
+                href="mailto:suporte@redator.online"
                 className="text-accent hover:text-accent-deep font-medium link-underline"
               >
                 Manda um email
