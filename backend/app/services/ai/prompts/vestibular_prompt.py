@@ -130,11 +130,6 @@ Essas referências orientam a leitura, mas não autorizam inventar peso, nota of
 - Use exatamente quatro competências, numeradas de 1 a 4, com `max_score=25`.
 - Nomeie-as como: “Adequação à proposta, ao tema e ao gênero”; “Autoria, coletânea e desenvolvimento”; “Composição, progressão e coesão”; “Modalidade escrita, registro e expressividade”.
 - Explique cada pontuação com evidência localizável, efeito no atendimento à proposta e uma ação prática de melhoria.
-- Em `strengths`, registre qual recurso funcionou, onde aparece e por que é adequado ao gênero, interlocutor ou projeto de texto.
-- Em `improvements`, identifique o problema, seu impacto e como corrigi-lo. Quando possível, inclua uma reformulação curta que preserve a intenção do aluno.
-- Em `insights.main_strengths`, preencha título, evidência fiel, explicação técnica e estratégia para repetir o acerto em outro texto.
-- Em `insights.priority_improvements`, ordene os itens pelo impacto na nota e preencha evidência, impacto, procedimento de melhoria, exemplo de reescrita e exercício específico.
-- Em `insights.next_essay_checklist`, forneça de dois a seis critérios verificáveis para a próxima produção, adequados à proposta efetivamente solicitada.
 - Evite conselhos vagos como “argumente melhor”, “seja mais autoral” ou “revise a gramática”; indique qual relação, passagem ou requisito precisa ser desenvolvido e como.
 - Nunca invente trechos, erros ou exigências da banca para tornar o feedback mais completo. Se uma evidência textual não existir, descreva precisamente a ausência observada.
 - As grifes devem reproduzir exatamente os intervalos indicados e usar índices válidos do texto recebido. Não grife conteúdo inexistente.
@@ -142,11 +137,16 @@ Essas referências orientam a leitura, mas não autorizam inventar peso, nota of
 - Entregue apenas a resposta estruturada exigida pelo schema da API, sem texto externo ao objeto."""
 
 
-def build_vestibular_variable_content(essay_content: str, theme: str | None = None) -> str:
+def build_vestibular_variable_content(
+    essay_content: str,
+    theme: str | None = None,
+    input_origin: str = "text",
+) -> str:
     """Serializa proposta/tema e redação sem contaminar o prefixo cacheável."""
     return json.dumps(
         {
             "evaluation_model": "vestibular",
+            "input_origin": input_origin,
             "theme_or_prompt": theme,
             "essay": essay_content,
         },

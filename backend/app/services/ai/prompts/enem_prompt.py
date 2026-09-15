@@ -57,6 +57,7 @@ Quando houver nota zero global, `zero_reason` deve apontar uma única causa prin
 Avalie a construção sintática e o domínio das convenções da escrita culta.
 - **Aspectos avaliados:** Ortografia, acentuação, pontuação, concordância verbal/nominal, regência, crase, colocação pronominal, paralelismo sintático, precisão vocabular e adequação ao registro formal.
 - **Regras de penalização:** Considere gravidade, quantidade e recorrência dos desvios. Não penalize marcas de informalidade deliberada em citações diretas nem escolhas estilísticas válidas.
+- **Texto originado de foto:** Quando `input_origin=photo`, aplique o protocolo de incerteza de OCR das regras fixas. Não contabilize como desvio uma forma isolada e anômala que possa resultar da conversão; cite a incerteza no feedback em vez de atribuí-la ao aluno. Evidência contextual clara ou recorrência continua autorizando a penalização normal.
 - **Gradação da Pontuação:**
   - **200:** Excelente domínio sintático; estrutura complexa e fluida; desvios mínimos e excepcionais (não recorrentes).
   - **160:** Bom domínio; poucas falhas sintáticas ou desvios pontuais que não comprometem a fluidez da leitura.
@@ -85,10 +86,11 @@ Avalie a abordagem do tema, a estrutura dissertativo-argumentativa e o repertór
 
 Avalie a seleção, organização, relação e interpretação de fatos, opiniões e argumentos em defesa de um ponto de vista.
 - **Aspectos avaliados:** Coerência interna, presença de projeto de texto visível, progressão temática, autoria e sustentação da tese.
+- **Calibração:** Julgue o desempenho predominante do texto inteiro. Uma lacuna pontual, um argumento previsível ou um repertório pouco aprofundado deve aparecer no feedback, mas não reduz automaticamente uma argumentação globalmente organizada para 120. Não exija abordagem incomum, dados estatísticos, citações ou repertório externo para reconhecer organização e desenvolvimento. Diferencie falta real de desenvolvimento de formulação concisa.
 - **Gradação da Pontuação:**
-  - **200:** Projeto de texto estratégico; argumentos consistentes, organizados e bem desenvolvidos ao longo de todo o texto, com indícios claros de autoria.
-  - **160:** Projeto de texto bem organizado, com poucas falhas; maior parte dos argumentos desenvolvida.
-  - **120:** Projeto com falhas pontuais (lacunas argumentativas, previsibilidade ou desenvolvimento incompleto de parte das ideias).
+  - **200:** Projeto de texto consistente; informações, fatos e opiniões relacionados ao tema são organizados e desenvolvidos de forma produtiva, com autoria, em defesa do ponto de vista. Pequenas limitações isoladas não impedem este nível quando não comprometem o conjunto.
+  - **160:** Projeto de texto organizado e coerente, com indícios de autoria; argumentos majoritariamente desenvolvidos, ainda que exista alguma lacuna ou desenvolvimento desigual localizado.
+  - **120:** Projeto reconhecível, porém com desenvolvimento limitado de vários argumentos, dependência de ideias previsíveis ou lacunas que prejudicam parte relevante da defesa da tese.
   - **80:** Projeto com muitas falhas; argumentos pouco desenvolvidos, desorganizados, contraditórios ou dependentes dos motivadores.
   - **40:** Direção argumentativa muito frágil; ideias pouco relacionadas ao tema ou sem defesa efetiva de ponto de vista.
   - **0:** Ausência de direção argumentativa e informações desconexas do tema.
@@ -99,10 +101,11 @@ Avalie a seleção, organização, relação e interpretação de fatos, opiniõ
 
 Avalie a coesão textual interparágrafos e intraparágrafos.
 - **Aspectos avaliados:** Variedade e precisão de conectivos, operadores argumentativos, coesão referencial (pronomes, sinônimos) e ausência de repetições excessivas ou inadequações semânticas.
+- **Calibração:** Avalie a articulação efetiva, não a quantidade mecânica de conectivos. Repetição lexical isolada, uso discreto de operadores ou uma inadequação localizada não justificam, sozinhos, queda de nível. Só aplique 120 ou menos quando limitações recorrentes ou relevantes afetarem perceptivelmente a progressão. Não desconte aqui um desvio apenas gramatical já avaliado na C1, salvo quando ele também romper a relação coesiva.
 - **Gradação da Pontuação:**
-  - **200:** Articulação impecável entre as partes; recursos coesivos diversificados, precisos e sem inadequações/repetições relevantes.
-  - **160:** Boa articulação; recursos diversificados com poucas inadequações ou repetições.
-  - **120:** Articulação mediana; repertório coesivo pouco diversificado, com repetições ou falhas pontuais.
+  - **200:** Partes do texto bem articuladas, com repertório diversificado de recursos coesivos e raras inadequações sem impacto relevante na progressão.
+  - **160:** Boa articulação global, com recursos coesivos adequados; pode haver pouca diversificação em algum trecho, repetições ou inadequações pontuais sem prejuízo importante à leitura.
+  - **120:** Articulação mediana; limitações recorrentes de diversidade, repetição ou adequação tornam algumas relações entre ideias pouco claras.
   - **80:** Articulação insuficiente; uso limitado de conectivos, repetições frequentes ou texto em monobloco.
   - **40:** Articulação precária; frases e períodos justapostos com ausência quase total de coesão.
   - **0:** Palavras e períodos desconexos ao longo de todo o texto.
@@ -128,34 +131,28 @@ Avalie a proposta de intervenção social para o problema abordado.
 
 ---
 
-## PADRÃO EXIGIDO PARA O FEEDBACK DE SAÍDA
+## QUALIDADE DO FEEDBACK
 
-Ao gerar o relatório da redação, siga estritamente a estrutura abaixo:
-
-1. **Nota Final:** Soma exata das 5 competências (escala de 0 a 1000).
-2. **Análise Detalhada por Competência:** Apresentar a nota da competência acompanhada de:
-   - **Diagnóstico Técnico:** Explicação fundamentada com base nos critérios oficiais.
-   - **Evidências Textuais:** Citação curta e exata ou localização inequívoca do trecho examinado.
-   - **Acertos:** Em `strengths`, descreva qual recurso funcionou, onde aparece e por que favorece a competência. Não use elogios genéricos.
-   - **Ajustes:** Em `improvements`, identifique o problema, seu efeito na nota e uma ação concreta. Quando possível, mostre como reformular o trecho sem reescrever toda a redação.
-3. **Insights Pedagógicos para o Plano Pago:**
-   - `general_feedback`: sintetize o projeto de texto, o estágio atual e a principal distância para o próximo nível de nota; não repita apenas as competências.
-   - `main_strengths`: para cada acerto, preencha título, evidência fiel, explicação técnica e estratégia para repetir o recurso em outra redação.
-   - `priority_improvements`: ordene pelo impacto na nota. Para cada item, informe evidência, impacto, procedimento de melhoria, exemplo de reescrita e um exercício curto de prática.
-   - `rewrite_example` deve conservar a ideia original do aluno e demonstrar a técnica recomendada; deixe claro que é exemplo, não modelo pronto para decorar.
-   - `next_essay_checklist`: crie de dois a seis itens verificáveis antes da próxima entrega, específicos para os erros encontrados.
-   - Não escreva “melhore a argumentação”, “aprofunde o tema”, “revise a gramática” ou conselho semelhante sem dizer exatamente o que falta, em qual passagem e como executar a mudança.
-4. **Diretrizes de Estilo:**
-   - Não inclua saudações, introduções corteses ou encerramentos genéricos.
-   - Não invente um trecho para preencher evidência. Quando não houver exemplo textual, descreva com precisão a ausência observada.
-   - Inicie a resposta diretamente pela avaliação estruturada."""
+- Mantenha coerência entre notas, diagnóstico, grifes e orientação pedagógica.
+- Fundamente cada diagnóstico em evidência fiel e localizável do texto. Quando um
+  recurso estiver ausente, descreva a ausência sem inventar citação.
+- Diga o que funcionou, o que limita a nota e qual ação concreta permite avançar
+  ao nível seguinte; evite recomendações genéricas ou repetidas.
+- Exemplos de reescrita devem preservar a ideia do aluno e demonstrar a técnica,
+  sem reescrever a redação inteira nem fornecer fórmula para decorar.
+- Não inclua saudações, introduções corteses ou texto fora da resposta estruturada."""
 
 
-def build_enem_variable_content(essay_content: str, theme: str | None = None) -> str:
+def build_enem_variable_content(
+    essay_content: str,
+    theme: str | None = None,
+    input_origin: str = "text",
+) -> str:
     """Serializa somente os dados variáveis, colocados no final do prompt."""
     return json.dumps(
         {
             "evaluation_model": "enem",
+            "input_origin": input_origin,
             "theme": theme,
             "essay": essay_content,
         },

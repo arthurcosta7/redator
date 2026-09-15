@@ -14,11 +14,8 @@ export const api: AxiosInstance = axios.create({
   baseURL: `${BASE_URL}/api/v1`,
   withCredentials: true,   // Envia cookies httpOnly (access_token, refresh_token)
   timeout: 30000,          // 30 segundos de timeout
-  headers: {
-    "Content-Type": "application/json",
-    // Nota: X-Requested-With removido — causa falha no preflight CORS
-    // A proteção CSRF já é feita pelos cookies SameSite=strict + CORS
-  },
+  // Não fixe Content-Type globalmente: o Axios escolhe JSON para objetos e
+  // multipart/form-data com boundary para uploads de FormData.
 });
 
 export interface ApiFieldError {

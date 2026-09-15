@@ -1,15 +1,42 @@
 """Contratos dos adaptadores externos sem realizar chamadas de rede."""
+import io
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
+from fastapi import HTTPException, UploadFile
+from PIL import Image
+from starlette.datastructures import Headers
 
+from app.api.v1.endpoints.essays import (
+    _issue_ocr_review_token,
+    _resolve_input_type,
+    extract_essay_photo,
+)
 from app.core.config import settings
+from app.db.models.essay import EssayInputType, EssayType
 from app.db.models.user import User, UserPlan
 from app.services.email.email_service import EmailService
 from app.services.ocr.ocr_service import OCRService
 from app.services.stripe.stripe_service import StripeService
 from app.services.teacher_plans import normalize_teacher_capacity, public_teacher_slots
+
+
+class FakeReviewRedis:
+    def __init__(self) -> None:
+        self.values: dict[str, str] = {}
+        self.expirations: dict[str, int] = {}
+
+    async def set(self, key: str, value: str, *, ex: int) -> None:
+        self.values[key] = value
+        self.expirations[key] = ex
+
+    async def get(self, key: str):
+        return self.values.get(key)
+
+    async def delete(self, key: str) -> None:
+        self.values.pop(key, None)
 
 
 @pytest.mark.asyncio
@@ -66,9 +93,121 @@ async def test_ocr_normalizes_control_characters_and_spacing(monkeypatch):
     assert result == "Primeira linha\nSegunda linha"
 
 
+@pytest.mark.asyncio
+async def test_ocr_uses_openai_when_google_credentials_fail(monkeypatch):
+    service = OCRService()
+    monkeypatch.setattr(
+        service,
+        "_google_ocr_sync",
+        lambda _image: (_ for _ in ()).throw(RuntimeError("sem credencial")),
+    )
+    monkeypatch.setattr(settings, "OPENAI_API_KEY", "sk-test")
+    service._openai_ocr = AsyncMock(return_value="Texto reconhecido")
+
+    assert await service.extract_text(b"imagem") == "Texto reconhecido"
+    service._openai_ocr.assert_awaited_once_with(b"imagem")
+
+
+@pytest.mark.asyncio
+async def test_openai_ocr_sends_private_image_without_storage(monkeypatch):
+    captured: dict = {}
+
+    class FakeResponses:
+        async def create(self, **kwargs):
+            captured.update(kwargs)
+            return SimpleNamespace(status="completed", output_text="Redação transcrita")
+
+    client = SimpleNamespace(responses=FakeResponses())
+    service = OCRService(openai_client=client)
+    monkeypatch.setattr(settings, "OPENAI_OCR_MODEL", "vision-test")
+    jpeg = b"\xff\xd8\xff" + b"conteudo-da-imagem"
+
+    assert await service._openai_ocr(jpeg) == "Redação transcrita"
+    assert captured["model"] == "vision-test"
+    assert captured["store"] is False
+    image_part = captured["input"][0]["content"][1]
+    assert image_part["type"] == "input_image"
+    assert image_part["image_url"].startswith("data:image/jpeg;base64,")
+
+
 def test_ocr_truncates_untrusted_provider_output():
     result = OCRService()._sanitize_extracted_text("a" * 16_000)
     assert len(result) == 15_000
+
+
+@pytest.mark.asyncio
+async def test_photo_extraction_returns_reviewable_text_without_creating_essay(monkeypatch):
+    image = Image.new("RGB", (80, 80), "white")
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+
+    async def allow_rate_limit(*_args, **_kwargs):
+        return True
+
+    async def reserve_ocr_credit(*_args, **kwargs):
+        assert kwargs["resource"] == "ocr_extractions"
+        return True, 1, 30, 0
+
+    async def extract_text(_self, _content):
+        return "Texto reconhecido para o aluno revisar antes da avaliação final."
+
+    monkeypatch.setattr(
+        "app.api.v1.endpoints.essays.RateLimiter.check", allow_rate_limit
+    )
+    monkeypatch.setattr(
+        "app.api.v1.endpoints.essays.reserve_monthly_credit", reserve_ocr_credit
+    )
+    monkeypatch.setattr(OCRService, "extract_text", extract_text)
+
+    upload = UploadFile(
+        file=io.BytesIO(buffer.getvalue()),
+        filename="redacao.png",
+        headers=Headers({"content-type": "image/png"}),
+    )
+    user = SimpleNamespace(
+        id=uuid4(),
+        plan=UserPlan.PRO,
+        user_type=SimpleNamespace(value="student"),
+    )
+
+    redis_client = FakeReviewRedis()
+    response = await extract_essay_photo(
+        essay_type=EssayType.ENEM,
+        photo=upload,
+        current_user=user,
+        redis_client=redis_client,
+    )
+
+    assert response.content.startswith("Texto reconhecido")
+    assert response.word_count == 10
+    assert len(response.review_token) >= 32
+    assert redis_client.expirations
+
+
+@pytest.mark.asyncio
+async def test_ocr_origin_requires_token_bound_to_user_and_essay_type():
+    redis_client = FakeReviewRedis()
+    user_id = str(uuid4())
+    token = await _issue_ocr_review_token(redis_client, user_id, EssayType.ENEM)
+
+    assert await _resolve_input_type(
+        redis_client, None, user_id, EssayType.ENEM
+    ) == EssayInputType.TEXT
+    assert await _resolve_input_type(
+        redis_client, token, user_id, EssayType.ENEM
+    ) == EssayInputType.PHOTO
+
+    with pytest.raises(HTTPException) as wrong_user:
+        await _resolve_input_type(
+            redis_client, token, str(uuid4()), EssayType.ENEM
+        )
+    assert wrong_user.value.status_code == 422
+
+    with pytest.raises(HTTPException) as wrong_type:
+        await _resolve_input_type(
+            redis_client, token, user_id, EssayType.VESTIBULAR
+        )
+    assert wrong_type.value.status_code == 422
 
 
 def test_stripe_maps_all_supported_prices_and_rejects_invalid(monkeypatch):

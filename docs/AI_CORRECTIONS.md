@@ -2,24 +2,26 @@
 
 ## Seleção de modelo
 
-- Correções: `OPENAI_CORRECTION_MODEL` (padrão `gpt-5.6-luna`).
+- Correções pessoais Free: `OPENAI_FREE_MODEL` (padrão `gpt-5.6-luna`).
+- Correções pessoais Standard/Pro: `OPENAI_PAID_MODEL` (padrão `gpt-5.4-mini`).
+- Redações vinculadas a tarefas: `OPENAI_PAID_MODEL`, pois o custo pertence à operação do professor.
 - Geração de simulados e temas: `OPENAI_FREE_MODEL`.
-- `OPENAI_PAID_MODEL` permanece disponível para fluxos premium que não são correção.
+- `OPENAI_CORRECTION_MODEL` é mantido temporariamente para compatibilidade e medições legadas; o roteamento de produção usa as variáveis por plano.
 
-Um modelo único nas correções aumenta a chance de reaproveitar o mesmo prefixo e
-torna a comparação de custo e qualidade mais limpa. Os nomes continuam sendo
-configuração de implantação: confirme disponibilidade, preço e compatibilidade
-na conta OpenAI antes do deploy.
+Os nomes são configuração de implantação: confirme disponibilidade, preço e
+compatibilidade na conta OpenAI antes do deploy. Métricas de qualidade devem ser
+separadas por modelo, versão do prompt, tipo de redação e origem da entrada.
 
 ## Pipeline
 
 1. Pydantic valida tema, tipo, tamanho e conteúdo.
 2. Uploads têm tamanho, MIME, assinatura real e dimensões verificados.
-3. Google Vision extrai texto quando a entrada é foto, sob timeout e limite de concorrência.
-4. A API grava a redação como `pending` e enfileira um job.
-5. O worker muda para `processing`, chama a OpenAI Responses API e exige Structured Outputs com JSON Schema estrito.
-6. Correção e estado final são persistidos na mesma fronteira transacional aplicável.
-7. Apenas falhas transitórias de conexão, timeout, rate limit ou servidor sofrem retry limitado; schema inválido e erros permanentes não geram nova chamada paga.
+3. Google Vision extrai texto quando a entrada é foto; se estiver sem credenciais ou indisponível, OpenAI Vision é usado como fallback. Ambos respeitam timeout e limite de concorrência.
+4. O aluno revisa e pode corrigir a transcrição antes de autorizar a avaliação; artefatos de OCR não devem ser tratados automaticamente como erros autorais.
+5. A API grava a redação confirmada como `pending` e enfileira um job.
+6. O worker muda para `processing`, chama a OpenAI Responses API e exige Structured Outputs com JSON Schema estrito.
+7. Correção e estado final são persistidos na mesma fronteira transacional aplicável.
+8. Apenas falhas transitórias de conexão, timeout, rate limit ou servidor sofrem retry limitado; schema inválido e erros permanentes não geram nova chamada paga.
 
 Prompts ficam em `backend/app/services/ai/prompts/`. Texto do aluno é dado não confiável: instruções contidas na redação não podem substituir o rubric ou induzir exposição de segredos.
 
@@ -39,13 +41,18 @@ compatíveis. O Redator organiza a requisição para aproveitar esse mecanismo:
 2. o JSON Schema de saída também é estável;
 3. tema e redação aparecem somente no último bloco `user`;
 4. `prompt_cache_key` usa
-   `essay-correction:<tipo>:<versão>:<modelo>`, sem ID ou dado pessoal;
+   `essay-correction:<tipo>:<versão>:<modelo>:<perfil>`, sem ID ou dado pessoal;
 5. `store=false` impede o armazenamento da resposta para recuperação posterior.
 
-Medição em 14/09/2026, serializando o schema de forma compacta: prefixo ENEM
-11.724 caracteres, prefixo vestibular 13.683 e schema compartilhado 3.869. A
-confirmação real, entretanto, deve vir de `cached_input_tokens`: tamanho em
-caracteres não substitui a contagem feita pelo provedor.
+Nos modelos GPT-5.6 ou superiores, o último bloco estável também recebe um
+breakpoint explícito com TTL de 30 minutos. O GPT-5.4 mantém o cache implícito,
+pois não recebe opções que não estejam documentadas para esse modelo.
+
+Medição em 14/09/2026, serializando os schemas sem espaços: o prefixo ENEM tem
+13.184 caracteres no perfil completo e 13.103 no essencial; o de vestibular,
+14.207 e 14.126. Os schemas têm, respectivamente, 3.867 e 2.084 caracteres. A
+confirmação real deve vir de `cached_input_tokens`: tamanho em caracteres não
+substitui a contagem feita pelo provedor.
 
 O cache é uma otimização, nunca uma dependência funcional. Cache miss produz a
 mesma correção e custo normal. Não existe cache próprio no Redis com redações de
@@ -54,8 +61,8 @@ alunos, evitando retenção adicional de conteúdo sensível.
 ### Versionamento e invalidação
 
 Incremente `ESSAY_CORRECTION_PROMPT_VERSION` ao alterar rubric, regras, schema
-ou pós-processamento que mude o comportamento. O tipo, a versão e o modelo
-separam as rotas de cache e as métricas. Trocar o texto do prefixo já causa miss
+ou pós-processamento que mude o comportamento. O tipo, a versão, o modelo e o
+perfil separam as rotas de cache. Trocar o texto do prefixo já causa miss
 por correspondência exata; a versão explícita também impede misturar relatórios
 de comportamentos diferentes.
 
@@ -124,10 +131,9 @@ Nesse exemplo, a parcela de entrada cai cerca de 58,5% e o custo total cerca de
 | 10.000 redações | USD 16,0000 | USD 13,6600 | USD 2,3400 |
 
 A primeira requisição pode ser cache miss ou cache write e não recebe essa
-economia. Pelas medidas acima, ENEM + schema somam 15.593 caracteres e
-vestibular + schema, 17.552; o número exato de tokens depende da contagem do modelo. Substitua a
+economia. O número exato de tokens depende da contagem do modelo. Substitua a
 ilustração por médias reais após 100–500 correções de staging, segmentadas por
-versão do prompt.
+versão do prompt, modelo e perfil de resposta registrado nos logs.
 
 Alertas recomendados:
 
@@ -188,13 +194,22 @@ legibilidade. Nesses casos, a correção deve registrar a limitação em vez de
 inventar uma causa de anulação. Sem tema informado, também não se diagnostica
 fuga ou tangenciamento.
 
+Após a extração, o backend emite um comprovante opaco de revisão, vinculado ao
+usuário e ao modelo de redação e válido por duas horas. Somente esse comprovante
+permite persistir `input_type=photo`; declarar a origem no payload não concede
+tolerância de OCR. O prompt v6 recebe a origem verificada. Para fotos, ocorrências
+isoladas plausíveis de reconhecimento não são automaticamente atribuídas ao
+autor, sobretudo na C1; erros inequívocos ou recorrentes continuam contando.
+Na C3 e C4, a faixa é determinada pelo desempenho predominante, e uma falha
+localizada não derruba sozinha um texto globalmente organizado e coeso.
+
 Base normativa: [Matrizes de Referência do ENEM 2026](https://www.gov.br/inep/pt-br/centrais-de-conteudo/acervo-linha-editorial/publicacoes-institucionais/avaliacoes-e-exames-da-educacao-basica/matrizes-de-referencia-enem),
 [Cartilha do Participante 2025](https://www.gov.br/inep/pt-br/centrais-de-conteudo/acervo-linha-editorial/publicacoes-institucionais/avaliacoes-e-exames-da-educacao-basica/redacao-do-enem-2025-cartilha-do-participante)
 e [documentos oficiais da redação do ENEM](https://www.gov.br/inep/pt-br/areas-de-atuacao/avaliacao-e-exames-educacionais/enem/outros-documentos).
 O resultado do sistema é uma estimativa pedagógica; não substitui a correção
 oficial realizada segundo o procedimento do Inep.
 
-O fluxo de vestibular v4 usa uma rubrica pedagógica normalizada em quatro
+O fluxo de vestibular v6 usa uma rubrica pedagógica normalizada em quatro
 critérios de 25 pontos: adequação à proposta/tema/gênero; autoria, coletânea e
 desenvolvimento; composição, progressão e coesão; modalidade escrita, registro
 e expressividade. A escala total de 0 a 100 pertence ao produto e não deve ser
@@ -214,7 +229,17 @@ e [Manual do Vestibular Unesp 2026](https://documento.vunesp.com.br/documento/st
 Alterar prompt, schema de saída, modelo ou pós-processamento é uma mudança de
 comportamento e exige regressão com um conjunto estável de redações.
 
-### Feedback pedagógico detalhado (prompt v4)
+### Perfis de resposta e feedback pedagógico (prompt v6)
+
+A primeira correção pessoal Free usa o perfil completo para demonstrar a
+experiência. As correções pessoais Free seguintes usam o perfil essencial:
+mantêm a mesma rubrica, pontuação por competência, feedback geral e até três
+grifes, mas não geram blocos detalhados que a interface básica ocultaria.
+Standard, Pro e redações enviadas por tarefa sempre usam o perfil completo.
+
+O perfil é decidido no worker a partir do plano, do vínculo com tarefa e da
+quantidade de correções pessoais já concluídas. Essa decisão reduz tokens de
+saída sem mudar os limites mensais ou consumir créditos adicionais.
 
 Além da nota, cada competência registra um diagnóstico, acertos e melhorias
 específicas. Nos planos com insights completos, a resposta também contém:
@@ -222,7 +247,7 @@ específicas. Nos planos com insights completos, a resposta também contém:
 - ponto forte com título, evidência literal, explicação e estratégia de repetição;
 - prioridade de melhoria com evidência, impacto na nota, método de revisão,
   exemplo de reescrita e exercício recomendado;
-- checklist de duas a seis verificações para a próxima redação.
+- checklist de duas a quatro verificações para a próxima redação.
 
 O modelo não deve inventar evidências. Quando não houver um acerto defensável,
 a lista correspondente pode ficar vazia. Correções anteriores, que armazenavam

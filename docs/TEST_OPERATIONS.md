@@ -10,9 +10,9 @@ Os exemplos abaixo usam PowerShell e partem da raiz do repositório.
 
 ```powershell
 cd backend
-python -m venv .venv
+py -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install -e ".[dev]"
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
 ```
 
 Use a mesma versão de Python definida pelo projeto e nunca grave segredos reais em arquivos versionados.
@@ -33,27 +33,27 @@ npx playwright install
 
 ```powershell
 cd backend
-python -m pytest
+.\.venv\Scripts\python.exe -m pytest
 ```
 
 Comandos úteis:
 
 ```powershell
 # Executar sem medir cobertura durante uma investigação rápida
-python -m pytest --no-cov
+.\.venv\Scripts\python.exe -m pytest --no-cov
 
 # Executar um arquivo específico
-python -m pytest tests/unit/test_security.py
+.\.venv\Scripts\python.exe -m pytest tests/unit/test_security.py
 
 # Filtrar casos pelo nome
-python -m pytest -k "appeal or permission"
+.\.venv\Scripts\python.exe -m pytest -k "appeal or permission"
 
 # Gerar relatório HTML de cobertura
-python -m pytest --cov-report=term-missing --cov-report=html
+.\.venv\Scripts\python.exe -m pytest --cov-report=term-missing --cov-report=html
 
 # Análise estática e vulnerabilidades conhecidas
-bandit -q -r app
-pip-audit
+.\.venv\Scripts\python.exe -m bandit -q -r app
+.\.venv\Scripts\python.exe -m pip_audit
 ```
 
 O relatório HTML é criado em `backend/htmlcov/`.
@@ -65,7 +65,7 @@ A suíte Redis é opt-in para que a execução unitária continue determinístic
 ```powershell
 cd backend
 $env:SCALABILITY_REDIS_URL = "redis://localhost:6379/15"
-python -m pytest tests/integration/test_scalability_redis.py
+.\.venv\Scripts\python.exe -m pytest tests/integration/test_scalability_redis.py
 Remove-Item Env:SCALABILITY_REDIS_URL
 ```
 
@@ -194,7 +194,7 @@ Ative o ambiente virtual e reinstale o projeto com as dependências de desenvolv
 ```powershell
 cd backend
 .\.venv\Scripts\Activate.ps1
-python -m pip install -e ".[dev]"
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
 ```
 
 ### O Playwright não encontra o navegador

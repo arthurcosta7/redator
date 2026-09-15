@@ -1,5 +1,6 @@
 """Testes da integração de IA sem chamadas externas."""
 
+import copy
 import json
 import uuid
 from types import SimpleNamespace
@@ -8,7 +9,7 @@ import pytest
 
 from app.api.v1.endpoints.professor import generate_theme
 from app.core.config import settings
-from app.db.models.essay import EssayStatus, EssayType
+from app.db.models.essay import EssayInputType, EssayStatus, EssayType
 from app.db.models.user import UserPlan
 from app.schemas.tarefa import GenerateThemeRequest
 from app.services.ai.correction_service import CorrectionService
@@ -55,6 +56,7 @@ def make_essay():
         essay_type=EssayType.ENEM,
         content="Texto de redação para teste com argumentos e proposta de intervenção.",
         theme="Educação no Brasil",
+        input_type=EssayInputType.TEXT,
         status=EssayStatus.PROCESSING,
         error_message=None,
     )
@@ -135,13 +137,30 @@ CORRECTION_PAYLOAD = {
 }
 
 
+def compact_correction_payload() -> dict:
+    """Deriva o contrato essencial sem os campos que o plano Free não exibe."""
+    payload = copy.deepcopy(CORRECTION_PAYLOAD)
+    for competency in payload["competencies"]:
+        competency.pop("strengths")
+        competency.pop("improvements")
+    payload["insights"] = {
+        "general_feedback": CORRECTION_PAYLOAD["insights"]["general_feedback"]
+    }
+    return payload
+
+
+def developer_prompt_text(request: dict) -> str:
+    content = request["input"][0]["content"]
+    return content[0]["text"] if isinstance(content, list) else content
+
+
 @pytest.mark.parametrize(
     ("plan", "is_assignment", "expected_model"),
     [
-        (UserPlan.FREE, False, settings.OPENAI_CORRECTION_MODEL),
-        (UserPlan.STANDARD, False, settings.OPENAI_CORRECTION_MODEL),
-        (UserPlan.PRO, False, settings.OPENAI_CORRECTION_MODEL),
-        (UserPlan.FREE, True, settings.OPENAI_CORRECTION_MODEL),
+        (UserPlan.FREE, False, settings.OPENAI_FREE_MODEL),
+        (UserPlan.STANDARD, False, settings.OPENAI_PAID_MODEL),
+        (UserPlan.PRO, False, settings.OPENAI_PAID_MODEL),
+        (UserPlan.FREE, True, settings.OPENAI_PAID_MODEL),
     ],
 )
 async def test_correction_routes_model_by_plan(plan, is_assignment, expected_model):
@@ -162,16 +181,44 @@ async def test_correction_routes_model_by_plan(plan, is_assignment, expected_mod
     assert request["reasoning"] == {"effort": "none"}
     assert request["text"]["format"]["type"] == "json_schema"
     assert request["text"]["format"]["strict"] is True
-    assert request["prompt_cache_key"].startswith("essay-correction:enem:")
+    assert request["prompt_cache_key"].endswith(":full")
     assert request["input"][0]["role"] == "developer"
     assert request["input"][1]["role"] == "user"
+    assert json.loads(request["input"][1]["content"])["input_origin"] == "text"
     assert len(request["safety_identifier"]) == 64
+    if expected_model.startswith("gpt-5.6"):
+        assert request["extra_body"]["prompt_cache_options"] == {
+            "mode": "explicit",
+            "ttl": "30m",
+        }
+        assert request["input"][0]["content"][0]["prompt_cache_breakpoint"] == {
+            "mode": "explicit"
+        }
+    else:
+        assert "extra_body" not in request
     assert correction.ai_model_used == expected_model
     assert correction.prompt_version == settings.ESSAY_CORRECTION_PROMPT_VERSION
     assert correction.openai_response_id == "resp_test_123"
     assert correction.cached_input_tokens == 60
     assert essay.status == EssayStatus.COMPLETED
     assert db.added == [correction]
+
+
+async def test_photo_origin_reaches_prompt_without_changing_rubric_prefix():
+    client = FakeClient(json.dumps(CORRECTION_PAYLOAD))
+    essay = make_essay()
+    essay.input_type = EssayInputType.PHOTO
+
+    await CorrectionService(client=client).correct_essay(
+        essay=essay,
+        user=make_user(UserPlan.PRO),
+        db=FakeDb(),
+    )
+
+    request = client.responses.calls[0]
+    variable = json.loads(request["input"][1]["content"])
+    assert variable["input_origin"] == "photo"
+    assert "Quando `input_origin` for `text`" in developer_prompt_text(request)
 
 
 async def test_free_plan_preserves_highlights_for_controlled_response():
@@ -184,6 +231,29 @@ async def test_free_plan_preserves_highlights_for_controlled_response():
     )
 
     assert correction.highlights == CORRECTION_PAYLOAD["highlights"]
+
+
+async def test_compact_profile_uses_smaller_schema_and_normalizes_storage():
+    client = FakeClient(json.dumps(compact_correction_payload()))
+
+    correction = await CorrectionService(client=client).correct_essay(
+        essay=make_essay(),
+        user=make_user(UserPlan.FREE),
+        db=FakeDb(),
+        response_profile="compact",
+    )
+
+    request = client.responses.calls[0]
+    assert request["text"]["format"]["name"] == "essay_correction_compact"
+    assert request["prompt_cache_key"].endswith(":compact")
+    assert request["max_output_tokens"] == min(
+        settings.OPENAI_MAX_OUTPUT_TOKENS, 1600
+    )
+    assert all(item["strengths"] == [] for item in correction.competencies)
+    assert all(item["improvements"] == [] for item in correction.competencies)
+    assert correction.insights["main_strengths"] == []
+    assert correction.insights["priority_improvements"] == []
+    assert correction.insights["writing_level"] == "não informado"
 
 
 async def test_incomplete_correction_marks_essay_as_error():

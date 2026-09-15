@@ -22,18 +22,26 @@ Isso expõe PostgreSQL em `localhost:5433` e Redis em `localhost:6379`. Os dados
 
 ## 2. Backend
 
-```bash
-cd backend
-python -m venv .venv
+No Windows PowerShell:
+
+```powershell
+Set-Location backend
+py -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+.\.venv\Scripts\python.exe -m alembic upgrade head
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8000
 ```
 
-Ative o ambiente (`.venv\Scripts\Activate.ps1` no PowerShell ou `source .venv/bin/activate` em Linux/macOS) e execute:
+No Linux/macOS:
 
 ```bash
-python -m pip install -e ".[dev]"
-cp .env.example .env
-alembic upgrade head
-uvicorn app.main:app --reload --port 8000
+cd backend
+python3 -m venv .venv
+.venv/bin/python -m pip install -e ".[dev]"
+test -f .env || cp .env.example .env
+.venv/bin/python -m alembic upgrade head
+.venv/bin/python -m uvicorn app.main:app --reload --port 8000
 ```
 
 No `.env` local, use:
@@ -47,9 +55,9 @@ FRONTEND_URL=http://localhost:3000
 
 Em outro terminal, com o mesmo ambiente virtual:
 
-```bash
-cd backend
-arq app.workers.correction.WorkerSettings
+```powershell
+Set-Location backend
+.\.venv\Scripts\arq.exe app.workers.correction.WorkerSettings
 ```
 
 Sem o worker, novas redações permanecem `pending`.

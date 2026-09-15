@@ -55,6 +55,16 @@ class SubmitEssayRequest(BaseModel):
         description="ID da tarefa (quando entregando para um professor)",
     )
 
+    # Comprovante opaco, curto e descartável emitido pelo endpoint de OCR.
+    # O backend não confia em um simples campo booleano enviado pelo cliente.
+    ocr_review_token: str | None = Field(
+        default=None,
+        min_length=32,
+        max_length=128,
+        pattern=r"^[A-Za-z0-9_-]+$",
+        description="Token temporário emitido após uma extração OCR válida",
+    )
+
     @field_validator("content")
     @classmethod
     def validate_content(cls, v: str | None) -> str | None:
@@ -100,6 +110,14 @@ class EssayResponse(BaseModel):
     created_at: str
 
     model_config = {"from_attributes": True}
+
+
+class PhotoExtractionResponse(BaseModel):
+    """Transcrição temporária devolvida ao autor para revisão antes da correção."""
+
+    content: str
+    word_count: int
+    review_token: str
 
 
 class EssayListItem(BaseModel):

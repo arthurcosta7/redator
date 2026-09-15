@@ -42,13 +42,19 @@ Respostas de recuperação e reenvio são deliberadamente genéricas para não r
 | Método | Rota | Observação |
 |---|---|---|
 | POST | `/essays` | Texto; retorna estado pendente |
-| POST | `/essays/photo` | Foto JPEG/PNG/WebP + OCR |
+| POST | `/essays/photo/extract` | Foto JPEG/PNG/WebP; devolve a transcrição para revisão antes da correção |
+| POST | `/essays/photo` | Fluxo legado de OCR + correção direta |
 | GET | `/essays/credits` | Uso, saldo, renovação e resumo pedagógico do mês |
 | GET | `/essays` | Histórico paginado |
 | GET | `/essays/{essay_id}` | Detalhe e correção quando pronta |
 | DELETE | `/essays/{essay_id}` | Exclui recurso do próprio usuário |
 
 `GET /essays/daily-limit` permanece temporariamente como alias depreciado de `/essays/credits` para clientes antigos.
+
+`POST /essays/photo/extract` não persiste a transcrição. A resposta inclui um
+`review_token` opaco, válido por duas horas e vinculado ao usuário e ao modelo
+de redação. O frontend devolve esse token junto ao texto revisado em
+`POST /essays`; somente assim o servidor registra a origem como `photo`.
 
 Exemplo de submissão:
 

@@ -14,7 +14,7 @@ Em desenvolvimento, copie `backend/.env.example` para `backend/.env` e `frontend
 | OpenAI | `OPENAI_API_KEY`, `OPENAI_CORRECTION_MODEL`, `OPENAI_FREE_MODEL`, `OPENAI_PAID_MODEL`, `OPENAI_MAX_OUTPUT_TOKENS`, `OPENAI_TIMEOUT_SECONDS`, `OPENAI_MAX_RETRIES` |
 | Custo/cache de IA | `ESSAY_CORRECTION_PROMPT_VERSION`, `OPENAI_INPUT_PRICE_PER_MILLION`, `OPENAI_CACHED_INPUT_PRICE_PER_MILLION`, `OPENAI_OUTPUT_PRICE_PER_MILLION`, `OPENAI_CACHE_WRITE_MULTIPLIER` |
 | Fila | `CORRECTION_WORKER_MAX_JOBS`, `CORRECTION_JOB_TIMEOUT_SECONDS`, `CORRECTION_JOB_MAX_TRIES`, `CORRECTION_JOB_EXPIRES_SECONDS` |
-| OCR | `GOOGLE_APPLICATION_CREDENTIALS`, `OCR_TIMEOUT_SECONDS`, `OCR_MAX_CONCURRENCY` |
+| OCR | `GOOGLE_APPLICATION_CREDENTIALS`, `OPENAI_OCR_MODEL`, `OCR_TIMEOUT_SECONDS`, `OCR_MAX_CONCURRENCY` |
 | Stripe | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, preços mensais Standard/Pro e Professor 30/60/100; IDs trimestrais e `STRIPE_PRICE_TEACHER_PACKAGE` existem apenas para assinaturas legadas |
 | Email | `RESEND_API_KEY`, `FROM_EMAIL`, `FROM_NAME` |
 | Planos | `PLAN_*_MONTHLY_CORRECTIONS` e `PLAN_*_MONTHLY_SIMULATIONS` |
@@ -37,7 +37,7 @@ Vercel do frontend nem crie uma variável `NEXT_PUBLIC_OPENAI_API_KEY`. Ao
 alterar prompt, schema ou modelo de correção, incremente a versão lógica para
 separar cache e telemetria.
 
-Atualmente, `OPENAI_CORRECTION_MODEL` e `OPENAI_FREE_MODEL` apontam para `gpt-5.6-luna`. `OPENAI_PAID_MODEL` pode continuar em `gpt-5.4-mini` para recursos auxiliares premium; ele não altera automaticamente o modelo central de correção.
+Atualmente, `OPENAI_FREE_MODEL` aponta para `gpt-5.6-luna` e atende correções pessoais Free. `OPENAI_PAID_MODEL` aponta para `gpt-5.4-mini` e atende correções pessoais Standard/Pro e redações vinculadas a tarefas. `OPENAI_CORRECTION_MODEL` permanece apenas para compatibilidade e medições legadas.
 
 ## Segredos e rotação
 

@@ -11,9 +11,12 @@ import pytest
 from pydantic import ValidationError
 
 from app.core.config import settings
-from app.db.models.essay import EssayStatus, EssayType
+from app.db.models.essay import EssayInputType, EssayStatus, EssayType
 from app.db.models.user import UserPlan
-from app.services.ai.correction_schema import CorrectionAIResponse
+from app.services.ai.correction_schema import (
+    CompactCorrectionAIResponse,
+    CorrectionAIResponse,
+)
 from app.services.ai.correction_service import CorrectionService, TransientAIError
 from app.services.ai.openai_client import create_openai_client
 from app.services.ai.prompt_builder import build_correction_prompt
@@ -109,6 +112,7 @@ def test_two_essays_share_exact_prefix_but_not_variable_content():
     assert injected_essay not in first.cacheable_prefix
     assert "Tema A" not in first.cacheable_prefix
     assert json.loads(first.variable_content)["essay"] == injected_essay
+    assert json.loads(first.variable_content)["input_origin"] == "text"
 
 
 def test_cache_key_separates_prompt_type_version_and_model(monkeypatch):
@@ -117,8 +121,23 @@ def test_cache_key_separates_prompt_type_version_and_model(monkeypatch):
     vestibular = build_correction_prompt(EssayType.VESTIBULAR, "Texto", None, "model-a")
     other_model = build_correction_prompt(EssayType.ENEM, "Texto", None, "model-b")
 
-    assert enem.cache_key == "essay-correction:enem:v-test:model-a"
+    assert enem.cache_key == "essay-correction:enem:v-test:model-a:full"
     assert len({enem.cache_key, vestibular.cache_key, other_model.cache_key}) == 3
+
+
+def test_cache_key_separates_full_and_compact_profiles():
+    full = build_correction_prompt(
+        EssayType.ENEM, "Texto", None, "model-a", profile="full"
+    )
+    compact = build_correction_prompt(
+        EssayType.ENEM, "Texto", None, "model-a", profile="compact"
+    )
+
+    assert full.cache_key != compact.cache_key
+    assert full.cache_key.endswith(":full")
+    assert compact.cache_key.endswith(":compact")
+    assert "PERFIL COMPLETO" in full.cacheable_prefix
+    assert "PERFIL ESSENCIAL" in compact.cacheable_prefix
 
 
 def test_enem_prompt_preserves_official_scoring_boundaries():
@@ -171,6 +190,20 @@ def test_structured_output_rejects_missing_and_extra_fields():
         CorrectionAIResponse.model_validate(missing)
     with pytest.raises(ValidationError):
         CorrectionAIResponse.model_validate(extra)
+
+
+def test_compact_schema_rejects_paid_insight_blocks():
+    compact = _valid_payload()
+    for competency in compact["competencies"]:
+        competency.pop("strengths")
+        competency.pop("improvements")
+    compact["insights"] = {
+        "general_feedback": compact["insights"]["general_feedback"],
+        "main_strengths": [],
+    }
+
+    with pytest.raises(ValidationError):
+        CompactCorrectionAIResponse.model_validate(compact)
 
 
 def test_cache_miss_usage_and_cost_are_calculated_exactly():
@@ -236,6 +269,7 @@ async def test_timeout_is_classified_as_retryable_without_exposing_content():
         essay_type=EssayType.ENEM,
         content="Conteúdo privado que não pode ir para logs",
         theme="Tema",
+        input_type=EssayInputType.TEXT,
         status=EssayStatus.PROCESSING,
         error_message=None,
     )

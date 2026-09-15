@@ -26,7 +26,7 @@ Verifique limite configurado, JPEG/PNG/WebP real, arquivo íntegro e dimensões 
 
 ## OCR falha
 
-Confirme `GOOGLE_APPLICATION_CREDENTIALS`, permissão do arquivo/conta, API Vision habilitada e limites do projeto. O caminho da credencial deve existir no ambiente/container que executa a requisição.
+Confirme `GOOGLE_APPLICATION_CREDENTIALS`, permissão do arquivo/conta, API Vision habilitada e limites do projeto. O caminho da credencial deve existir no ambiente/container que executa a requisição. Sem Google Vision, o backend usa `OPENAI_API_KEY` e `OPENAI_OCR_MODEL` como fallback; se ambos falharem, a API responde `503`, enquanto imagem ilegível ou sem texto suficiente responde `422`.
 
 ## Checkout ou assinatura não atualiza
 

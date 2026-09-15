@@ -31,7 +31,8 @@ Esses testes devem crescer sempre que surgir uma vulnerabilidade, uma nova permi
 | Arquivo | Responsabilidade principal |
 | --- | --- |
 | `test_ai_services.py` | Integração simulada da Responses API, modelo de correção, persistência de telemetria, respostas válidas e inválidas. |
-| `test_ai_cost_and_caching.py` | Estabilidade e isolamento do prefixo, versionamento da cache key, schema estrito, cache miss/hit/write, fórmula de custo, ausência de chave e timeout. |
+| `test_ai_cost_and_caching.py` | Estabilidade e isolamento do prefixo, separação de cache por perfil, schemas completo/essencial, cache miss/hit/write, fórmula de custo, ausência de chave e timeout. |
+| `test_correction_worker.py` | Idempotência, retry e falha terminal do worker, além da seleção do perfil completo para demonstração/pagos/tarefas e essencial para correções Free posteriores. |
 
 As chamadas aos provedores são simuladas. A suíte padrão não consome créditos
 nem depende de serviços externos. A efetividade do cache em produção deve ser

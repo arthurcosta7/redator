@@ -9,10 +9,15 @@ Rotas:
 - DELETE /essays/{id}       — Remove uma redação
 """
 import asyncio
+import hashlib
+import hmac
+import secrets
 import uuid
-from typing import Annotated
+from datetime import UTC, datetime
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from redis.exceptions import RedisError
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -28,6 +33,7 @@ from app.core.rate_limiter import (
     release_monthly_credit,
     reserve_monthly_credit,
 )
+from app.db.models.correction import Correction
 from app.db.models.essay import Essay, EssayInputType, EssayStatus, EssayType
 from app.db.models.tarefa import Tarefa, TarefaSubmissao
 from app.db.models.turma import TurmaMembro, TurmaMembroStatus
@@ -37,6 +43,7 @@ from app.schemas.essay import (
     EssayListItem,
     EssayListResponse,
     EssayResponse,
+    PhotoExtractionResponse,
     SubmitEssayRequest,
 )
 from app.services.correction_response import (
@@ -49,11 +56,78 @@ from app.utils.text_sanitizer import sanitize_essay_text, sanitize_short_text
 
 router = APIRouter(prefix="/essays", tags=["Redações"])
 logger = get_logger(__name__)
+_OCR_REVIEW_TTL_SECONDS = 2 * 60 * 60
 
 
 def count_words(text: str) -> int:
     """Conta palavras no texto da redação."""
     return len(text.split())
+
+
+def _ocr_review_key(token: str) -> str:
+    """Mantém o token bruto fora do Redis e dos logs."""
+    digest = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    return f"ocr_review:{digest}"
+
+
+async def _issue_ocr_review_token(
+    redis_client: Any,
+    user_id: str,
+    essay_type: EssayType,
+) -> str:
+    """Emite prova temporária de que o servidor processou uma foto válida."""
+    token = secrets.token_urlsafe(32)
+    value = f"{user_id}:{essay_type.value}"
+    try:
+        await redis_client.set(
+            _ocr_review_key(token), value, ex=_OCR_REVIEW_TTL_SECONDS
+        )
+    except RedisError as exc:
+        logger.error("redis_error_ocr_review_token", error_type=type(exc).__name__)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Não foi possível iniciar a revisão da transcrição. Tente novamente.",
+        ) from exc
+    return token
+
+
+async def _resolve_input_type(
+    redis_client: Any,
+    token: str | None,
+    user_id: str,
+    essay_type: EssayType,
+) -> EssayInputType:
+    """Aceita origem OCR apenas com prova emitida para usuário e modelo atuais."""
+    if token is None:
+        return EssayInputType.TEXT
+    try:
+        stored = await redis_client.get(_ocr_review_key(token))
+    except RedisError as exc:
+        logger.error("redis_error_ocr_review_validation", error_type=type(exc).__name__)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Não foi possível validar a transcrição. Tente novamente.",
+        ) from exc
+    if isinstance(stored, bytes):
+        stored = stored.decode("utf-8", errors="replace")
+    expected = f"{user_id}:{essay_type.value}"
+    if not isinstance(stored, str) or not hmac.compare_digest(stored, expected):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="A revisão da foto expirou ou não pertence a esta redação. Extraia a foto novamente.",
+        )
+    return EssayInputType.PHOTO
+
+
+async def _consume_ocr_review_token(redis_client: Any, token: str | None) -> None:
+    """Invalida o comprovante após a redação ser enfileirada com sucesso."""
+    if token is None:
+        return
+    try:
+        await redis_client.delete(_ocr_review_key(token))
+    except RedisError as exc:
+        # A redação já foi confirmada; a expiração curta limita eventual reuso.
+        logger.warning("redis_error_ocr_review_cleanup", error_type=type(exc).__name__)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -65,7 +139,7 @@ async def submit_essay(
     data: SubmitEssayRequest,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
-    redis_client=Depends(get_redis),
+    redis_client: Annotated[Any, Depends(get_redis)],
 ) -> EssayResponse:
     """
     Submete uma redação em texto para correção.
@@ -101,6 +175,13 @@ async def submit_essay(
         )
         # Tarefa define o tema — sobrescreve qualquer tema enviado pelo aluno
         data = data.model_copy(update={"theme": tarefa.theme})
+
+    input_type = await _resolve_input_type(
+        redis_client,
+        data.ocr_review_token,
+        current_user_id,
+        data.essay_type,
+    )
 
     # Valida tamanho do texto
     word_count = count_words(data.content)
@@ -150,7 +231,7 @@ async def submit_essay(
         content=data.content,
         theme=data.theme,
         essay_type=data.essay_type,
-        input_type=EssayInputType.TEXT,
+        input_type=input_type,
         status=EssayStatus.PENDING,
         word_count=word_count,
     )
@@ -164,12 +245,12 @@ async def submit_essay(
 
         if is_assignment and tarefa:
             # Registra a submissão da tarefa
-            from datetime import datetime, timezone
+            # UTC explícito evita datas ingênuas nas entregas de tarefas.
             submissao = TarefaSubmissao(
                 tarefa_id=tarefa.id,
                 student_id=current_user.id,
                 essay_id=essay.id,
-                submitted_at=datetime.now(timezone.utc),
+                submitted_at=datetime.now(UTC),
             )
             db.add(submissao)
             await db.flush()
@@ -193,6 +274,7 @@ async def submit_essay(
         # O worker usa outra conexão e só pode ler dados já confirmados.
         await db.commit()
         await enqueue_correction(str(essay_db_id), is_assignment=is_assignment)
+        await _consume_ocr_review_token(redis_client, data.ocr_review_token)
     except Exception as exc:
         await db.rollback()
         if quota_reserved:
@@ -231,6 +313,94 @@ async def submit_essay(
 # Submissão de redação por foto (OCR)
 # ─────────────────────────────────────────────────────────────────────────────
 
+@router.post("/photo/extract", response_model=PhotoExtractionResponse)
+async def extract_essay_photo(
+    essay_type: Annotated[EssayType, Form()],
+    photo: Annotated[UploadFile, File(description="Foto da redação (JPG, PNG, WEBP)")],
+    current_user: Annotated[User, Depends(get_current_user)],
+    redis_client: Annotated[Any, Depends(get_redis)],
+) -> PhotoExtractionResponse:
+    """Extrai o texto para revisão do aluno; não cria nem corrige uma redação."""
+    current_user_id = str(current_user.id)
+    limiter = RateLimiter(redis_client)
+    if not await limiter.check("ocr_extraction", current_user_id, 5, 300):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Muitas fotos processadas em pouco tempo. Aguarde alguns minutos.",
+        )
+
+    file_content = await photo.read(settings.max_file_size_bytes + 1)
+    await photo.close()
+    await asyncio.to_thread(
+        validate_image_file,
+        file_content,
+        photo.filename or "",
+        photo.content_type or "",
+    )
+
+    allowed, _, monthly_limit, _ = await reserve_monthly_credit(
+        user_id=current_user_id,
+        plan=current_user.plan.value,
+        redis_client=redis_client,
+        resource="ocr_extractions",
+    )
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Seu plano permite até {monthly_limit} leituras de foto por mês.",
+        )
+
+    try:
+        from app.services.ocr.ocr_service import OCRService
+
+        extracted_text = sanitize_essay_text(await OCRService().extract_text(file_content))
+    except Exception as exc:
+        await release_monthly_credit(
+            current_user_id, redis_client, resource="ocr_extractions"
+        )
+        logger.error("erro_ocr", error_type=type(exc).__name__)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="O serviço de leitura da imagem está temporariamente indisponível. "
+                   "Tente novamente ou envie a redação digitada.",
+        ) from exc
+
+    if not extracted_text or len(extracted_text.strip()) < 50:
+        await release_monthly_credit(
+            current_user_id, redis_client, resource="ocr_extractions"
+        )
+        raise HTTPException(
+            status_code=422,
+            detail="Não foi possível extrair texto suficiente da imagem. "
+                   "Certifique-se de que a escrita está legível.",
+        )
+
+    word_count = count_words(extracted_text)
+    try:
+        review_token = await _issue_ocr_review_token(
+            redis_client, current_user_id, essay_type
+        )
+    except HTTPException:
+        await release_monthly_credit(
+            current_user_id, redis_client, resource="ocr_extractions"
+        )
+        raise
+
+    track_product_event(
+        logger,
+        "photo_ocr_extracted",
+        user_id=current_user_id,
+        account_type=current_user.user_type.value,
+        plan=current_user.plan.value,
+        essay_type=essay_type.value,
+        word_count=word_count,
+    )
+    return PhotoExtractionResponse(
+        content=extracted_text,
+        word_count=word_count,
+        review_token=review_token,
+    )
+
 @router.post("/photo", response_model=EssayResponse, status_code=201)
 async def submit_essay_photo(
     theme: Annotated[str, Form(min_length=5, max_length=500)],
@@ -238,7 +408,7 @@ async def submit_essay_photo(
     photo: Annotated[UploadFile, File(description="Foto da redação (JPG, PNG, WEBP)")],
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
-    redis_client=Depends(get_redis),
+    redis_client: Annotated[Any, Depends(get_redis)],
     title: Annotated[str | None, Form(max_length=200)] = None,
 ) -> EssayResponse:
     """
@@ -294,14 +464,14 @@ async def submit_essay_photo(
         from app.services.ocr.ocr_service import OCRService
         ocr_service = OCRService()
         extracted_text = sanitize_essay_text(await ocr_service.extract_text(file_content))
-    except Exception as e:
+    except Exception as exc:
         await release_monthly_credit(current_user_id, redis_client)
-        logger.error("erro_ocr", error=str(e))
+        logger.error("erro_ocr", error_type=type(exc).__name__)
         raise HTTPException(
-            status_code=422,
-            detail="Não foi possível extrair o texto da foto. "
-                   "Verifique se a imagem está nítida e bem iluminada.",
-        )
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="O serviço de leitura da imagem está temporariamente indisponível. "
+                   "Tente novamente ou envie a redação digitada.",
+        ) from exc
 
     if not extracted_text or len(extracted_text.strip()) < 50:
         await release_monthly_credit(current_user_id, redis_client)
@@ -394,7 +564,7 @@ async def submit_essay_photo(
 async def get_monthly_credits(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
-    redis_client=Depends(get_redis),
+    redis_client: Annotated[Any, Depends(get_redis)],
 ) -> dict:
     """Retorna créditos mensais e um resumo pedagógico sem texto pessoal."""
     _, used, monthly_limit, rollover = await check_monthly_credits(
@@ -417,7 +587,7 @@ async def get_monthly_credits(
 async def get_legacy_limit(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
-    redis_client=Depends(get_redis),
+    redis_client: Annotated[Any, Depends(get_redis)],
 ) -> dict:
     """Alias temporário: mantém clientes antigos enquanto migram para /credits."""
     return await get_monthly_credits(current_user, db, redis_client)
@@ -610,11 +780,16 @@ def _personal_essay_filter(user_id: uuid.UUID):
     )
 
 
-async def _first_personal_completed_essay_id(user_id: uuid.UUID, db: AsyncSession) -> uuid.UUID | None:
+async def _first_personal_completed_essay_id(
+    user_id: uuid.UUID, db: AsyncSession
+) -> uuid.UUID | None:
+    """Mantém como demonstração a correção que terminou primeiro, mesmo com jobs paralelos."""
     return await db.scalar(
-        select(Essay.id).where(
-            *_personal_essay_filter(user_id), Essay.status == EssayStatus.COMPLETED
-        ).order_by(Essay.created_at.asc()).limit(1)
+        select(Essay.id)
+        .join(Correction)
+        .where(*_personal_essay_filter(user_id), Essay.status == EssayStatus.COMPLETED)
+        .order_by(Correction.created_at.asc())
+        .limit(1)
     )
 
 
@@ -681,7 +856,6 @@ async def _validate_assignment_submission(
     Retorna (tarefa, True) se válido.
     """
     import uuid as _uuid
-    from datetime import datetime, timezone
 
     try:
         tarefa_uuid = _uuid.UUID(assignment_id)
@@ -700,7 +874,7 @@ async def _validate_assignment_submission(
         raise HTTPException(status_code=403, detail="Esta tarefa foi encerrada pelo professor.")
 
     # Verifica prazo
-    if tarefa.due_date and tarefa.due_date < datetime.now(timezone.utc):
+    if tarefa.due_date and tarefa.due_date < datetime.now(UTC):
         raise HTTPException(status_code=403, detail="O prazo desta tarefa já encerrou.")
 
     # Verifica que o aluno é membro ACTIVE da turma

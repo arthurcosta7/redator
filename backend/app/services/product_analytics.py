@@ -17,10 +17,11 @@ ALLOWED_EVENTS = frozenset({
     "subscription_completed", "subscription_cancelled", "class_created",
     "invitation_sent", "student_activated", "assignment_created",
     "assignment_ai_generated", "assignment_essay_submitted", "teacher_report_viewed",
+    "photo_ocr_extracted",
 })
 ALLOWED_PROPERTIES = frozenset({
     "account_type", "plan", "resource", "used", "limit", "essay_type",
-    "sequence", "teacher_plan", "report_type",
+    "sequence", "teacher_plan", "report_type", "word_count",
 })
 
 

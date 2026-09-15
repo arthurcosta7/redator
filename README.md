@@ -18,6 +18,9 @@ ser iniciados sequencialmente no mesmo terminal.
 
 ### Windows (PowerShell)
 
+No Windows, use o inicializador `py`. O comando `python3` da seção Linux/macOS
+não funciona em instalações padrão do Python para Windows.
+
 Terminal 1 — PostgreSQL e Redis:
 
 ```powershell

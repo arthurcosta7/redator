@@ -18,16 +18,27 @@ from app.core.config import settings
 from app.core.logging import get_logger
 from app.db.models.correction import Correction
 from app.db.models.essay import Essay, EssayStatus, EssayType
-from app.db.models.user import User
+from app.db.models.user import User, UserPlan
 from app.services.ai.correction_schema import (
-    CORRECTION_RESPONSE_FORMAT,
+    CompactCorrectionAIResponse,
     CorrectionAIResponse,
+    CorrectionProfile,
+    get_correction_response_format,
 )
 from app.services.ai.openai_client import create_openai_client
 from app.services.ai.prompt_builder import build_correction_prompt
 from app.services.ai.token_usage import normalize_token_usage
 
 logger = get_logger(__name__)
+
+
+def _supports_explicit_prompt_cache(model: str) -> bool:
+    """Limita o breakpoint explícito aos modelos que documentam esse recurso."""
+    match = re.match(r"^gpt-(\d+)\.(\d+)", model.lower())
+    if match is None:
+        return False
+    major, minor = (int(part) for part in match.groups())
+    return (major, minor) >= (5, 6)
 
 
 class InvalidAIResponseError(ValueError):
@@ -52,18 +63,25 @@ class CorrectionService:
         user: User,
         db: AsyncSession,
         is_assignment: bool = False,
+        response_profile: CorrectionProfile = "full",
     ) -> Correction:
         """Executa uma chamada, mede seu custo e prepara a transação no banco."""
         start_time = time.perf_counter()
 
         try:
-            model = settings.OPENAI_CORRECTION_MODEL
+            model = (
+                settings.OPENAI_PAID_MODEL
+                if is_assignment or user.plan in {UserPlan.STANDARD, UserPlan.PRO}
+                else settings.OPENAI_FREE_MODEL
+            )
             max_score = 1000.0 if essay.essay_type == EssayType.ENEM else 100.0
             prompt = build_correction_prompt(
                 essay_type=essay.essay_type,
                 essay_content=essay.content,
                 theme=essay.theme,
                 model=model,
+                input_type=essay.input_type,
+                profile=response_profile,
             )
 
             logger.info(
@@ -73,24 +91,47 @@ class CorrectionService:
                 model=model,
                 prompt_version=prompt.version,
                 is_assignment=is_assignment,
+                response_profile=response_profile,
             )
 
             # O schema é gerado pelo Pydantic em runtime; os casts ficam
             # restritos à fronteira tipada da SDK.
+            developer_content: Any = prompt.cacheable_prefix
+            request_options: dict[str, Any] = {}
+            if _supports_explicit_prompt_cache(model):
+                developer_content = [
+                    {
+                        "type": "input_text",
+                        "text": prompt.cacheable_prefix,
+                        "prompt_cache_breakpoint": {"mode": "explicit"},
+                    }
+                ]
+                # A SDK 2.38 ainda não tipa esta opção recém-adicionada à API.
+                # extra_body a envia sem exigir um cliente customizado.
+                request_options["extra_body"] = {
+                    "prompt_cache_options": {"mode": "explicit", "ttl": "30m"}
+                }
+
             request_input = cast(
                 Any,
                 [
-                    {"role": "developer", "content": prompt.cacheable_prefix},
+                    {"role": "developer", "content": developer_content},
                     {"role": "user", "content": prompt.variable_content},
                 ],
             )
             response_text_config = cast(
                 Any,
-                {"format": CORRECTION_RESPONSE_FORMAT, "verbosity": "low"},
+                {
+                    "format": get_correction_response_format(response_profile),
+                    "verbosity": "low",
+                },
             )
             response = await self.client.responses.create(
                 model=model,
-                max_output_tokens=settings.OPENAI_MAX_OUTPUT_TOKENS,
+                max_output_tokens=min(
+                    settings.OPENAI_MAX_OUTPUT_TOKENS,
+                    1600 if response_profile == "compact" else 2800,
+                ),
                 reasoning={"effort": "none"},
                 safety_identifier=hashlib.sha256(str(user.id).encode()).hexdigest(),
                 store=False,
@@ -99,13 +140,14 @@ class CorrectionService:
                 input=request_input,
                 prompt_cache_key=prompt.cache_key,
                 text=response_text_config,
+                **request_options,
             )
 
             if response.status == "incomplete":
                 raise InvalidAIResponseError("Resposta da IA incompleta")
 
             correction_data = self._parse_correction_response(
-                response.output_text, essay.essay_type
+                response.output_text, essay.essay_type, response_profile
             )
             usage = normalize_token_usage(response.usage)
             processing_time = time.perf_counter() - start_time
@@ -145,6 +187,7 @@ class CorrectionService:
                 request_id=getattr(response, "id", None),
                 model=model,
                 prompt_version=prompt.version,
+                response_profile=response_profile,
                 input_tokens=usage.input_tokens,
                 cached_input_tokens=usage.cached_input_tokens,
                 cache_write_tokens=usage.cache_write_tokens,
@@ -203,7 +246,10 @@ class CorrectionService:
             raise
 
     def _parse_correction_response(
-        self, response_text: str, essay_type: EssayType
+        self,
+        response_text: str,
+        essay_type: EssayType,
+        response_profile: CorrectionProfile = "full",
     ) -> dict[str, Any]:
         """Valida schema, regras de pontuação e sanitiza todo texto retornado."""
         text = response_text.strip()
@@ -218,10 +264,27 @@ class CorrectionService:
                     ValueError(f"Número JSON não finito: {value}")
                 ),
             )
-            data = CorrectionAIResponse.model_validate(raw_data).model_dump()
+            response_model = (
+                CompactCorrectionAIResponse
+                if response_profile == "compact"
+                else CorrectionAIResponse
+            )
+            data = response_model.model_validate(raw_data).model_dump()
             self._validate_scores(data, essay_type)
         except (json.JSONDecodeError, ValidationError, ValueError) as exc:
             raise InvalidAIResponseError("Resposta estruturada inválida") from exc
+
+        if response_profile == "compact":
+            for competency in data["competencies"]:
+                competency["strengths"] = []
+                competency["improvements"] = []
+            data["insights"] = {
+                "general_feedback": data["insights"]["general_feedback"],
+                "main_strengths": [],
+                "priority_improvements": [],
+                "next_essay_checklist": [],
+                "writing_level": "não informado",
+            }
 
         return cast(dict[str, Any], self._sanitize_ai_output(data))
 

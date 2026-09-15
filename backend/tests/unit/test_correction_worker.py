@@ -9,6 +9,7 @@ from arq import Retry
 import app.workers.correction as worker
 from app.core.config import settings
 from app.db.models.essay import EssayStatus
+from app.db.models.user import UserPlan
 from app.services.ai.correction_service import TransientAIError
 
 
@@ -49,6 +50,25 @@ def install_session(monkeypatch, session):
 
 def essay(status=EssayStatus.PENDING):
     return SimpleNamespace(id=uuid4(), user_id=uuid4(), status=status, error_message="old error")
+
+
+@pytest.mark.parametrize(
+    ("plan", "is_assignment", "completed_before", "expected"),
+    [
+        (UserPlan.FREE, False, 0, "full"),
+        (UserPlan.FREE, False, 1, "compact"),
+        (UserPlan.STANDARD, False, 10, "full"),
+        (UserPlan.PRO, False, 10, "full"),
+        (UserPlan.FREE, True, 10, "full"),
+    ],
+)
+def test_correction_profile_preserves_demo_and_paid_experience(
+    plan, is_assignment, completed_before, expected
+):
+    assert (
+        worker.select_correction_profile(plan, is_assignment, completed_before)
+        == expected
+    )
 
 
 @pytest.mark.asyncio
@@ -109,8 +129,8 @@ async def test_successful_job_transitions_and_commits(monkeypatch):
 @pytest.mark.asyncio
 async def test_transient_provider_failure_requests_retry(monkeypatch):
     item = essay()
-    owner = SimpleNamespace(id=item.user_id)
-    session = FakeSession([item, None], [owner])
+    owner = SimpleNamespace(id=item.user_id, plan=UserPlan.FREE)
+    session = FakeSession([item, None, 0], [owner])
     install_session(monkeypatch, session)
 
     async def fail(**_kwargs):
@@ -129,8 +149,8 @@ async def test_transient_provider_failure_requests_retry(monkeypatch):
 @pytest.mark.asyncio
 async def test_terminal_failure_marks_error_and_releases_personal_quota(monkeypatch):
     item = essay()
-    owner = SimpleNamespace(id=item.user_id)
-    session = FakeSession([item, None], [owner, item])
+    owner = SimpleNamespace(id=item.user_id, plan=UserPlan.FREE)
+    session = FakeSession([item, None, 0], [owner, item])
     install_session(monkeypatch, session)
 
     async def fail(**_kwargs):
@@ -160,8 +180,8 @@ async def test_terminal_failure_marks_error_and_releases_personal_quota(monkeypa
 @pytest.mark.asyncio
 async def test_permanent_failure_is_not_retried(monkeypatch):
     item = essay()
-    owner = SimpleNamespace(id=item.user_id)
-    session = FakeSession([item, None], [owner, item])
+    owner = SimpleNamespace(id=item.user_id, plan=UserPlan.FREE)
+    session = FakeSession([item, None, 0], [owner, item])
     install_session(monkeypatch, session)
 
     async def fail(**_kwargs):
@@ -211,3 +231,31 @@ async def test_assignment_failure_does_not_release_daily_quota(monkeypatch):
     )
     assert result == {"status": "error"}
     assert release == []
+
+
+@pytest.mark.asyncio
+async def test_later_free_correction_requests_compact_response(monkeypatch):
+    item = essay()
+    owner = SimpleNamespace(
+        id=item.user_id,
+        plan=UserPlan.FREE,
+        user_type=SimpleNamespace(value="student"),
+    )
+    session = FakeSession([item, None, 1], [owner])
+    install_session(monkeypatch, session)
+    calls = []
+
+    async def correct(**kwargs):
+        calls.append(kwargs)
+
+    monkeypatch.setattr(
+        worker,
+        "CorrectionService",
+        lambda: SimpleNamespace(correct_essay=correct),
+    )
+    monkeypatch.setattr(worker, "track_product_event", lambda *_args, **_kwargs: None)
+
+    result = await worker.process_correction({}, str(item.id))
+
+    assert result == {"status": "completed"}
+    assert calls[0]["response_profile"] == "compact"

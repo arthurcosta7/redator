@@ -12,12 +12,24 @@ from app.core.rate_limiter import release_monthly_credit
 from app.db.models.correction import Correction
 from app.db.models.essay import Essay, EssayStatus
 from app.db.models.tarefa import TarefaSubmissao
-from app.db.models.user import User
+from app.db.models.user import User, UserPlan
 from app.db.session import AsyncSessionLocal
+from app.services.ai.correction_schema import CorrectionProfile
 from app.services.ai.correction_service import CorrectionService, TransientAIError
 from app.services.product_analytics import track_product_event
 
 logger = get_logger(__name__)
+
+
+def select_correction_profile(
+    plan: UserPlan,
+    is_assignment: bool,
+    completed_personal_before: int,
+) -> CorrectionProfile:
+    """Entrega a demonstração completa sem gerar detalhes pagos que serão ocultados."""
+    if is_assignment or plan in {UserPlan.STANDARD, UserPlan.PRO}:
+        return "full"
+    return "full" if completed_personal_before == 0 else "compact"
 
 
 async def process_correction(
@@ -54,22 +66,35 @@ async def process_correction(
         await db.commit()
 
         try:
+            completed_personal_before = 0
+            if not is_assignment:
+                assignment_ids = select(TarefaSubmissao.essay_id).where(
+                    TarefaSubmissao.essay_id.isnot(None)
+                )
+                completed_personal_before = int(
+                    await db.scalar(
+                        select(func.count(Correction.id)).join(Essay).where(
+                            Essay.user_id == user.id,
+                            ~Essay.id.in_(assignment_ids),
+                        )
+                    )
+                    or 0
+                )
+
+            response_profile = select_correction_profile(
+                user.plan,
+                is_assignment,
+                completed_personal_before,
+            )
             await CorrectionService().correct_essay(
                 essay=essay,
                 user=user,
                 db=db,
                 is_assignment=is_assignment,
+                response_profile=response_profile,
             )
             if not is_assignment:
-                assignment_ids = select(TarefaSubmissao.essay_id).where(
-                    TarefaSubmissao.essay_id.isnot(None)
-                )
-                completed_count = await db.scalar(
-                    select(func.count(Correction.id)).join(Essay).where(
-                        Essay.user_id == user.id,
-                        ~Essay.id.in_(assignment_ids),
-                    )
-                )
+                completed_count = completed_personal_before + 1
                 if completed_count in (1, 2):
                     ordinal = "first" if completed_count == 1 else "second"
                     track_product_event(

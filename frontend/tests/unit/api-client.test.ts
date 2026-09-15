@@ -9,6 +9,22 @@ describe("cliente da API", () => {
     expect(api.defaults.timeout).toBe(30_000);
   });
 
+  it("preserva FormData sem convertê-lo em JSON", async () => {
+    const mock = new MockAdapter(api);
+    const payload = new FormData();
+    payload.append("photo", new File(["imagem"], "redacao.jpg", { type: "image/jpeg" }));
+
+    mock.onPost("/essays/photo").reply((config) => {
+      expect(config.data).toBe(payload);
+      const contentType = String(config.headers?.["Content-Type"] ?? "");
+      expect(contentType).not.toBe("application/json");
+      return [201, { id: "essay-1" }];
+    });
+
+    await expect(api.post("/essays/photo", payload)).resolves.toMatchObject({ status: 201 });
+    mock.restore();
+  });
+
   it("normaliza apenas erros de campo válidos", () => {
     const error = new axios.AxiosError("invalid", "422", undefined, undefined, {
       data: {

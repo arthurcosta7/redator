@@ -7,6 +7,7 @@ import {
   FileText, Camera, Upload, Loader2, AlertCircle, CheckCircle2, X,
 } from "lucide-react";
 import { api, getApiError } from "@/lib/api/client";
+import { buildEssayPhotoFormData } from "@/lib/api/essay-photo";
 import type { EssayType } from "@/types/essay";
 
 function wordCount(text: string): number {
@@ -80,6 +81,7 @@ export default function ProfessorNovaRedacaoPage() {
   const router = useRouter();
   const [mode, setMode] = useState<"text" | "photo">("text");
   const [essayType, setEssayType] = useState<EssayType>("enem");
+  const [theme, setTheme] = useState("");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [photo, setPhoto] = useState<File | null>(null);
@@ -91,7 +93,10 @@ export default function ProfessorNovaRedacaoPage() {
   const MAX_WORDS = 500;
   const tooShort = words < MIN_WORDS && content.trim() !== "";
   const tooLong = words > MAX_WORDS;
-  const canSubmit = mode === "text" ? words >= MIN_WORDS && !tooLong : photo !== null;
+  const themeOk = theme.trim().length >= 5;
+  const canSubmit = themeOk && (
+    mode === "text" ? words >= MIN_WORDS && !tooLong : photo !== null
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,18 +109,19 @@ export default function ProfessorNovaRedacaoPage() {
       if (mode === "text") {
         const res = await api.post<{ id: string }>("/essays", {
           essay_type: essayType,
+          theme: theme.trim(),
           content: content.trim(),
           title: title.trim() || "Redação sem título",
         });
         essayId = res.data.id;
       } else {
-        const formData = new FormData();
-        formData.append("file", photo!);
-        formData.append("essay_type", essayType);
-        formData.append("title", title.trim() || "Redação sem título");
-        const res = await api.post<{ id: string }>("/essays/photo", formData, {
-          headers: { "Content-Type": "multipart/form-data" },
+        const formData = buildEssayPhotoFormData({
+          photo: photo!,
+          essayType,
+          theme,
+          title: title || "Redação sem título",
         });
+        const res = await api.post<{ id: string }>("/essays/photo", formData);
         essayId = res.data.id;
       }
       router.push(`/dashboard/professor/correcao/${essayId}`);
@@ -152,6 +158,20 @@ export default function ProfessorNovaRedacaoPage() {
         <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-5">
           <p className="text-sm font-semibold text-slate-700 mb-3">Modelo de correção</p>
           <EssayTypeSelector value={essayType} onChange={setEssayType} />
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-5">
+          <label className="block text-sm font-semibold text-slate-700 mb-2">
+            Tema da redação
+          </label>
+          <input type="text" value={theme} onChange={(e) => setTheme(e.target.value)} maxLength={500}
+            placeholder="Ex: Desafios para a valorização da educação no Brasil"
+            required minLength={5}
+            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm outline-none
+                       focus:border-brand-400 focus:ring-2 focus:ring-brand-50 transition-colors bg-white" />
+          {theme.length > 0 && !themeOk && (
+            <p className="mt-1.5 text-xs text-amber-600">Informe um tema com pelo menos 5 caracteres.</p>
+          )}
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-5">

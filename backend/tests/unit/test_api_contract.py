@@ -15,6 +15,7 @@ EXPECTED_ROUTES = {
     ("POST", "/api/v1/auth/verify-email/{token}"),
     ("POST", "/api/v1/essays"),
     ("POST", "/api/v1/essays/photo"),
+    ("POST", "/api/v1/essays/photo/extract"),
     ("GET", "/api/v1/essays/daily-limit"),
     ("GET", "/api/v1/essays/credits"),
     ("GET", "/api/v1/essays/{essay_id}"),

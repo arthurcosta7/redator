@@ -13,7 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { api, getApiError } from "@/lib/api/client";
-import { useUser } from "@/contexts/UserContext";
+import { buildEssayPhotoFormData } from "@/lib/api/essay-photo";
 import type { EssayType } from "@/types/essay";
 
 // ─── Contador de palavras ────────────────────────────────────────────────────
@@ -149,7 +149,6 @@ function PhotoUploadZone({
 
 export default function NovaRedacaoPage() {
   const router = useRouter();
-  const { user } = useUser();
 
   const [mode, setMode] = useState<"text" | "photo">("text");
   const [essayType, setEssayType] = useState<EssayType>("enem");
@@ -157,6 +156,8 @@ export default function NovaRedacaoPage() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [photo, setPhoto] = useState<File | null>(null);
+  const [photoExtracted, setPhotoExtracted] = useState(false);
+  const [ocrReviewToken, setOcrReviewToken] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -184,7 +185,10 @@ export default function NovaRedacaoPage() {
   const canSubmit = themeOk && (
     mode === "text"
       ? words >= MIN_WORDS && !tooLong
-      : photo !== null
+      : photo !== null && (
+          !photoExtracted
+          || (ocrReviewToken !== null && words >= MIN_WORDS && !tooLong)
+        )
   );
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -195,27 +199,41 @@ export default function NovaRedacaoPage() {
     setIsSubmitting(true);
 
     try {
-      let essayId: string;
+      if (mode === "photo" && !photoExtracted) {
+        const formData = buildEssayPhotoFormData({
+          photo: photo!,
+          essayType,
+          theme,
+          title,
+        });
+        const res = await api.post<{
+          content: string;
+          word_count: number;
+          review_token: string;
+        }>(
+          "/essays/photo/extract",
+          formData
+        );
+        setContent(res.data.content);
+        setOcrReviewToken(res.data.review_token);
+        setPhotoExtracted(true);
+        return;
+      }
 
-      if (mode === "text") {
+      let essayId: string;
+      if (mode === "text" || photoExtracted) {
         const res = await api.post<{ id: string }>("/essays", {
           essay_type: essayType,
           theme: theme.trim(),
           content: content.trim(),
+          ...(mode === "photo" && ocrReviewToken
+            ? { ocr_review_token: ocrReviewToken }
+            : {}),
           ...(title.trim() ? { title: title.trim() } : {}),
         });
         essayId = res.data.id;
       } else {
-        const formData = new FormData();
-        formData.append("file", photo!);
-        formData.append("essay_type", essayType);
-        formData.append("theme", theme.trim());
-        if (title.trim()) formData.append("title", title.trim());
-
-        const res = await api.post<{ id: string }>("/essays/photo", formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
-        essayId = res.data.id;
+        return;
       }
 
       router.push(`/dashboard/aluno/correcao/${essayId}`);
@@ -281,7 +299,17 @@ export default function NovaRedacaoPage() {
           <p className="text-sm font-semibold text-slate-700 mb-3">
             Modelo de correção
           </p>
-          <EssayTypeSelector value={essayType} onChange={setEssayType} />
+          <EssayTypeSelector
+            value={essayType}
+            onChange={(nextType) => {
+              setEssayType(nextType);
+              if (photoExtracted) {
+                setContent("");
+                setPhotoExtracted(false);
+                setOcrReviewToken(null);
+              }
+            }}
+          />
         </div>
 
         {/* Tema da redação (obrigatório) */}
@@ -386,12 +414,51 @@ export default function NovaRedacaoPage() {
               </label>
               <PhotoUploadZone
                 file={photo}
-                onFile={setPhoto}
-                onRemove={() => setPhoto(null)}
+                onFile={(file) => {
+                  setPhoto(file);
+                  setContent("");
+                  setPhotoExtracted(false);
+                  setOcrReviewToken(null);
+                }}
+                onRemove={() => {
+                  setPhoto(null);
+                  setContent("");
+                  setPhotoExtracted(false);
+                  setOcrReviewToken(null);
+                }}
               />
               <p className="text-xs text-slate-400 mt-2">
-                Certifique-se que o texto está legível e com boa iluminação.
+                Primeiro vamos transcrever a foto. Você poderá revisar o texto antes da correção.
               </p>
+              {photoExtracted && (
+                <div className="mt-5 border-t border-slate-100 pt-5">
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <label className="text-sm font-semibold text-slate-700">
+                      Revise a transcrição
+                    </label>
+                    <span className={`text-xs font-medium ${tooLong ? "text-red-600" : tooShort ? "text-amber-600" : "text-slate-400"}`}>
+                      {words} / {MAX_WORDS} palavras
+                    </span>
+                  </div>
+                  <p className="mb-3 text-xs leading-relaxed text-amber-700">
+                    Confira especialmente acentos, conectivos e a proposta de intervenção. A nota será calculada a partir deste texto.
+                  </p>
+                  <textarea
+                    value={content}
+                    onChange={(event) => setContent(event.target.value)}
+                    rows={14}
+                    className={`w-full resize-y rounded-xl border bg-white px-4 py-3 text-sm leading-relaxed outline-none transition-colors focus:ring-2 ${tooLong || tooShort ? "border-amber-300 focus:border-amber-400 focus:ring-amber-100" : "border-slate-200 focus:border-brand-400 focus:ring-brand-50"}`}
+                  />
+                  {tooShort && (
+                    <p className="mt-1.5 text-xs text-amber-600">
+                      A transcrição precisa ter pelo menos {MIN_WORDS} palavras. Corrija ou complete os trechos não reconhecidos.
+                    </p>
+                  )}
+                  {tooLong && (
+                    <p className="mt-1.5 text-xs text-red-600">Máximo de {MAX_WORDS} palavras.</p>
+                  )}
+                </div>
+              )}
             </>
           )}
         </div>
@@ -415,10 +482,14 @@ export default function NovaRedacaoPage() {
           {isSubmitting ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin" />
-              Enviando para correção…
+              {mode === "photo" && !photoExtracted ? "Lendo a imagem…" : "Enviando para correção…"}
             </>
           ) : (
-            "Enviar para correção →"
+            mode === "photo" && !photoExtracted
+              ? "Extrair texto da foto →"
+              : photoExtracted
+                ? "Confirmar transcrição e corrigir →"
+                : "Enviar para correção →"
           )}
         </button>
 
