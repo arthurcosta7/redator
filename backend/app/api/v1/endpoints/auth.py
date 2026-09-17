@@ -21,6 +21,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.client_ip import client_ip
 from app.core.dependencies import get_db, get_redis
 from app.core.logging import get_logger, mask_email
 from app.core.rate_limiter import RateLimiter, check_login_attempts
@@ -46,6 +47,7 @@ from app.schemas.auth import (
     ResetPasswordRequest,
 )
 from app.services.product_analytics import track_product_event
+from app.services.referrals import attribute_signup
 
 router = APIRouter(prefix="/auth", tags=["Autenticação"])
 logger = get_logger(__name__)
@@ -95,6 +97,10 @@ async def create_user(
     email: str,
     password: str,
     user_type: UserType,
+    referral_code: str | None = None,
+    registration_ip: str = "unknown",
+    device_id: str | None = None,
+    redis_client=None,
     **extra_fields,
 ) -> User | None:
     """
@@ -139,6 +145,10 @@ async def create_user(
 
         db.add(user)
         await db.flush()  # Gera o ID sem commit ainda
+        if referral_code and redis_client is not None:
+            await attribute_signup(
+                db, redis_client, user, referral_code, registration_ip, device_id
+            )
 
         logger.info(
             "usuario_criado",
@@ -177,7 +187,7 @@ async def register_student(
     redis_client=Depends(get_redis),
 ) -> MessageResponse:
     """Cria uma conta de aluno."""
-    ip = request.client.host if request.client else "unknown"
+    ip = client_ip(request)
     limiter = RateLimiter(redis_client)
     track_product_event(logger, "registration_started", account_type=UserType.STUDENT.value)
     if not await limiter.check("registration", ip, max_requests=5, window_seconds=3600):
@@ -192,6 +202,10 @@ async def register_student(
         email=data.email,
         password=data.password,
         user_type=UserType.STUDENT,
+        referral_code=data.referral_code,
+        registration_ip=ip,
+        device_id=data.device_id,
+        redis_client=redis_client,
         grade=data.grade,
     )
     return MessageResponse(
@@ -207,7 +221,7 @@ async def register_teacher(
     redis_client=Depends(get_redis),
 ) -> MessageResponse:
     """Cria uma conta de professor."""
-    ip = request.client.host if request.client else "unknown"
+    ip = client_ip(request)
     limiter = RateLimiter(redis_client)
     track_product_event(logger, "registration_started", account_type=UserType.TEACHER.value)
     if not await limiter.check("registration", ip, max_requests=5, window_seconds=3600):
@@ -222,6 +236,10 @@ async def register_teacher(
         email=data.email,
         password=data.password,
         user_type=UserType.TEACHER,
+        referral_code=data.referral_code,
+        registration_ip=ip,
+        device_id=data.device_id,
+        redis_client=redis_client,
         school_name=data.school_name,
         discipline=data.discipline,
     )
@@ -250,7 +268,7 @@ async def login(
     - 20 tentativas por IP a cada hora
     - Bloqueio progressivo da conta por tentativas na mesma conta
     """
-    ip = request.client.host if request.client else "unknown"
+    ip = client_ip(request)
 
     # Verifica rate limit por IP
     if not await check_login_attempts(ip, redis_client):

@@ -36,6 +36,8 @@ class RegisterStudentRequest(BaseModel):
         max_length=50,
         description="Série/ano (ex: 3º ano EM, 2º ano EF)",
     )
+    referral_code: str | None = Field(default=None, pattern=r"^[a-f0-9]{48}$")
+    device_id: str | None = Field(default=None, pattern=r"^[0-9a-f-]{36}$")
 
     @field_validator("password")
     @classmethod

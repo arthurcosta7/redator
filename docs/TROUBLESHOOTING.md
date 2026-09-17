@@ -26,7 +26,7 @@ Verifique limite configurado, JPEG/PNG/WebP real, arquivo íntegro e dimensões 
 
 ## OCR falha
 
-Confirme `GOOGLE_APPLICATION_CREDENTIALS`, permissão do arquivo/conta, API Vision habilitada e limites do projeto. O caminho da credencial deve existir no ambiente/container que executa a requisição. Sem Google Vision, o backend usa `OPENAI_API_KEY` e `OPENAI_OCR_MODEL` como fallback; se ambos falharem, a API responde `503`, enquanto imagem ilegível ou sem texto suficiente responde `422`.
+Confirme `GOOGLE_APPLICATION_CREDENTIALS`, permissão do arquivo/conta, API Vision habilitada, faturamento, cotas e `GOOGLE_VISION_API_ENDPOINT`. Na VPS, confirme se `GOOGLE_VISION_CREDENTIALS_FILE` existe no host e se o secret aparece em `/run/secrets/google_cloud_vision_credentials` somente no container do backend. Não há fallback para OpenAI ou Tesseract: falha do Google retorna `503` e devolve o crédito; imagem processada sem texto suficiente retorna `422`.
 
 ## Checkout ou assinatura não atualiza
 

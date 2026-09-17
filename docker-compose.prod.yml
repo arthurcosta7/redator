@@ -48,6 +48,11 @@ services:
       # Sobrescreve as URLs locais para apontar para os containers
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-redator}:${POSTGRES_PASSWORD}@postgres:5432/redator
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      # O segredo é montado somente para o serviço que processa imagens.
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/google_cloud_vision_credentials
+      TRUST_PROXY_REAL_IP: "true"
+    secrets:
+      - google_cloud_vision_credentials
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--limit-concurrency", "200", "--backlog", "512", "--timeout-keep-alive", "5", "--no-access-log", "--no-server-header", "--log-level", "error"]
     ports:
       - "127.0.0.1:8000:8000"
@@ -121,6 +126,10 @@ services:
 volumes:
   postgres_data:
   redis_data:
+
+secrets:
+  google_cloud_vision_credentials:
+    file: ${GOOGLE_VISION_CREDENTIALS_FILE:?Defina GOOGLE_VISION_CREDENTIALS_FILE no .env}
 
 networks:
   redator_net:

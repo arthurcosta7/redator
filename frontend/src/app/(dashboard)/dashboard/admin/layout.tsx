@@ -22,6 +22,7 @@ import {
   X,
   AlertTriangle,
   Scale,
+  Link2,
 } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
 import { ADMIN_ROLE_LABELS, ADMIN_ROLE_COLORS, canManageTeam, canViewAnalytics } from "@/types/admin";
@@ -65,6 +66,13 @@ function getNavItems(role: AdminRole) {
       icon: BarChart3,
       exact: false,
       visible: canViewAnalytics(role),
+    },
+    {
+      href: "/dashboard/admin/indicacoes",
+      label: "Indicações",
+      icon: Link2,
+      exact: false,
+      visible: ["superadmin", "admin"].includes(role),
     },
     {
       href: "/dashboard/admin/equipe",

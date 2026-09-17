@@ -15,6 +15,7 @@ import {
 } from "@/components/auth/registration-fields";
 import { RegistrationShell } from "@/components/auth/registration-shell";
 import { api, getApiError } from "@/lib/api/client";
+import { getReferralRegistration } from "@/lib/referral";
 
 const teacherSchema = z.object({
   full_name: z
@@ -71,6 +72,7 @@ export default function RegisterTeacherPage() {
         password: data.password,
         school_name: data.school_name || null,
         discipline: data.discipline || null,
+        ...getReferralRegistration(),
       });
       setSuccess(true);
     } catch (error: unknown) {

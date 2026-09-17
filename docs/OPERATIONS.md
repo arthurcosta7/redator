@@ -13,7 +13,7 @@ docker compose -f docker-compose.prod.yml logs --tail=200 correction_worker
 docker compose -f docker-compose.prod.yml logs --tail=100 postgres redis
 ```
 
-Alertas mínimos: indisponibilidade, erro 5xx, latência p95, 429 anormal, pool de banco, memória Redis, tamanho/idade da fila, jobs falhos, custo/tokens OpenAI, falha de webhook e espaço em disco.
+Alertas mínimos: indisponibilidade, erro 5xx, latência p95, 429 anormal, pool de banco, memória Redis, tamanho/idade da fila, jobs falhos, custo/tokens OpenAI, unidades e falhas do Google Cloud Vision, falha de webhook e espaço em disco.
 
 ## Runbook: correções paradas
 

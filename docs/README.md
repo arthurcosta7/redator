@@ -15,6 +15,7 @@ Este diretório é a fonte de verdade técnica e operacional do projeto. O contr
 | Entender papéis e autorização | [Papéis e permissões](ROLES_AND_PERMISSIONS.md) |
 | Entender correção, OCR e contestação | [IA e correções](AI_CORRECTIONS.md) |
 | Medir produto sem expor redações | [Métricas de produto](PRODUCT_ANALYTICS.md) |
+| Administrar links privados e antifraude | [Indicações privadas](REFERRALS.md) |
 | Revisar controles e ameaças | [Segurança](SECURITY.md) |
 | Entender a estratégia e os critérios de qualidade | [Estratégia de testes](TESTING.md) |
 | Consultar o que cada suíte cobre | [Catálogo de testes](TEST_CATALOG.md) |

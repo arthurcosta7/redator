@@ -74,6 +74,7 @@ Exemplo de submissão:
 |---|---|
 | Perfil | `GET/PATCH/DELETE /users/me`; `POST /users/events` aceita somente `plans_viewed` sem payload livre |
 | Stripe | `POST /checkout/session`, `POST /checkout/portal`, `GET /subscription`, `POST /webhooks/stripe` |
+| Indicações privadas | `GET/POST /admin/referrals`, `PATCH /admin/referrals/{id}/active`, `GET /admin/referrals/reviews`, `PATCH /admin/referrals/reviews/{id}` — somente admin/superadmin |
 | Insights | `GET /insights/summary` |
 | Simulados | `GET /simulados/new` |
 

@@ -372,6 +372,13 @@ def test_production_requires_a_separate_database_encryption_key():
         production_settings(DATA_ENCRYPTION_KEY="")
 
 
+def test_google_vision_endpoint_cannot_redirect_credentials():
+    with pytest.raises(ValidationError, match="GOOGLE_VISION_API_ENDPOINT"):
+        production_settings(
+            GOOGLE_VISION_API_ENDPOINT="https://attacker.example"
+        )
+
+
 def test_teacher_price_id_uses_stripe_price_format():
     with pytest.raises(ValidationError, match="STRIPE_PRICE_TEACHER_30_MONTHLY"):
         production_settings(STRIPE_PRICE_TEACHER_30_MONTHLY="prod_teacher_30")

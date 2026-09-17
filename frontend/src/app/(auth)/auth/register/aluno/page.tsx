@@ -16,6 +16,7 @@ import {
 } from "@/components/auth/registration-fields";
 import { RegistrationShell } from "@/components/auth/registration-shell";
 import { api, getApiError } from "@/lib/api/client";
+import { getReferralRegistration } from "@/lib/referral";
 
 const studentSchema = z.object({
   full_name: z
@@ -103,6 +104,7 @@ function RegisterStudentForm() {
         email: data.email.toLowerCase(),
         password: data.password,
         grade: data.grade || null,
+        ...getReferralRegistration(),
       });
       setSuccess(true);
     } catch (error: unknown) {

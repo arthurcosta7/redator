@@ -1,7 +1,6 @@
 """Contratos dos adaptadores externos sem realizar chamadas de rede."""
 import io
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
@@ -94,40 +93,50 @@ async def test_ocr_normalizes_control_characters_and_spacing(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_ocr_uses_openai_when_google_credentials_fail(monkeypatch):
+async def test_ocr_fails_closed_when_google_is_unavailable(monkeypatch):
     service = OCRService()
     monkeypatch.setattr(
         service,
         "_google_ocr_sync",
         lambda _image: (_ for _ in ()).throw(RuntimeError("sem credencial")),
     )
-    monkeypatch.setattr(settings, "OPENAI_API_KEY", "sk-test")
-    service._openai_ocr = AsyncMock(return_value="Texto reconhecido")
 
-    assert await service.extract_text(b"imagem") == "Texto reconhecido"
-    service._openai_ocr.assert_awaited_once_with(b"imagem")
+    with pytest.raises(RuntimeError, match="Google Cloud Vision"):
+        await service.extract_text(b"imagem")
 
 
-@pytest.mark.asyncio
-async def test_openai_ocr_sends_private_image_without_storage(monkeypatch):
+def test_google_ocr_uses_allowlisted_endpoint_and_provider_timeout(monkeypatch):
     captured: dict = {}
 
-    class FakeResponses:
-        async def create(self, **kwargs):
-            captured.update(kwargs)
-            return SimpleNamespace(status="completed", output_text="Redação transcrita")
+    class FakeVisionClient:
+        def __init__(self, *, client_options):
+            captured["client_options"] = client_options
 
-    client = SimpleNamespace(responses=FakeResponses())
-    service = OCRService(openai_client=client)
-    monkeypatch.setattr(settings, "OPENAI_OCR_MODEL", "vision-test")
-    jpeg = b"\xff\xd8\xff" + b"conteudo-da-imagem"
+        def document_text_detection(self, *, image, timeout):
+            captured["image_content"] = image.content
+            captured["timeout"] = timeout
+            return SimpleNamespace(
+                error=SimpleNamespace(message=""),
+                full_text_annotation=SimpleNamespace(text="Redação transcrita"),
+            )
 
-    assert await service._openai_ocr(jpeg) == "Redação transcrita"
-    assert captured["model"] == "vision-test"
-    assert captured["store"] is False
-    image_part = captured["input"][0]["content"][1]
-    assert image_part["type"] == "input_image"
-    assert image_part["image_url"].startswith("data:image/jpeg;base64,")
+        def close(self):
+            captured["closed"] = True
+
+    monkeypatch.setattr("google.cloud.vision.ImageAnnotatorClient", FakeVisionClient)
+    monkeypatch.setattr(settings, "GOOGLE_APPLICATION_CREDENTIALS", "")
+    monkeypatch.setattr(settings, "GOOGLE_VISION_API_ENDPOINT", "eu-vision.googleapis.com")
+    monkeypatch.setattr(settings, "OCR_TIMEOUT_SECONDS", 17)
+
+    result = OCRService._google_ocr_sync(b"conteudo-da-imagem")
+
+    assert result == "Redação transcrita"
+    assert captured["client_options"] == {
+        "api_endpoint": "eu-vision.googleapis.com"
+    }
+    assert captured["image_content"] == b"conteudo-da-imagem"
+    assert captured["timeout"] == 17
+    assert captured["closed"] is True
 
 
 def test_ocr_truncates_untrusted_provider_output():

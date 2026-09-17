@@ -16,7 +16,7 @@ separadas por modelo, versão do prompt, tipo de redação e origem da entrada.
 
 1. Pydantic valida tema, tipo, tamanho e conteúdo.
 2. Uploads têm tamanho, MIME, assinatura real e dimensões verificados.
-3. Google Vision extrai texto quando a entrada é foto; se estiver sem credenciais ou indisponível, OpenAI Vision é usado como fallback. Ambos respeitam timeout e limite de concorrência.
+3. Google Cloud Vision `DOCUMENT_TEXT_DETECTION` extrai texto quando a entrada é foto. Não há fallback de qualidade inferior: credencial ausente ou indisponibilidade retorna erro temporário e devolve o crédito reservado.
 4. O aluno revisa e pode corrigir a transcrição antes de autorizar a avaliação; artefatos de OCR não devem ser tratados automaticamente como erros autorais.
 5. A API grava a redação confirmada como `pending` e enfileira um job.
 6. O worker muda para `processing`, chama a OpenAI Responses API e exige Structured Outputs com JSON Schema estrito.
@@ -160,11 +160,25 @@ entram em `corrections.estimated_cost_usd`.
 ## Custos externos separados
 
 - **Tokens de correção:** persistidos em `corrections` com custo estimado.
-- **OCR:** cada invocação registra provedor, quantidade de chamadas, duração e
-  quantidade de caracteres extraídos, sem imagem ou texto. O custo financeiro é
-  conciliado separadamente no provedor de OCR.
+- **OCR:** cada invocação do Google Cloud Vision registra quantidade de chamadas,
+  duração, sucesso/falha e quantidade de caracteres extraídos, sem imagem ou
+  texto. O custo financeiro é conciliado separadamente no Google Cloud.
 - **Busca web de simulados:** chamada de Responses e quantidade de buscas ficam
   no evento `simulados_gerados`; a cobrança é conciliada separadamente.
+
+### Preço do OCR Google Cloud Vision
+
+Valor consultado em 15/09/2026 na tabela oficial do Cloud Vision para
+`DOCUMENT_TEXT_DETECTION`: cada imagem é uma unidade; as primeiras 1.000 unidades
+do mês são gratuitas, de 1.001 a 5.000.000 custam US$ 1,50 por 1.000 e, acima
+disso, US$ 0,60 por 1.000. O bloco final é proporcional. Portanto, após a
+franquia, uma foto custa US$ 0,0015. Confira a
+[tabela oficial](https://cloud.google.com/vision/pricing) antes de fechar o
+orçamento, pois câmbio, tributos e preços podem mudar.
+
+O upload envia uma imagem diretamente em memória e solicita somente
+`DOCUMENT_TEXT_DETECTION`. Repetir a extração é uma nova unidade faturável. O
+rate limit e a cota mensal de leituras de foto limitam abuso e denial of wallet.
 
 O lote contém três propostas para manter quatro materiais densos por simulado
 dentro do limite de saída. O pool Redis usa uma versão no nome da chave; mudar o

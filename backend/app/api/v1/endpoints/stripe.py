@@ -22,6 +22,7 @@ from app.core.logging import get_logger
 from app.db.models.subscription import Subscription, SubscriptionStatus
 from app.db.models.user import User, UserPlan, UserType
 from app.services.product_analytics import track_product_event
+from app.services.referrals import mark_paid_conversion
 from app.services.stripe.stripe_service import StripeService
 
 router = APIRouter(tags=["Pagamentos"])
@@ -209,6 +210,8 @@ async def stripe_webhook(
             await _handle_subscription_deleted(event["data"]["object"], db)
         elif event_type == "invoice.payment_failed":
             await _handle_payment_failed(event["data"]["object"], db)
+        elif event_type == "invoice.paid":
+            await _handle_invoice_paid(event["data"]["object"], db)
     except Exception as e:
         logger.error("webhook_handler_error", event_type=event_type, error=str(e))
         # Resposta nao-2xx faz o Stripe repetir com backoff. Confirmar recebimento
@@ -282,6 +285,10 @@ async def _handle_checkout_completed(session: dict, db: AsyncSession) -> None:
         logger, "subscription_completed", user_id=str(user.id),
         account_type=user.user_type.value, plan=entitlement,
     )
+    # Eventos Stripe não têm ordem garantida: invoice.paid pode chegar antes
+    # da sessão. A confirmação de pagamento da sessão cobre esse caso.
+    if session.get("payment_status") == "paid":
+        await mark_paid_conversion(db, user.id)
 
 
 async def _handle_subscription_updated(stripe_sub: dict, db: AsyncSession) -> None:
@@ -374,3 +381,15 @@ async def _handle_payment_failed(invoice: dict, db: AsyncSession) -> None:
     if sub:
         sub.status = SubscriptionStatus.PAST_DUE
         logger.warning("pagamento_falhou", subscription_id=subscription_id, user_id=str(sub.user_id))
+
+
+async def _handle_invoice_paid(invoice: dict, db: AsyncSession) -> None:
+    """Só reconhece conversão após uma fatura de assinatura paga."""
+    if invoice.get("amount_paid", 0) <= 0 or not invoice.get("subscription"):
+        return
+    result = await db.execute(select(Subscription).where(
+        Subscription.stripe_subscription_id == invoice["subscription"]
+    ))
+    subscription = result.scalar_one_or_none()
+    if subscription:
+        await mark_paid_conversion(db, subscription.user_id)

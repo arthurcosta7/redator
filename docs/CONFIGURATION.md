@@ -8,13 +8,14 @@ Em desenvolvimento, copie `backend/.env.example` para `backend/.env` e `frontend
 |---|---|
 | Aplicação | `APP_NAME`, `DEBUG`, `ENVIRONMENT`, `ACCESS_LOG_SUCCESS_SAMPLE_RATE` |
 | Autenticação e criptografia | `SECRET_KEY`, `DATA_ENCRYPTION_KEY`, `JWT_ACCESS_TOKEN_EXPIRE_MINUTES`, `JWT_REFRESH_TOKEN_EXPIRE_DAYS` |
+| Proxy confiável | `TRUST_PROXY_REAL_IP` (false no desenvolvimento; true somente atrás do Nginx configurado, como no Compose de produção) |
 | Rede | `ALLOWED_ORIGINS`, `FRONTEND_URL` |
 | PostgreSQL | `DATABASE_URL`, `DATABASE_POOL_SIZE`, `DATABASE_MAX_OVERFLOW`, `DATABASE_POOL_TIMEOUT_SECONDS`, `DATABASE_POOL_RECYCLE_SECONDS` |
 | Redis | `REDIS_URL`, `REDIS_MAX_CONNECTIONS`, `REDIS_SOCKET_TIMEOUT_SECONDS`, `REDIS_CONNECT_TIMEOUT_SECONDS` |
 | OpenAI | `OPENAI_API_KEY`, `OPENAI_CORRECTION_MODEL`, `OPENAI_FREE_MODEL`, `OPENAI_PAID_MODEL`, `OPENAI_MAX_OUTPUT_TOKENS`, `OPENAI_TIMEOUT_SECONDS`, `OPENAI_MAX_RETRIES` |
 | Custo/cache de IA | `ESSAY_CORRECTION_PROMPT_VERSION`, `OPENAI_INPUT_PRICE_PER_MILLION`, `OPENAI_CACHED_INPUT_PRICE_PER_MILLION`, `OPENAI_OUTPUT_PRICE_PER_MILLION`, `OPENAI_CACHE_WRITE_MULTIPLIER` |
 | Fila | `CORRECTION_WORKER_MAX_JOBS`, `CORRECTION_JOB_TIMEOUT_SECONDS`, `CORRECTION_JOB_MAX_TRIES`, `CORRECTION_JOB_EXPIRES_SECONDS` |
-| OCR | `GOOGLE_APPLICATION_CREDENTIALS`, `OPENAI_OCR_MODEL`, `OCR_TIMEOUT_SECONDS`, `OCR_MAX_CONCURRENCY` |
+| OCR | `GOOGLE_APPLICATION_CREDENTIALS`, `GOOGLE_VISION_API_ENDPOINT`, `OCR_TIMEOUT_SECONDS`, `OCR_MAX_CONCURRENCY` |
 | Stripe | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, preços mensais Standard/Pro e Professor 30/60/100; IDs trimestrais e `STRIPE_PRICE_TEACHER_PACKAGE` existem apenas para assinaturas legadas |
 | Email | `RESEND_API_KEY`, `FROM_EMAIL`, `FROM_NAME` |
 | Planos | `PLAN_*_MONTHLY_CORRECTIONS` e `PLAN_*_MONTHLY_SIMULATIONS` |
@@ -36,6 +37,15 @@ Tudo com prefixo `NEXT_PUBLIC_` é incorporado ao bundle. Nunca coloque segredo,
 Vercel do frontend nem crie uma variável `NEXT_PUBLIC_OPENAI_API_KEY`. Ao
 alterar prompt, schema ou modelo de correção, incremente a versão lógica para
 separar cache e telemetria.
+
+O OCR usa exclusivamente Google Cloud Vision. Em desenvolvimento,
+`GOOGLE_APPLICATION_CREDENTIALS` pode apontar para um arquivo local fora do
+repositório ou o SDK pode usar Application Default Credentials. Em produção na
+VPS, `GOOGLE_VISION_CREDENTIALS_FILE` informa ao Docker Compose o arquivo do
+host; o container recebe somente um secret de leitura em
+`/run/secrets/google_cloud_vision_credentials`. O endpoint aceita apenas os
+valores global, EUA ou União Europeia documentados, evitando redirecionar a
+credencial para um host arbitrário.
 
 Atualmente, `OPENAI_FREE_MODEL` aponta para `gpt-5.6-luna` e atende correções pessoais Free. `OPENAI_PAID_MODEL` aponta para `gpt-5.4-mini` e atende correções pessoais Standard/Pro e redações vinculadas a tarefas. `OPENAI_CORRECTION_MODEL` permanece apenas para compatibilidade e medições legadas.
 

@@ -45,7 +45,19 @@ O `correction_worker` é obrigatório. Sem ele, submissões são aceitas mas nã
 - Stripe: configure os Price IDs mensais de Standard, Pro, Professor 30, 60 e 100 e o webhook para `https://api.redator.online/api/v1/webhooks/stripe`; copie o signing secret. IDs trimestrais e `STRIPE_PRICE_TEACHER_PACKAGE` só são mantidos para assinaturas legadas.
 - Migre no Stripe as assinaturas antigas de pacote para um plano comercial. Até a migração, o backend reconhece o Price ID legado como Professor 30; ele nunca é oferecido em novos checkouts.
 - Resend: valide o domínio remetente.
-- Google Vision: monte/forneça a credencial somente ao backend que executa OCR.
+- Google Vision: crie um projeto e uma conta de serviço exclusivos para OCR,
+  habilite faturamento e `vision.googleapis.com`, defina cotas e alertas de
+  orçamento. Não conceda `Owner`, `Editor` ou acesso ao banco/Storage quando a
+  imagem é enviada diretamente em bytes. Na VPS, coloque a credencial fora do
+  repositório, por exemplo em `./secrets/google-cloud-vision.json`, com permissão
+  `600`; `GOOGLE_VISION_CREDENTIALS_FILE` faz o Compose montá-la como secret
+  somente no backend. Prefira Workload Identity Federation quando a operação
+  permitir eliminar chaves permanentes. Nunca copie o JSON para a imagem Docker,
+  worker, frontend, Vercel ou Git.
+- `GOOGLE_VISION_API_ENDPOINT` aceita apenas `vision.googleapis.com`,
+  `us-vision.googleapis.com` ou `eu-vision.googleapis.com`. O exemplo usa EUA;
+  use o endpoint europeu quando a decisão de privacidade exigir processamento e
+  armazenamento restritos à União Europeia.
 - OpenAI: use projeto, limites de gasto e chave próprios do ambiente.
 
 ## Staging antes da produção

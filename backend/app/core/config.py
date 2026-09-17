@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     # ─── CORS ─────────────────────────────────────────────────────
     # Lista de origens permitidas. Em produção: apenas seu domínio.
     ALLOWED_ORIGINS: list[str] = ["http://localhost:3000"]
+    TRUST_PROXY_REAL_IP: bool = False
 
     # ─── Banco de Dados ───────────────────────────────────────────
     DATABASE_URL: str  # Ex: postgresql+asyncpg://user:pass@host/db
@@ -83,8 +84,11 @@ class Settings(BaseSettings):
 
     # ─── Google Cloud Vision (OCR) ────────────────────────────────
     GOOGLE_APPLICATION_CREDENTIALS: str = ""       # Opcional, pode usar ADC
-    # Fallback de OCR usa a mesma conta OpenAI das correções e aceita imagens.
-    OPENAI_OCR_MODEL: str = "gpt-5.6-luna"
+    GOOGLE_VISION_API_ENDPOINT: Literal[
+        "vision.googleapis.com",
+        "us-vision.googleapis.com",
+        "eu-vision.googleapis.com",
+    ] = "us-vision.googleapis.com"
     OCR_TIMEOUT_SECONDS: int = 30
     OCR_MAX_CONCURRENCY: int = 2
 

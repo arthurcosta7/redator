@@ -12,6 +12,7 @@
 !package.json
 !tsconfig.json
 !package-lock.json
+secrets/
 
 # ─────────────────────────────────────────
 # Python
