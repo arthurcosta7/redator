@@ -288,7 +288,8 @@ async def _handle_checkout_completed(session: dict, db: AsyncSession) -> None:
     # Eventos Stripe não têm ordem garantida: invoice.paid pode chegar antes
     # da sessão. A confirmação de pagamento da sessão cobre esse caso.
     if session.get("payment_status") == "paid":
-        await mark_paid_conversion(db, user.id)
+        amount = session.get("amount_total")
+        await mark_paid_conversion(db, user.id, amount if session.get("currency") == "brl" else None)
 
 
 async def _handle_subscription_updated(stripe_sub: dict, db: AsyncSession) -> None:
@@ -392,4 +393,7 @@ async def _handle_invoice_paid(invoice: dict, db: AsyncSession) -> None:
     ))
     subscription = result.scalar_one_or_none()
     if subscription:
-        await mark_paid_conversion(db, subscription.user_id)
+        await mark_paid_conversion(
+            db, subscription.user_id,
+            invoice["amount_paid"] if invoice.get("currency") == "brl" else None,
+        )

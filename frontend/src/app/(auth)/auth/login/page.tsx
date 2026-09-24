@@ -107,12 +107,14 @@ function LoginForm() {
 
   const onSubmit = async (data: LoginFormData) => {
     try {
-      const res = await api.post<{ user_type: string }>("/auth/login", data);
+      const res = await api.post<{ user_type: string; admin_role: string | null }>("/auth/login", data);
 
       // O destino opcional só é usado quando começa com "/"; sem ele, o tipo de
       // usuário define o dashboard inicial.
       if (redirect && redirect.startsWith("/")) {
         router.push(redirect);
+      } else if (["sales", "marketing_manager"].includes(res.data.admin_role ?? "")) {
+        router.push("/marketing");
       } else if (res.data.user_type === "teacher") {
         router.push("/dashboard/professor");
       } else {

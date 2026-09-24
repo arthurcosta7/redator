@@ -16,6 +16,7 @@ import {
   TrendingUp,
   Dumbbell,
   Lock,
+  Megaphone,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { PLAN_LABELS, PLAN_COLORS } from "@/types/user";
@@ -175,6 +176,11 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
         {/* Nav inferior */}
         <div className="p-3 border-t border-ink-line space-y-1">
+          {["sales", "marketing_manager", "admin", "superadmin"].includes(user?.admin_role ?? "") && (
+            <Link href="/marketing" onClick={onClose} className="flex items-center gap-3 rounded px-3 py-2.5 text-sm font-medium text-ink-soft hover:bg-paper-deep hover:text-ink">
+              <Megaphone className="w-4.5 h-4.5 text-ink-muted" />Marketing e vendas
+            </Link>
+          )}
           {botNav.map(({ label, href, icon: Icon }) => (
             <Link
               key={href}

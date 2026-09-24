@@ -46,7 +46,7 @@ async def attribute_signup(
         User, User.id == ReferralLink.owner_id
     ).where(
         ReferralLink.code == code, ReferralLink.is_active.is_(True),
-        User.is_active.is_(True), User.admin_role.is_(None),
+        User.is_active.is_(True),
     ))
     link = result.scalar_one_or_none()
     if link is None or link.owner_id == user.id:
@@ -81,7 +81,7 @@ async def attribute_signup(
     logger.info("referral_signup_attributed", user_id=str(user.id), link_id=str(link.id), status="review" if reason else "valid")
 
 
-async def mark_paid_conversion(db: AsyncSession, user_id: UUID) -> None:
+async def mark_paid_conversion(db: AsyncSession, user_id: UUID, amount_cents: int | None = None) -> None:
     """Idempotente: conta o primeiro pagamento real, não checkout iniciado."""
     result = await db.execute(select(ReferralAttribution).where(
         ReferralAttribution.user_id == user_id
@@ -89,4 +89,9 @@ async def mark_paid_conversion(db: AsyncSession, user_id: UUID) -> None:
     attribution = result.scalar_one_or_none()
     if attribution and attribution.converted_at is None:
         attribution.converted_at = datetime.now(UTC)
+        if amount_cents is not None and amount_cents > 0:
+            attribution.first_payment_cents = amount_cents
         logger.info("referral_paid_conversion", attribution_id=str(attribution.id))
+    elif attribution and attribution.first_payment_cents is None and amount_cents and amount_cents > 0:
+        # checkout pode confirmar antes da fatura, que carrega o valor final.
+        attribution.first_payment_cents = amount_cents

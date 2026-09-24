@@ -2,7 +2,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -41,3 +41,14 @@ class ReferralAttribution(UUIDMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
     )
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    first_payment_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class ReferralClick(UUIDMixin, TimestampMixin, Base):
+    """Clique agregado; nenhum IP ou user-agent é persistido."""
+    __tablename__ = "referral_clicks"
+
+    link_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("referral_links.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )

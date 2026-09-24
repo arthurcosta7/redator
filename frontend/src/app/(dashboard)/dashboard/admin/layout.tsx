@@ -68,8 +68,8 @@ function getNavItems(role: AdminRole) {
       visible: canViewAnalytics(role),
     },
     {
-      href: "/dashboard/admin/indicacoes",
-      label: "Indicações",
+      href: "/marketing",
+      label: "Marketing e vendas",
       icon: Link2,
       exact: false,
       visible: ["superadmin", "admin"].includes(role),
@@ -180,6 +180,8 @@ export default function AdminLayout({
   useEffect(() => {
     if (!isLoading && (!user || !user.admin_role)) {
       router.replace("/dashboard/aluno");
+    } else if (!isLoading && ["sales", "marketing_manager"].includes(user?.admin_role ?? "")) {
+      router.replace("/marketing");
     }
   }, [user, isLoading, router]);
 
@@ -201,7 +203,7 @@ export default function AdminLayout({
     );
   }
 
-  if (!user?.admin_role) {
+  if (!user?.admin_role || ["sales", "marketing_manager"].includes(user.admin_role)) {
     return null; // Redirecionando...
   }
 

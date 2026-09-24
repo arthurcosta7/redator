@@ -94,6 +94,8 @@ function AddMemberModal({
             >
               <option value="support">Suporte — visualizar e ações de suporte</option>
               <option value="licensed_teacher">Professor licenciado — revisar contestações</option>
+              <option value="sales">Vendedor — leads e links próprios</option>
+              <option value="marketing_manager">Gestor de marketing — visão da equipe comercial</option>
               <option value="analyst">Analista — somente leitura + analytics</option>
               <option value="admin">Admin — gerenciar usuários e redações</option>
             </select>
@@ -188,6 +190,8 @@ function EditRoleModal({
           >
             <option value="support">Suporte</option>
             <option value="licensed_teacher">Professor licenciado</option>
+            <option value="sales">Vendedor</option>
+            <option value="marketing_manager">Gestor de marketing</option>
             <option value="analyst">Analista</option>
             <option value="admin">Admin</option>
           </select>
@@ -270,6 +274,8 @@ export default function AdminTeamPage() {
     analyst: 2,
     support: 3,
     licensed_teacher: 4,
+    marketing_manager: 5,
+    sales: 6,
   };
   const sorted = [...members].sort((a, b) =>
     (roleOrder[a.admin_role] ?? 99) - (roleOrder[b.admin_role] ?? 99)
@@ -426,6 +432,14 @@ export default function AdminTeamPage() {
             {
               role: "licensed_teacher",
               perms: "Acessa apenas contestações, confere a correção e registra uma decisão pedagógica auditável.",
+            },
+            {
+              role: "sales",
+              perms: "Acessa somente seus links, métricas e leads na aba Marketing.",
+            },
+            {
+              role: "marketing_manager",
+              perms: "Acompanha links, métricas e leads da equipe comercial.",
             },
           ].map((item) => (
             <div key={item.role} className="flex gap-3">

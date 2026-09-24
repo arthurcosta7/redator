@@ -110,6 +110,35 @@ services:
     networks:
       - redator_net
 
+  # ─── Relatório comercial semanal (segunda-feira, 12h UTC) ────────────────
+  marketing_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: ["arq", "app.workers.marketing.WorkerSettings"]
+    env_file: ./.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-redator}:${POSTGRES_PASSWORD}@postgres:5432/redator
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 64
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - redator_net
+
   # ─── Frontend Next.js (descomente se NÃO usar Vercel) ───────────────────────
   # frontend:
   #   build:

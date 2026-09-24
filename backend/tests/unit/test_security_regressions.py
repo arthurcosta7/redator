@@ -303,9 +303,17 @@ def production_settings(**overrides):
         "STRIPE_PRICE_TEACHER_60_MONTHLY": "price_teacher_60",
         "STRIPE_PRICE_TEACHER_100_MONTHLY": "price_teacher_100",
         "RESEND_API_KEY": "re_production_test",
+        "REFERRAL_CLICK_SECRET": "0123456789abcdef" * 4,
     }
     values.update(overrides)
     return Settings(**values)
+
+
+def test_production_requires_server_only_referral_click_secret():
+    with pytest.raises(ValidationError, match="REFERRAL_CLICK_SECRET"):
+        production_settings(REFERRAL_CLICK_SECRET="")
+    with pytest.raises(ValidationError, match="REFERRAL_CLICK_SECRET"):
+        production_settings(REFERRAL_CLICK_SECRET="short")
 
 
 def test_production_rejects_any_insecure_cors_origin():

@@ -24,6 +24,10 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
       router.replace("/dashboard/admin/contestacoes");
       return;
     }
+    if (pathname === "/dashboard" && ["sales", "marketing_manager"].includes(user.admin_role ?? "")) {
+      router.replace("/marketing");
+      return;
+    }
 
     const isTeacher = user.user_type === "teacher";
 

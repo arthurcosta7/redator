@@ -11,6 +11,8 @@ export const ADMIN_ROLE_LABELS: Record<AdminRole, string> = {
   analyst: "Analista",
   support: "Suporte",
   licensed_teacher: "Professor licenciado",
+  sales: "Vendedor",
+  marketing_manager: "Gestor de marketing",
 };
 
 export const ADMIN_ROLE_COLORS: Record<AdminRole, string> = {
@@ -19,6 +21,8 @@ export const ADMIN_ROLE_COLORS: Record<AdminRole, string> = {
   analyst: "bg-blue-100 text-blue-700 border-blue-200",
   support: "bg-emerald-100 text-emerald-700 border-emerald-200",
   licensed_teacher: "bg-amber-100 text-amber-800 border-amber-200",
+  sales: "bg-cyan-100 text-cyan-800 border-cyan-200",
+  marketing_manager: "bg-indigo-100 text-indigo-800 border-indigo-200",
 };
 
 /** Verifica se uma role pode gerenciar usuários */

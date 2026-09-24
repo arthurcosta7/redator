@@ -1,0 +1,1 @@
+"""Rotinas periódicas da aplicação."""

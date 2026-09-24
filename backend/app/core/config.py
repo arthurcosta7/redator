@@ -114,6 +114,8 @@ class Settings(BaseSettings):
 
     # ─── URLs ─────────────────────────────────────────────────────
     FRONTEND_URL: str = "http://localhost:3000"
+    # Mesmo valor no servidor Next.js e na API; nunca prefixar com NEXT_PUBLIC_.
+    REFERRAL_CLICK_SECRET: str = ""
 
     # ─── Limites de uso por plano ─────────────────────────────────
     PLAN_FREE_MONTHLY_CORRECTIONS: int = 4
@@ -145,6 +147,13 @@ class Settings(BaseSettings):
                 "Gere com: python -c \"import secrets; print(secrets.token_hex(64))\""
             )
         return v
+
+    @field_validator("REFERRAL_CLICK_SECRET")
+    @classmethod
+    def validate_referral_click_secret(cls, value: str) -> str:
+        if value and len(value) < 32:
+            raise ValueError("REFERRAL_CLICK_SECRET deve ter pelo menos 32 caracteres")
+        return value
 
     @field_validator("DATA_ENCRYPTION_KEY")
     @classmethod
@@ -268,6 +277,7 @@ class Settings(BaseSettings):
                 "STRIPE_PRICE_TEACHER_60_MONTHLY": self.STRIPE_PRICE_TEACHER_60_MONTHLY,
                 "STRIPE_PRICE_TEACHER_100_MONTHLY": self.STRIPE_PRICE_TEACHER_100_MONTHLY,
                 "RESEND_API_KEY": self.RESEND_API_KEY,
+                "REFERRAL_CLICK_SECRET": self.REFERRAL_CLICK_SECRET,
             }
             missing_integrations = [
                 name

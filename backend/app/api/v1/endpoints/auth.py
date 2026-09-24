@@ -24,6 +24,7 @@ from app.core.config import settings
 from app.core.client_ip import client_ip
 from app.core.dependencies import get_db, get_redis
 from app.core.logging import get_logger, mask_email
+from app.core.marketing_session import marketing_session_key
 from app.core.rate_limiter import RateLimiter, check_login_attempts
 from app.core.security import (
     DUMMY_HASH,
@@ -36,7 +37,7 @@ from app.core.security import (
     verify_password,
 )
 from app.db.models.refresh_token import RefreshToken
-from app.db.models.user import User, UserPlan, UserType
+from app.db.models.user import AdminRole, User, UserPlan, UserType
 from app.schemas.auth import (
     AuthResponse,
     ForgotPasswordRequest,
@@ -357,12 +358,16 @@ async def login(
     # Define cookies seguros
     set_auth_cookies(response, access_token, refresh_token)
 
+    if user.admin_role in (AdminRole.SALES, AdminRole.MARKETING_MANAGER):
+        await redis_client.setex(marketing_session_key(refresh_token), 1800, str(user.id))
+
     logger.info("login_bem_sucedido", user_id=str(user.id), ip=ip[:15])
 
     return AuthResponse(
         message="Login realizado com sucesso",
         user_type=user.user_type.value,
         plan=user.plan.value,
+        admin_role=user.admin_role.value if user.admin_role else None,
     )
 
 
@@ -375,6 +380,7 @@ async def refresh_token(
     request: Request,
     response: Response,
     db: Annotated[AsyncSession, Depends(get_db)],
+    redis_client=Depends(get_redis),
 ) -> AuthResponse:
     """
     Renova o access token usando o refresh token do cookie.
@@ -475,6 +481,13 @@ async def refresh_token(
     db.add(new_token_record)
 
     set_auth_cookies(response, new_access_token, new_refresh_token)
+
+    if user.admin_role in (AdminRole.SALES, AdminRole.MARKETING_MANAGER):
+        old_key = marketing_session_key(refresh_token_value)
+        remaining = await redis_client.ttl(old_key)
+        if remaining > 0:
+            await redis_client.setex(marketing_session_key(new_refresh_token), remaining, str(user.id))
+        await redis_client.delete(old_key)
 
     return AuthResponse(
         message="Sessão renovada",

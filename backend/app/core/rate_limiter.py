@@ -100,7 +100,7 @@ class RateLimiter:
     _FAIL_CLOSED_ACTIONS = frozenset({
         "login", "registration", "password_reset", "password_reset_confirmation",
         "resend_verification", "essay_submission", "theme_generation",
-        "simulado_generation",
+        "simulado_generation", "referral_click",
     })
 
     async def check(

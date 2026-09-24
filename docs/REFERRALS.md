@@ -2,17 +2,18 @@
 
 ## Fluxo
 
-1. `superadmin` ou `admin` escolhe um usuário ativo sem papel administrativo e cria um link no painel **Indicações**.
+1. Em `/marketing`, `superadmin` ou `admin` pode criar links para usuários ativos sem papel administrativo. Vendedores e gestores de marketing também podem gerar o próprio link pessoal.
 2. O link `/r/{code}` salva um cookie próprio de 30 dias e redireciona para a landing page sem exibir programa de indicação.
 3. No cadastro, o cliente envia o código e um identificador aleatório local. A API valida o código e atribui a conta **somente na criação inicial**. Reenvio da verificação de e-mail não troca a atribuição.
 4. O webhook Stripe registra a primeira conversão após pagamento confirmado (`checkout.session.completed` com `payment_status=paid` ou `invoice.paid` com valor positivo). A operação é idempotente; renovação não aumenta a contagem.
-5. O painel mostra cadastros totais, válidos, pendentes de revisão e conversões pagas válidas. Pausar o link impede novas atribuições, sem apagar o histórico.
+5. A aba `/marketing` mostra cliques, cadastros, conversões pagas válidas e o valor conhecido da primeira cobrança. A revisão de suspeitas continua exclusiva dos admins. Pausar o link impede novas atribuições, sem apagar o histórico.
 
 Não há comissão, crédito, desconto nem pagamento automático. Essas regras exigem decisão comercial e fluxo antifraude próprios antes de implementação.
 
 ## Segurança e limites
 
-- Somente `superadmin` e `admin` administram links e revisões; a API verifica a permissão no banco a cada chamada.
+- Somente `superadmin` e `admin` revisam suspeitas e criam links para usuários comuns. `sales` vê apenas os próprios links; `marketing_manager` vê os da equipe. A API verifica a permissão no banco a cada chamada.
+- A rota pública `/r/{code}` envia uma chamada autenticada ao backend para contar o clique. Configure o mesmo `REFERRAL_CLICK_SECRET` (32+ caracteres aleatórios) no servidor Next.js da Vercel e no backend. Nunca use `NEXT_PUBLIC_` para esse segredo. O backend recebe apenas um HMAC temporário da origem, aplica 100 cliques/hora por link/origem e não persiste IP nem user-agent. Se a API de métricas cair, o redirecionamento continua; por isso o total de cliques pode ser menor que o tráfego real.
 - O código é aleatório de 192 bits e não concede privilégios. Atribuição é única por usuário.
 - O rate limiter existente limita cadastros por IP. Para indicações, Redis guarda por 90 dias somente HMACs de IP e identificador local, separados por dono do link; IP e identificador brutos não entram no banco nem em logs.
 - Reuso de rede/dispositivo marca `review`. A conta pode ser criada normalmente, mas a conversão não aparece como válida até aprovação. Isso evita punir alunos da mesma escola ou família.

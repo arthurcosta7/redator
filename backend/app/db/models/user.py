@@ -56,6 +56,8 @@ class AdminRole(str, enum.Enum):
     ANALYST = "analyst"
     SUPPORT = "support"
     LICENSED_TEACHER = "licensed_teacher"
+    SALES = "sales"
+    MARKETING_MANAGER = "marketing_manager"
 
 
 class User(UUIDMixin, TimestampMixin, Base):

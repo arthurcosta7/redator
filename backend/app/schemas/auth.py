@@ -155,6 +155,7 @@ class AuthResponse(BaseModel):
     message: str
     user_type: str
     plan: str
+    admin_role: str | None = None
     # NOTA: O access_token é enviado no COOKIE, não no body
     # Isso protege contra roubo via XSS
 

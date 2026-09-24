@@ -8,7 +8,8 @@ from app.db.models.correction import Correction
 from app.db.models.correction_appeal import AppealStatus, CorrectionAppeal
 from app.db.models.subscription import Subscription, SubscriptionStatus
 from app.db.models.refresh_token import RefreshToken
-from app.db.models.referral import ReferralLink, ReferralAttribution
+from app.db.models.referral import ReferralLink, ReferralAttribution, ReferralClick
+from app.db.models.marketing import MarketingLead
 from app.db.models.turma import Turma, TurmaMembro, TurmaMembroStatus
 from app.db.models.tarefa import Tarefa, TarefaSubmissao
 
@@ -19,7 +20,7 @@ __all__ = [
     "CorrectionAppeal", "AppealStatus",
     "Subscription", "SubscriptionStatus",
     "RefreshToken",
-    "ReferralLink", "ReferralAttribution",
+    "ReferralLink", "ReferralAttribution", "ReferralClick", "MarketingLead",
     "Turma", "TurmaMembro", "TurmaMembroStatus",
     "Tarefa", "TarefaSubmissao",
 ]
